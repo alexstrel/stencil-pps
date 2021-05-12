@@ -33,12 +33,10 @@ class FwdEulerIters{
       std::unique_ptr<GenericNDStencil<RegTp, M, StTp, ND>> odd_t_func_ptr (new GenericNDStencil<RegTp, M, StTp, ND>(v2, v1, args.c0, args.c1, args.lattice.Extents()));
       //launch iterations
       for(int k = 0; k < nsteps; k++) {
-        auto &func = (k & 1) == 0 ? *even_t_func_ptr : *odd_t_func_ptr;
-
         std::for_each(policy,
                       impl::counting_iterator(0),
                       impl::counting_iterator(outer_range),
-                      [&func] (const int j) {return func.template operator()<StPl>(j);});
+                      [&func=(k & 1) == 0 ? *even_t_func_ptr : *odd_t_func_ptr] (const int j) {return func.template operator()<StPl>(j);});
       }
       return;
     }
