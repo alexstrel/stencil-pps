@@ -52,11 +52,11 @@ class FieldAccessor{
 
     template<Shift face_shift, Shift... other_shifts>
     T& operator()(const std::array<int,D> &x, const int i) const {
-      if constexpr (((sizeof...( other_shifts) != 0) && D > 1) ||
-                    ((sizeof...( other_shifts)  > 1) && D > 2) ||
-                    ((sizeof...( other_shifts)  > 2) && D > 3) ||
-                    ((sizeof...( other_shifts)  > 3) && D > 4) ) {
-        std::cout << "Number of shifts is not supported." << std::endl; exit(-1);
+      if constexpr (((sizeof...( other_shifts) != 0) && D == 1) ||
+                    ((sizeof...( other_shifts)  > 1) && D == 2) ||
+                    ((sizeof...( other_shifts)  > 2) && D == 3) ||
+                    ((sizeof...( other_shifts)  > 3) && D  > 4) ) {
+        printf("Number of shifts is not supported.\n"); exit(-1);
       }
 
       if(face_shift == Shift::NoShift) return v[i]; //no shifts, direct access

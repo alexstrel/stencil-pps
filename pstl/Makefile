@@ -1,7 +1,7 @@
 CXX = g++
 NVCXX = nvc++
 
-NVARCH = cc70
+NVARCH = cc75
 
 #note -O2 option led to a substantial performance degradation for (gnu) x86 backend 
 CXXCOPT_SKL  = -O3 -mavx512f -std=c++17 -fopenmp 

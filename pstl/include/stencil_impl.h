@@ -95,22 +95,13 @@ struct GenericNDStencil {
 
 
   inline T compute_site_stencil(const ID &x, const int j) {
-    //if constexpr (D != 3) { std::cout << "Stencil dimensionality is not supported." << std::endl; exit(-1); }
+    T local_out = c0*in[j];
 
-    switch(StTp) {
-      case StencilType::FaceCentered  :
-        return c0*in[j]+c1*add_face_neighbors(x,j);
-        break;
-      case StencilType::FaceEdgeCentered :
-        return c0*in[j]+c1*(add_face_neighbors(x,j)+0.5*add_edge_neighbors(x,j));
-        break;
-      case StencilType::FaceEdgeCornerCentered :
-        return c0*in[j]+c1*(add_face_neighbors(x,j)+0.5*add_edge_neighbors(x,j)+_1div3_*add_corner_neighbors(x,j));
-        break;
-      default :
-        exit(-1);
-        break;
-    }
+    if      constexpr (StTp == StencilType::FaceCentered          ) local_out += c1*add_face_neighbors(x,j);    
+    else if constexpr (StTp == StencilType::FaceEdgeCentered      ) local_out += c1*(add_face_neighbors(x,j)+0.5*add_edge_neighbors(x,j));
+    else if constexpr (StTp == StencilType::FaceEdgeCornerCentered) local_out += c1*(add_face_neighbors(x,j)+0.5*add_edge_neighbors(x,j)+_1div3_*add_corner_neighbors(x,j));
+
+    return local_out;
   }
 
   template <StencilPolicy spolicy = StencilPolicy::DefaultPolicy>
