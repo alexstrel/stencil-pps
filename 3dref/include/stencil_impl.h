@@ -49,15 +49,19 @@ struct Generic3DStencil {
 	c0(c0_),
 	c1(c1_) { }
 
+  template <int dir = 0>  
   inline T add_face_neighbors(const std::array<int, D> &x, const int i) {
-    return(in.template operator()<Shift::ShiftXp1> (x, i)+
-           in.template operator()<Shift::ShiftXm1> (x, i)+
-           in.template operator()<Shift::ShiftYp1> (x, i)+
-           in.template operator()<Shift::ShiftYm1> (x, i)+
-           in.template operator()<Shift::ShiftZp1> (x, i)+
-           in.template operator()<Shift::ShiftZm1> (x, i));
-  }
 
+    auto accum = in.template operator()<face_shifts[dir]> (x, i);
+    
+    if constexpr (dir < (2*D-1)) {
+      constexpr int next_dir = dir + 1;
+      return (accum + add_face_neighbors<next_dir>(x, i));  
+    } else {//end recursion
+      return accum;    
+    }  
+  } 
+  
   inline T add_edge_neighbors(const std::array<int, D> &x, const int i) {
     return(in.template operator()<Shift::ShiftXp1, Shift::ShiftYp1> (x, i)+
            in.template operator()<Shift::ShiftXp1, Shift::ShiftYm1> (x, i)+
