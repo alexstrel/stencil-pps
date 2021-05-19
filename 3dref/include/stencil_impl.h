@@ -30,71 +30,79 @@ void debug_7pt_stencil
   return;
 }
 
+auto sqr = [](double x) { return x * x; };
+
 //could be even more "generic", e.g. ND stencil
 template <typename T, StencilType ST, int D = 3>
 struct Generic3DStencil {
 
   using F = typename field_mapper<T, D>::type;
 
-  F       out;
-  const F in;
+  F v;//data accessor
 
   // Stencil params here:
   const T c0;
   const T c1;
 
-  Generic3DStencil(std::vector<T> &f1, const std::vector<T> &f2, const T c0_, const T c1_, const std::array<int, D> dims) :
-	out(f1, dims),
-	in (const_cast<std::vector<T>&>(f2), dims),
+  Generic3DStencil(std::vector<T> &latt, const T c0_, const T c1_, const std::array<int, D> dims) :
+	v(latt.data(),dims),
 	c0(c0_),
 	c1(c1_) { }
 
+  Generic3DStencil(const T c0_, const T c1_, const std::array<int, D> dims) :
+	v(dims),
+	c0(c0_),
+	c1(c1_) { }
+
+
+  void SetData(std::vector<T> &latt) {v.Set(latt);}
+  
   template <int dir = 0>  
   inline T add_face_neighbors(const std::array<int, D> &x, const int i) {
 
-    auto accum = in.template operator()<face_shifts[dir]> (x, i);
+    auto neigh = v.template operator()<face_shifts[dir]> (x, i);
     
     if constexpr (dir < (2*D-1)) {
       constexpr int next_dir = dir + 1;
-      return (accum + add_face_neighbors<next_dir>(x, i));  
+      return (neigh + add_face_neighbors<next_dir>(x, i));  
     } else {//end recursion
-      return accum;    
+      return neigh;    
     }  
   } 
   
   inline T add_edge_neighbors(const std::array<int, D> &x, const int i) {
-    return(in.template operator()<Shift::ShiftXp1, Shift::ShiftYp1> (x, i)+
-           in.template operator()<Shift::ShiftXp1, Shift::ShiftYm1> (x, i)+
-           in.template operator()<Shift::ShiftXm1, Shift::ShiftYp1> (x, i)+
-           in.template operator()<Shift::ShiftXm1, Shift::ShiftYm1> (x, i)+
-           in.template operator()<Shift::ShiftYp1, Shift::ShiftZp1> (x, i)+
-           in.template operator()<Shift::ShiftYp1, Shift::ShiftZm1> (x, i)+
-           in.template operator()<Shift::ShiftYm1, Shift::ShiftZp1> (x, i)+
-           in.template operator()<Shift::ShiftYm1, Shift::ShiftZm1> (x, i)+
-           in.template operator()<Shift::ShiftZp1, Shift::ShiftXp1> (x, i)+
-           in.template operator()<Shift::ShiftZp1, Shift::ShiftXm1> (x, i)+
-           in.template operator()<Shift::ShiftZm1, Shift::ShiftXp1> (x, i)+
-           in.template operator()<Shift::ShiftZm1, Shift::ShiftXm1> (x, i));
+    return(v.template operator()<Shift::ShiftXp1, Shift::ShiftYp1> (x, i)+
+           v.template operator()<Shift::ShiftXp1, Shift::ShiftYm1> (x, i)+
+           v.template operator()<Shift::ShiftXm1, Shift::ShiftYp1> (x, i)+
+           v.template operator()<Shift::ShiftXm1, Shift::ShiftYm1> (x, i)+
+           v.template operator()<Shift::ShiftYp1, Shift::ShiftZp1> (x, i)+
+           v.template operator()<Shift::ShiftYp1, Shift::ShiftZm1> (x, i)+
+           v.template operator()<Shift::ShiftYm1, Shift::ShiftZp1> (x, i)+
+           v.template operator()<Shift::ShiftYm1, Shift::ShiftZm1> (x, i)+
+           v.template operator()<Shift::ShiftZp1, Shift::ShiftXp1> (x, i)+
+           v.template operator()<Shift::ShiftZp1, Shift::ShiftXm1> (x, i)+
+           v.template operator()<Shift::ShiftZm1, Shift::ShiftXp1> (x, i)+
+           v.template operator()<Shift::ShiftZm1, Shift::ShiftXm1> (x, i));
   }
 
   inline T add_corner_neighbors(const std::array<int, D> &x, const int i) {
-    return(in.template operator()<Shift::ShiftXp1, Shift::ShiftYp1, Shift::ShiftZp1> (x, i)+
-           in.template operator()<Shift::ShiftXp1, Shift::ShiftYp1, Shift::ShiftZm1> (x, i)+
-           in.template operator()<Shift::ShiftXp1, Shift::ShiftYm1, Shift::ShiftZp1> (x, i)+
-           in.template operator()<Shift::ShiftXp1, Shift::ShiftYm1, Shift::ShiftZm1> (x, i)+
-           in.template operator()<Shift::ShiftXm1, Shift::ShiftYp1, Shift::ShiftZp1> (x, i)+
-           in.template operator()<Shift::ShiftXm1, Shift::ShiftYp1, Shift::ShiftZm1> (x, i)+
-           in.template operator()<Shift::ShiftXm1, Shift::ShiftYm1, Shift::ShiftZp1> (x, i)+
-           in.template operator()<Shift::ShiftXm1, Shift::ShiftYm1, Shift::ShiftZm1> (x, i));
+    return(v.template operator()<Shift::ShiftXp1, Shift::ShiftYp1, Shift::ShiftZp1> (x, i)+
+           v.template operator()<Shift::ShiftXp1, Shift::ShiftYp1, Shift::ShiftZm1> (x, i)+
+           v.template operator()<Shift::ShiftXp1, Shift::ShiftYm1, Shift::ShiftZp1> (x, i)+
+           v.template operator()<Shift::ShiftXp1, Shift::ShiftYm1, Shift::ShiftZm1> (x, i)+
+           v.template operator()<Shift::ShiftXm1, Shift::ShiftYp1, Shift::ShiftZp1> (x, i)+
+           v.template operator()<Shift::ShiftXm1, Shift::ShiftYp1, Shift::ShiftZm1> (x, i)+
+           v.template operator()<Shift::ShiftXm1, Shift::ShiftYm1, Shift::ShiftZp1> (x, i)+
+           v.template operator()<Shift::ShiftXm1, Shift::ShiftYm1, Shift::ShiftZm1> (x, i));
   }
 
 
-  typename std::enable_if<D == 3, void>::type operator()(const int i){//
+  typename std::enable_if<D <= 4, T>::type operator()(const int i){//
      std::array<int, D> x{0};
 
-     in.Indx2Coord(x, i);
+     v.Indx2Coord(x, i);
 
-     T res = c0*in[i]+c1*add_face_neighbors(x,i);
+     T res = c0*v[i]+c1*add_face_neighbors(x,i);
 
      if constexpr (ST == StencilType::FaceEdgeCentered || ST == StencilType::FaceEdgeCornerCentered) {
        res += c1*(0.5*add_edge_neighbors(x,i));
@@ -102,8 +110,24 @@ struct Generic3DStencil {
        if constexpr (ST == StencilType::FaceEdgeCornerCentered)  res += c1*(_1div3_*add_corner_neighbors(x,i));
      }
 
-     out[i] = res;
-
-     return;
+     return res;
   }
+  
+  typename std::enable_if<D <= 4, double>::type operator()(const T &in_v, T &out_v){//
+     std::array<int, D> x{0};
+
+     int i = &in_v - &v[0];
+     v.Indx2Coord(x, i);
+
+     out_v = c0*in_v+c1*add_face_neighbors(x,i);
+
+     if constexpr (ST == StencilType::FaceEdgeCentered || ST == StencilType::FaceEdgeCornerCentered) {
+       out_v += c1*(0.5*add_edge_neighbors(x,i));
+       //       
+       if constexpr (ST == StencilType::FaceEdgeCornerCentered)  out_v += c1*(_1div3_*add_corner_neighbors(x,i));
+     }
+
+     return sqr(static_cast<double>(out_v - in_v));
+  }  
+  
 };

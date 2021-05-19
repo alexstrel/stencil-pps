@@ -60,8 +60,8 @@ int main(){
   std::vector<Float> v1(vol);
   std::vector<Float> v2(vol);
 
-  std::fill(policy, v1.begin(), v1.end(), 1.0);
-  std::fill(policy, v2.begin(), v2.end(), 1.0);
+  std::fill(policy, v1.begin(), v1.end(), 0.0);
+  std::fill(policy, v2.begin(), v2.end(), 0.0);
 
   create_field<Float>(v1, nd, kappa, length, 0.0);
 
@@ -75,16 +75,23 @@ int main(){
   struct timeval time_begin, time_end;
 
   //Create stencil functor instances:
-  std::unique_ptr<Generic3DStencil<Float, stencil_type>> even_t_func_ptr(new Generic3DStencil<Float, stencil_type>(v2, v1, c0, c1, nd));
-  std::unique_ptr<Generic3DStencil<Float, stencil_type>> odd_t_func_ptr (new Generic3DStencil<Float, stencil_type>(v1, v2, c0, c1, nd));
+  std::unique_ptr<Generic3DStencil<Float, stencil_type>> func_ptr(new Generic3DStencil<Float, stencil_type>(c0, c1, nd));
 
   gettimeofday(&time_begin, NULL);
   //launch iterations
   for(int k = 0; k < nsteps; k++) {
-    std::for_each(policy,
-                  counting_iterator(0),
-                  counting_iterator(range),
-                  [&func= (k & 1) == 0 ? *even_t_func_ptr : *odd_t_func_ptr] (const int i) {return func(i);});
+    func_ptr->SetData(v1); 
+    if(k % 100 != 0 && false) {  
+      std::for_each(policy,
+                    counting_iterator(0),
+                    counting_iterator(range),
+                    [&stencil= *func_ptr, out = v2.data()] (const int i) {out[i] = stencil(i);});
+    } else {
+      double l2nrm = std::transform_reduce( policy, begin(v1), end(v1), begin(v2), 0., std::plus<double>(), [&func= *func_ptr] (const auto &inp, auto &outp) {return func(inp, outp);} );
+      std::cout << "L2 norm :: " << l2nrm << std::endl;
+    }
+    
+    v1.swap(v2);
   }
 
   gettimeofday(&time_end, NULL);

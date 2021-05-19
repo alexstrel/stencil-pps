@@ -16,6 +16,14 @@ class FieldAccessor{
         NxNy(D > 1 ? dims[0]*dims[1] : 0) {
         }
 
+    FieldAccessor(const std::array<int, D> &dims) :
+        v(nullptr), 
+	N(dims),
+        NxNy(D > 1 ? dims[0]*dims[1] : 0) {
+        }
+        
+    void Set(std::vector<T> &latt) {v = latt.data();}    
+
     //works for both nvc++ and g++
     //template recursion (still ugly ...)
     template<Shift shift, Shift... other_shifts>
