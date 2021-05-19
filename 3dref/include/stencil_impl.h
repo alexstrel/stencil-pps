@@ -96,8 +96,7 @@ struct Generic3DStencil {
            v.template operator()<Shift::ShiftXm1, Shift::ShiftYm1, Shift::ShiftZm1> (x, i));
   }
 
-
-  typename std::enable_if<D <= 4, T>::type operator()(const int i){//
+  inline typename std::enable_if<D <= 4, T>::type operator()(const int i){//
      std::array<int, D> x{0};
 
      v.Indx2Coord(x, i);
@@ -114,18 +113,10 @@ struct Generic3DStencil {
   }
   
   typename std::enable_if<D <= 4, double>::type operator()(const T &in_v, T &out_v){//
-     std::array<int, D> x{0};
-
-     int i = &in_v - &v[0];
-     v.Indx2Coord(x, i);
-
-     out_v = c0*in_v+c1*add_face_neighbors(x,i);
-
-     if constexpr (ST == StencilType::FaceEdgeCentered || ST == StencilType::FaceEdgeCornerCentered) {
-       out_v += c1*(0.5*add_edge_neighbors(x,i));
-       //       
-       if constexpr (ST == StencilType::FaceEdgeCornerCentered)  out_v += c1*(_1div3_*add_corner_neighbors(x,i));
-     }
+  
+     const int i = &in_v - &v[0];
+     
+     out_v = this->operator()(i);     
 
      return sqr(static_cast<double>(out_v - in_v));
   }  

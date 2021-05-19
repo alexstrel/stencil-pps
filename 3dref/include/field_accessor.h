@@ -30,12 +30,12 @@ class FieldAccessor{
     inline constexpr T& GetNeighbor(const std::array<int,D> &x, const int i) const {
       int j;
       //currently unsafe: no check on dimensionality (should be done during stencil inst.)
-      if     (shift == Shift::ShiftXp1) j = x[0] == N[0]-1 ? i : i+1;
-      else if(shift == Shift::ShiftXm1) j = x[0] == 0      ? i : i-1;
-      else if(shift == Shift::ShiftYp1) j = x[1] == N[1]-1 ? i : i+N[0];
-      else if(shift == Shift::ShiftYm1) j = x[1] == 0      ? i : i-N[0];
-      else if(shift == Shift::ShiftZp1) j = x[2] == N[2]-1 ? i : i+NxNy;
-      else if(shift == Shift::ShiftZm1) j = x[2] == 0      ? i : i-NxNy;
+      if      constexpr (shift == Shift::ShiftXp1) j = x[0] == N[0]-1 ? i : i+1;
+      else if constexpr (shift == Shift::ShiftXm1) j = x[0] == 0      ? i : i-1;
+      else if constexpr (shift == Shift::ShiftYp1) j = x[1] == N[1]-1 ? i : i+N[0];
+      else if constexpr (shift == Shift::ShiftYm1) j = x[1] == 0      ? i : i-N[0];
+      else if constexpr (shift == Shift::ShiftZp1) j = x[2] == N[2]-1 ? i : i+NxNy;
+      else if constexpr (shift == Shift::ShiftZm1) j = x[2] == 0      ? i : i-NxNy;
       else j = i;
 
       if constexpr (sizeof...(other_shifts) != 0) {

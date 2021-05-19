@@ -78,10 +78,11 @@ int main(){
   std::unique_ptr<Generic3DStencil<Float, stencil_type>> func_ptr(new Generic3DStencil<Float, stencil_type>(c0, c1, nd));
 
   gettimeofday(&time_begin, NULL);
+  const int check_interval = 100;
   //launch iterations
   for(int k = 0; k < nsteps; k++) {
     func_ptr->SetData(v1); 
-    if(k % 100 != 0 && false) {  
+    if(k % check_interval != 0) {  
       std::for_each(policy,
                     counting_iterator(0),
                     counting_iterator(range),
