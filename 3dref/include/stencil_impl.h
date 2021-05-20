@@ -43,16 +43,22 @@ struct Generic3DStencil {
   // Stencil params here:
   const T c0;
   const T c1;
+  const T c2;
+  const T c3;  
 
   Generic3DStencil(std::vector<T> &latt, const T c0_, const T c1_, const std::array<int, D> dims) :
 	v(latt.data(),dims),
 	c0(c0_),
-	c1(c1_) { }
+	c1(c1_),
+	c2(c1_* 0.5),
+	c3(c1_ * _1div3_){ }
 
   Generic3DStencil(const T c0_, const T c1_, const std::array<int, D> dims) :
 	v(dims),
 	c0(c0_),
-	c1(c1_) { }
+	c1(c1_),
+	c2(c1_* 0.5),
+	c3(c1_ * _1div3_){ }
 
 
   void SetData(std::vector<T> &latt) {v.Set(latt);}
@@ -60,7 +66,7 @@ struct Generic3DStencil {
   template <int dir = 0>  
   inline T add_face_neighbors(const std::array<int, D> &x, const int i) {
 
-    auto neigh = v.template operator()<face_shifts[dir]> (x, i);
+    auto neigh = v.template operator()<shifts[dir]> (x, i);
     
     if constexpr (dir < (2*D-1)) {
       constexpr int next_dir = dir + 1;
@@ -96,20 +102,19 @@ struct Generic3DStencil {
            v.template operator()<Shift::ShiftXm1, Shift::ShiftYm1, Shift::ShiftZm1> (x, i));
   }
 
-  inline typename std::enable_if<D <= 4, T>::type operator()(const int i){//
-     std::array<int, D> x{0};
 
-     v.Indx2Coord(x, i);
 
-     T res = c0*v[i]+c1*add_face_neighbors(x,i);
+  inline typename std::enable_if<D <= 4, T>::type operator()(const int i){
+    std::array<int, D> x{0};
+    
+    v.Indx2Coord(x, i);    
+    
+    T res = c0*v[i] + c1*add_face_neighbors(x,i);
 
-     if constexpr (ST == StencilType::FaceEdgeCentered || ST == StencilType::FaceEdgeCornerCentered) {
-       res += c1*(0.5*add_edge_neighbors(x,i));
-       //       
-       if constexpr (ST == StencilType::FaceEdgeCornerCentered)  res += c1*(_1div3_*add_corner_neighbors(x,i));
-     }
+    if      constexpr (ST == StencilType::FaceEdgeCentered       && D > 1) res += c2*add_edge_neighbors(x,i);
+    else if constexpr (ST == StencilType::FaceEdgeCornerCentered && D > 2) res += c2*add_edge_neighbors(x,i)+c3*add_corner_neighbors(x,i);
 
-     return res;
+    return res;
   }
   
   typename std::enable_if<D <= 4, double>::type operator()(const T &in_v, T &out_v){//
