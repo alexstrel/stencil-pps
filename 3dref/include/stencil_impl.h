@@ -117,7 +117,7 @@ struct Generic3DStencil {
     return res;
   }
   
-  typename std::enable_if<D <= 4, double>::type operator()(const T &in_v, T &out_v){//
+  typename std::enable_if<D <= 4, double>::type operator()(T &out_v, const T &in_v){//
   
      const int i = &in_v - &v[0];
      

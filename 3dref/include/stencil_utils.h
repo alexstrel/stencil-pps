@@ -1,11 +1,7 @@
 #pragma once
 
-#ifndef M_PI
-#define M_PI (3.1415926535897932384626)
-#endif
-
-constexpr double _pi  = 3.1415926535897932384626;
-constexpr double _2pi = (2*_pi);
+const double _pi  = acos(-1);
+const double _2pi = (2*_pi);
 
 template<typename T>
 void create_field(std::vector<T> &out,
@@ -32,7 +28,7 @@ void create_field(std::vector<T> &out,
   return;
 }
 
-template<typename T>
+template<typename T, bool rel_error = false>
 T accuracy(const std::vector<T> &in1, std::vector<T> &in2) {
 
   double err   = 0.0;
@@ -42,5 +38,6 @@ T accuracy(const std::vector<T> &in1, std::vector<T> &in2) {
     err  += (in1[i] - in2[i])*(in1[i] - in2[i]);
     norm += in1[i]*in1[i];
   }
-  return (T)sqrt(err/norm);
+  if constexpr (rel_error) return (T)sqrt(err/norm);
+  else                     return (T)sqrt(err);
 }

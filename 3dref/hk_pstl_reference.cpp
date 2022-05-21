@@ -14,12 +14,12 @@
 #include <execution>
 #include <chrono>
 
-#include <thrust/iterator/counting_iterator.h>
+//#include <thrust/iterator/counting_iterator.h>
+
+#include <ranges>
 
 #include <stencil_utils.h>
 #include <stencil_impl.h>
-
-using namespace thrust;
 
 using Float = float;
 
@@ -34,7 +34,7 @@ const int vol = nd[0]*nd[1]*nd[2];
 const Float kappa     = 0.1;
 const Float length    = 1000.0;
 const Float tinterval = 0.5;
-const int   nsteps    = 6553;
+const int   nsteps    = 1000;
 const Float dt        = tinterval / nsteps;
 const Float dx        = length / (nd[0]+static_cast<Float>(1.0));
 
@@ -44,9 +44,9 @@ int main(){
   c1 = kappa*dt/(dx*dx);
 
   if(stencil_type == StencilType::FaceCentered){
-    c0 = 1.0 - 6*c1;
+    c0 = 1.0 - 6.0*c1;
   } else if (stencil_type == StencilType::FaceEdgeCentered) {
-    c0 = 1.0 - 4*c1;
+    c0 = 1.0 - 4.0*c1;
     c1 = c1 / 3.0;//?
   } else if (stencil_type == StencilType::FaceEdgeCornerCentered) {
     c0 = 1.0 - (44.0 / 13)*c1;
@@ -67,8 +67,6 @@ int main(){
 
   std::cout << "Done initialization :: " << vol << std::endl;
 
-  const int range = vol; //param.GetVol();
-
   printf("Running forward Euler iterations for the 3d heat kernel %d times with params [c0=%le , c1=%le] ..\n", nsteps, c0, c1);
   fflush(stdout);
 
@@ -77,22 +75,33 @@ int main(){
   //Create stencil functor instances:
   std::unique_ptr<Generic3DStencil<Float, stencil_type>> func_ptr(new Generic3DStencil<Float, stencil_type>(c0, c1, nd));
 
+  auto outer_loop_range = std::ranges::views::iota(0, vol);
+  
   gettimeofday(&time_begin, NULL);
-  const int check_interval = 100;
+  const int check_interval = 250;
   //launch iterations
   for(int k = 0; k < nsteps; k++) {
     func_ptr->SetData(v1); 
     if(k % check_interval != 0) {  
       std::for_each(policy,
-                    counting_iterator(0),
-                    counting_iterator(range),
+                    std::ranges::begin(outer_loop_range),
+                    std::ranges::end(outer_loop_range),
                     [&stencil= *func_ptr, out = v2.data()] (const int i) {out[i] = stencil(i);});
     } else {
-      double l2nrm = std::transform_reduce( policy, begin(v1), end(v1), begin(v2), 0., std::plus<double>(), [&func= *func_ptr] (const auto &inp, auto &outp) {return func(inp, outp);} );
-      std::cout << "L2 norm :: " << l2nrm << std::endl;
+      double l2nrm = std::transform_reduce( policy, 
+		      			    begin(v1), 
+					    end(v1), 
+					    begin(v2), 
+					    0., 
+					    std::plus<double>(), 
+					    [&func= *func_ptr] (const auto &in_el, 
+						                      auto &out_el) 
+					    {return func(out_el, in_el);} );
+
+      std::cout << "L2 norm (k= " << k <<" ) :: " << sqrt(l2nrm) << std::endl;
     }
     
-    v1.swap(v2);
+    std::swap(v1, v2);
   }
 
   gettimeofday(&time_end, NULL);
