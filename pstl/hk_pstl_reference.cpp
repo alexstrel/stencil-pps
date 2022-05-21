@@ -30,18 +30,18 @@ int main(){
 #endif
   constexpr auto stencil_type = StencilType::FaceCentered;
 
-  using Float=float;
-  using HKParams = HK3DParams<Float, stencil_type>;
+  using Float=double;
+  using HKParams = HK3DParams<stencil_type>;
 
   const std::array<int, dims> nd{gridsz, gridsz, gridsz};
 
   const MDLatticeParam<dims> param(nd);
   Grid<Float, inner_range, dims> grid(param);
 
-  const Float kappa     = 0.1;
-  const Float length    = 1000.0;
-  const Float tinterval = 0.5;
-  const int   nsteps    = 6553;
+  const double kappa     = 0.1;
+  const double length    = 1000.0;
+  const double tinterval = 0.5;
+  const int   nsteps    = 500;
   HKParams HK3DArgs(param, kappa, length, tinterval, nsteps);
   //
   MDLattice<Float, inner_range, dims, decltype(HK3DArgs)> hk3d_ref(grid, HK3DArgs);

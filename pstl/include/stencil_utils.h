@@ -1,30 +1,26 @@
 #pragma once
 
-#ifndef M_PI
-#define M_PI (3.1415926535897932384626)
-#endif
-
-constexpr double _pi  = 3.1415926535897932384626;
-constexpr double _2pi = (2*_pi);
+const double _pi  = acos(-1);
+const double _2pi = (2*_pi);
 
 template<typename T, int M = 1>
 void create_field(std::vector<std::array<T, M>> &out,
                   const std::array<int, 3> nl,
-                  const std::array<T, 3> dnl,
-                  const T kappa,
-                  const T length,
-                  const T time) {
+                  const std::array<double, 3> dnl,
+                  const double kappa,
+                  const double length,
+                  const double time) {
   std::vector< T > tmp(nl[0]*nl[1]*nl[2]);
-  const T exponent  = exp(-3.0*kappa*_pi*_pi*time/(length*length));
-  T z = dnl[2];
+  const double exponent  = exp(-3.0*kappa*_pi*_pi*time/(length*length));
+  double z = dnl[2];
   double vnorm = 0.0;
   for (int k = 0; k < nl[2]; k++){
-    T y = dnl[1];
+    double y = dnl[1];
     for (int j = 0; j < nl[1]; j++){
-      T x = dnl[0];
+      double x = dnl[0];
       for (int i = 0; i < nl[0]; i++){
         int s = k*nl[0]*nl[1] + j*nl[0] + i;
-        tmp[s] = exponent * sin(_pi*x/length) * sin(_pi*y/length)* sin(_pi*z/length);
+        tmp[s] = static_cast<T>(exponent * sin(_pi*x/length) * sin(_pi*y/length)* sin(_pi*z/length));
         vnorm += tmp[s]*tmp[s];
         x += dnl[0];
       }
@@ -78,7 +74,8 @@ T accuracy(const std::vector<std::array<T, M>> &in1, std::vector<std::array<T, M
     err  += (in1_[i] - in2_[i])*(in1_[i] - in2_[i]);
     norm += in1_[i]*in1_[i];
   }
-  return (T)sqrt(err/norm);
+  //return (T)sqrt(err/norm);
+  return (T)sqrt(err);
 #else
   auto policy = std::execution::par_unseq;
   double2 r   = std::transform_reduce(policy,
