@@ -30,7 +30,7 @@ int main(){
 #endif
   constexpr auto stencil_type = StencilType::FaceCentered;
 
-  using Float=double;
+  using Float=float;
   using HKParams = HK3DParams<stencil_type>;
 
   const std::array<int, dims> nd{gridsz, gridsz, gridsz};
@@ -41,17 +41,21 @@ int main(){
   const double kappa     = 0.1;
   const double length    = 1000.0;
   const double tinterval = 0.5;
-  const int   nsteps    = 500;
+  const int   nsteps     = 100;
   HKParams HK3DArgs(param, kappa, length, tinterval, nsteps);
   //
   MDLattice<Float, inner_range, dims, decltype(HK3DArgs)> hk3d_ref(grid, HK3DArgs);
   //set volumes:
   auto policy = std::execution::par_unseq;
-  //hk3d_ref.SetColdLattice(policy, 1.0);
+  //hk3d_ref.SetColdLattice(policy, 0.0);
 
   std::cout << "Start initialization :: " << std::endl;
+  
+  std::copy(policy, hk3d_ref.Tmp2().begin(), hk3d_ref.Tmp2().end(), hk3d_ref.V().begin());
 
-  create_field<Float, inner_range>(hk3d_ref.Tmp1(), hk3d_ref.Extents(), HK3DArgs.dl, kappa, length, 0.0);
+  create_field<Float, inner_range>(hk3d_ref.Tmp2(), hk3d_ref.Extents(), HK3DArgs.dl, kappa, length, 0.0);
+
+  std::copy(policy, hk3d_ref.Tmp2().begin(), hk3d_ref.Tmp2().end(), hk3d_ref.Tmp1().begin());
 
   std::cout << "Done initialization :: " << param.GetVol() << std::endl;
 

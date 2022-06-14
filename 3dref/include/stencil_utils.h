@@ -28,7 +28,7 @@ void create_field(std::vector<T> &out,
   return;
 }
 
-template<typename T, bool rel_error = false>
+template<typename T, bool rel_error = true>
 T accuracy(const std::vector<T> &in1, std::vector<T> &in2) {
 
   double err   = 0.0;

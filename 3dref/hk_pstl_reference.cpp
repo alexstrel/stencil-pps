@@ -14,19 +14,17 @@
 #include <execution>
 #include <chrono>
 
-//#include <thrust/iterator/counting_iterator.h>
-
 #include <ranges>
 
 #include <stencil_utils.h>
 #include <stencil_impl.h>
 
-using Float = float;
+using Float = double;
 
 constexpr auto stencil_type = StencilType::FaceCentered;
 
 const int dims  = 3;
-const int gridsz= 256;
+const int gridsz= 768;
 
 const std::array<int, dims> nd{gridsz, gridsz, gridsz};
 const int vol = nd[0]*nd[1]*nd[2];
@@ -59,11 +57,14 @@ int main(){
   //initialize fields
   std::vector<Float> v1(vol);
   std::vector<Float> v2(vol);
-
-  std::fill(policy, v1.begin(), v1.end(), 0.0);
+  //
+  std::vector<Float> v3(vol);
+  //
+  create_field<Float>(v3, nd, kappa, length, 0.0);
+  //
   std::fill(policy, v2.begin(), v2.end(), 0.0);
 
-  create_field<Float>(v1, nd, kappa, length, 0.0);
+  std::copy(policy, v3.begin(), v3.end(), v1.begin());
 
   std::cout << "Done initialization :: " << vol << std::endl;
 
