@@ -19,9 +19,9 @@
 #include <stencil_utils.h>
 #include <stencil_impl.h>
 
-using Float = double;
+using Float = float;
 
-constexpr auto stencil_type = StencilType::FaceCentered;
+constexpr auto stencil_type = StencilType::FaceEdgeCornerCentered;
 
 const int dims  = 3;
 const int gridsz= 768;
@@ -32,7 +32,7 @@ const int vol = nd[0]*nd[1]*nd[2];
 const Float kappa     = 0.1;
 const Float length    = 1000.0;
 const Float tinterval = 0.5;
-const int   nsteps    = 1000;
+const int   nsteps    = 100;
 const Float dt        = tinterval / nsteps;
 const Float dx        = length / (nd[0]+static_cast<Float>(1.0));
 

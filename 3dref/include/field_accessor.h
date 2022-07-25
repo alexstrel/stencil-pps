@@ -24,52 +24,102 @@ class FieldAccessor{
         
     void Set(std::vector<T> &latt) {v = latt.data();}    
 
+    inline int GetDim(int dim) {return N[dim];}
+
+    inline decltype(auto) GetDims() const {return N;} 
+
+    template <Shift shift>
+    inline int get_shift_dir() const {
+
+      if constexpr        (shift == Shift::ShiftXp1) {
+         return 0;
+      } else if constexpr (shift == Shift::ShiftXm1) {
+         return 1;
+      } else if constexpr (shift == Shift::ShiftYp1) {
+         return 2;
+      } else if constexpr (shift == Shift::ShiftYm1) {
+         return 3;
+      } else if constexpr (shift == Shift::ShiftZp1) {
+         return 4;
+      } else if constexpr (shift == Shift::ShiftZm1) {
+         return 5;
+      }
+
+      return -1;
+    }	    
+
+    template <Shift shift1, Shift shift2>
+    inline int get_shift_dir() const {
+      return get_shift_dir<shift2>();	    
+    }
+
+    template <Shift shift1, Shift shift2, Shift shift3>
+    inline int get_shift_dir() const {
+      return get_shift_dir<shift3>();
+    }
+
+    template<int dir>
+    inline bool check_bndry(const std::array<int,D> &x) const {
+
+      constexpr int bndry_dir = dir % 2;
+      constexpr int dim       = dir / 2;
+
+      int bndry_coord = 0;
+      //
+      if constexpr (bndry_dir == 0) {
+        bndry_coord = N[dim] - 1;
+      }
+      //
+      return (x[dim] == bndry_coord ? true : false);
+    }
+    
+
+    template<int dir>
+    inline T get_bndry_term(const std::array<int, D> &x, const int i) const {
+      return static_cast<T>(0.0);//Trivial BC
+    }
+
     //works for both nvc++ and g++
     //template recursion (still ugly ...)
     template<Shift shift, Shift... other_shifts>
     inline constexpr int GetNeighborIdx(const std::array<int,D> &x, int i) const {
       //currently unsafe: no check on dimensionality (should be done during stencil inst.)
       if constexpr        (shift == Shift::ShiftXp1) {
-         if (x[0] == (N[0]-1))  return -1;
          i += 1;
       } else if constexpr (shift == Shift::ShiftXm1) {
-         if (x[0] == 0       )  return -1;
          i -= 1;
       } else if constexpr (shift == Shift::ShiftYp1) {
-         if (x[1] == (N[1]-1))  return -1;
          i += N[0];
       } else if constexpr (shift == Shift::ShiftYm1) {
-         if (x[1] == 0       )  return -1;
          i -= N[0];
       } else if constexpr (shift == Shift::ShiftZp1) {
-	 if (x[2] == (N[2]-1))  return -1;
          i += NxNy;
       } else if constexpr (shift == Shift::ShiftZm1) {
-         if (x[2] == 0       )  return -1;
          i -= NxNy;
       }
 
       if constexpr (sizeof...(other_shifts) != 0) {
         return GetNeighborIdx<other_shifts...>(x, i);
-      } else {
-        return i;//stop recursion and return an index of the neighbor
-      }
+      } 
+
+      return i;//stop recursion and return the index of the neighbor
     }
 
     T& operator[](const int i) const { return v[i];}
 
     template<Shift face_shift, Shift... other_shifts>
     T operator()(const std::array<int,D> &x, const int i) const {
+      //	      
       if constexpr ((sizeof...( other_shifts)  > 3)) {
         printf("Number of shifts is not supported.\n"); 
         exit(-1);
       }
-
+      //
       if constexpr (face_shift == Shift::NoShift) return v[i]; //no shifts, direct access
+
       const auto j = GetNeighborIdx<face_shift, other_shifts...>(x,i); //shifted access
 
-      return (j == -1 ? static_cast<T>(0.0) : v[j]);
-
+      return v[j];
     }
 
     //3d version
