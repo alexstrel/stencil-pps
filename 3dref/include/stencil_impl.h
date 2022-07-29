@@ -132,9 +132,8 @@ struct Generic3DStencil {
       face_type = face_type | current_face_type;
     }
     //
-    if constexpr (dir < (2*D-1)) {//
-      constexpr int next_dir = dir + 1;
-      return (neigh + add_neighbors<next_dir>(face_type, x, i));
+    if constexpr (dir < (2*D-1)) {
+      return (neigh + add_neighbors<dir+1>(face_type, x, i));
     }
     // 
     return neigh;
