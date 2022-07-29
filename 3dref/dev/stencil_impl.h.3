@@ -92,11 +92,14 @@ struct Generic3DStencil {
     auto neigh  = is_curr_dir_bndry == 0 ? v.template operator()<shifts[init_dir], shifts[base_dir], shifts[dir] > (x, i) :  v.get_bndry_term<dir>(x,i);
 
     if constexpr (dir % 2 == 0) {
-      return (neigh + add_corner_neighbors<init_dir, base_dir, dir+1>(face_type, x, i));
+      constexpr int next_dir = dir + 1;
+      return (neigh + add_corner_neighbors<init_dir, base_dir, next_dir>(face_type, x, i));
     } else if constexpr (base_dir % 2 == 0) {
-      return (neigh + add_corner_neighbors<init_dir, base_dir+1>(face_type, x, i));
+      constexpr int next_base_dir = base_dir + 1;
+      return (neigh + add_corner_neighbors<init_dir, next_base_dir>(face_type, x, i));
     } else if constexpr (init_dir % 2 == 0) {
-      return (neigh + add_corner_neighbors<init_dir+1>(face_type, x, i));
+      constexpr int next_init_dir = init_dir + 1;
+      return (neigh + add_corner_neighbors<next_base_dir>(face_type, x, i));
     }
     // 
     return neigh;
@@ -111,11 +114,17 @@ struct Generic3DStencil {
     //
     auto neigh  = is_curr_dir_bndry == 0 ? v.template operator()<shifts[base_dir], shifts[dir] > (x, i) : v.get_bndry_term<dir>(x,i);
     //
-    if        constexpr ( dir % 2 == 0) {
-      return (neigh + add_edge_neighbors<base_dir, dir+1>(face_type, x, i));
-    } else if constexpr (base_dir < (2*D-1)) {//
-      constexpr int next_dir      = 2*(((base_dir+1) / 2 + 1) % D);
-      return (neigh + add_edge_neighbors<base_dir+1, next_dir>(face_type, x, i));
+    constexpr int dir_ = dir + 1;
+    //
+    is_curr_dir_bndry = is_curr_dir_bndry | v.check_bndry<dir_>(face_type);
+    //
+    neigh  = neigh + (is_curr_dir_bndry == 0 ? v.template operator()<shifts[base_dir], shifts[dir_] > (x, i) : v.get_bndry_term<dir_>(x,i)); 
+    //
+    if constexpr (base_dir < (2*D-1)) {//Note that each dim has two dirs
+      constexpr int next_base_dir = base_dir + 1;
+      constexpr int next_dir      = 2*((next_base_dir / 2 + 1) % D);
+
+      return (neigh + add_edge_neighbors<next_base_dir, next_dir>(face_type, x, i));
     }
     //end recursion
     return neigh;
@@ -132,7 +141,7 @@ struct Generic3DStencil {
       face_type = face_type | current_face_type;
     }
     //
-    if constexpr (dir < (2*D-1)) {//
+    if constexpr (dir < (2*D-1)) {//Note that each dim has two dirs
       constexpr int next_dir = dir + 1;
       return (neigh + add_neighbors<next_dir>(face_type, x, i));
     }
@@ -150,7 +159,7 @@ struct Generic3DStencil {
     auto res = c[0]*v.template operator()<Shift::NoShift> (x,i) + c[1]*add_neighbors(face_type, x, i);
 
     if      constexpr (ST == StencilType::FaceEdgeCentered  && D > 1) res += c[2]*add_edge_neighbors(face_type, x,i);
-    else if constexpr (ST == StencilType::FaceEdgeCornerCentered && D > 2) res += c[2]*add_edge_neighbors(face_type, x,i)+c[3]*add_corner_neighbors(face_type, x,i);
+    else if constexpr (ST == StencilType::FaceEdgeCornerCentered && D > 2) res += c[2]*add_edge_neighbors(x,i)+c[3]*add_corner_neighbors(x,i);
 
     return res;
   }
