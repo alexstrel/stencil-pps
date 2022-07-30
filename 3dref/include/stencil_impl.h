@@ -32,30 +32,34 @@ void debug_7pt_stencil
 
 auto sqr = [](double x) { return x * x; };
 
-#if 1
-template <KernelType type> inline bool doBulk() {
-  switch (type) {
-    case Exterior_Kernel_X:
-    case Exterior_Kernel_Y:
-    case Exterior_Kernel_Z: return false;
-    case Interior_Kernel:   return true;
+template<int dir, int... other_dirs>
+inline constexpr int check_stencil_bndry(const int face_idx, int face_type = 0) {
+
+  int is_bndry = 0;
+
+  if        constexpr (dir == 0) {
+    is_bndry = face_idx & 1;
+  } else if constexpr (dir == 1) {
+    is_bndry = face_idx & 2;
+  } else if constexpr (dir == 2) {
+    is_bndry = face_idx & 4;
+  } else if constexpr (dir == 3) {
+    is_bndry = face_idx & 8;
+  } else if constexpr (dir == 4) {
+    is_bndry = face_idx & 16;
+  } else if constexpr (dir == 5) {
+    is_bndry = face_idx & 32;
   }
 
-  return false;
-}
+  face_type = face_type | is_bndry;
 
-template <KernelType type> inline bool doHalo(int dim = -1)
-{
-  switch (type) {
-    case Exterior_Kernel_X: return dim == 0 || dim == -1 ? true : false;
-    case Exterior_Kernel_Y: return dim == 1 || dim == -1 ? true : false;
-    case Exterior_Kernel_Z: return dim == 2 || dim == -1 ? true : false;
-    case Interior_Kernel:   return false;
+  if constexpr (sizeof...(other_dirs) != 0) {
+    return check_stencil_bndry<other_dirs...>(face_idx, face_type);
   }
-  return false;
+
+  return face_type;
 }
 
-#endif
 
 //could be even more "generic", e.g. ND stencil
 template <typename T, StencilType ST, int D = 3>
@@ -82,14 +86,10 @@ struct Generic3DStencil {
 
   template < int init_dir = 0, int base_dir = 2, int dir = 4 >
   inline T add_corner_neighbors(const int face_type, const std::array<int, D> &x, const int i) {
-    //check init_dir boundary:
-    auto is_init_dir_bndry =  v.check_bndry<init_dir>(face_type);
-    //check base_dir boundary:
-    auto is_base_dir_bndry = is_init_dir_bndry | v.check_bndry<base_dir>(face_type);
-    //check curr dir boundary:
-    auto is_curr_dir_bndry = is_base_dir_bndry | v.check_bndry<dir>(face_type);
     //
-    auto neigh  = is_curr_dir_bndry == 0 ? v.template operator()<shifts[init_dir], shifts[base_dir], shifts[dir] > (x, i) :  v.get_bndry_term<dir>(x,i);
+    auto is_curr_dir_bndry =  check_stencil_bndry<init_dir, base_dir, dir>(face_type);
+    //
+    auto neigh  = is_curr_dir_bndry == 0 ? v.template operator()<shifts[init_dir], shifts[base_dir], shifts[dir] > (i) :  v.get_bndry_term<dir>(x,i);
 
     if constexpr (dir % 2 == 0) {
       return (neigh + add_corner_neighbors<init_dir, base_dir, dir+1>(face_type, x, i));
@@ -104,12 +104,10 @@ struct Generic3DStencil {
 
   template <int base_dir = 0, int dir = 2>
   inline T add_edge_neighbors(const int face_type, const std::array<int, D> &x, const int i) {
-    //check base_dir boundary:
-    auto is_base_dir_bndry =  v.check_bndry<base_dir>(face_type);
-    //check current dir boundary:
-    auto is_curr_dir_bndry = is_base_dir_bndry | v.check_bndry<dir>(face_type);
     //
-    auto neigh  = is_curr_dir_bndry == 0 ? v.template operator()<shifts[base_dir], shifts[dir] > (x, i) : v.get_bndry_term<dir>(x,i);
+    auto is_curr_dir_bndry =  check_stencil_bndry<base_dir, dir>(face_type);
+    //
+    auto neigh  = is_curr_dir_bndry == 0 ? v.template operator()<shifts[base_dir], shifts[dir] > (i) : v.get_bndry_term<dir>(x,i);
     //
     if        constexpr ( dir % 2 == 0) {
       return (neigh + add_edge_neighbors<base_dir, dir+1>(face_type, x, i));
@@ -126,7 +124,7 @@ struct Generic3DStencil {
     //
     auto current_face_type = v.check_face_type<dir>(x);
     //
-    auto neigh  = current_face_type == 0 ? v.template operator()<shifts[dir]> (x,i) : v.get_bndry_term<dir>(x,i);
+    auto neigh  = current_face_type == 0 ? v.template operator()<shifts[dir]> (i) : v.get_bndry_term<dir>(x,i);
     // Update face type information:
     if constexpr (ST == StencilType::FaceEdgeCentered or ST == StencilType::FaceEdgeCornerCentered){
       face_type = face_type | current_face_type;
@@ -146,9 +144,9 @@ struct Generic3DStencil {
     //
     int face_type = 0;
     //
-    auto res = c[0]*v.template operator()<Shift::NoShift> (x,i) + c[1]*add_neighbors(face_type, x, i);
+    auto res = c[0]*v.template operator()<Shift::NoShift> (i) + c[1]*add_neighbors(face_type, x, i);
 
-    if      constexpr (ST == StencilType::FaceEdgeCentered  && D > 1) res += c[2]*add_edge_neighbors(face_type, x,i);
+    if      constexpr (ST == StencilType::FaceEdgeCentered  && D > 1)      res += c[2]*add_edge_neighbors(face_type, x,i);
     else if constexpr (ST == StencilType::FaceEdgeCornerCentered && D > 2) res += c[2]*add_edge_neighbors(face_type, x,i)+c[3]*add_corner_neighbors(face_type, x,i);
 
     return res;

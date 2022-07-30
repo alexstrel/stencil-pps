@@ -48,40 +48,8 @@ class FieldAccessor{
       return -1;
     }	    
 
-    template <Shift shift1, Shift shift2>
-    inline int get_shift_dir() const {
-      return get_shift_dir<shift2>();	    
-    }
-
-    template <Shift shift1, Shift shift2, Shift shift3>
-    inline int get_shift_dir() const {
-      return get_shift_dir<shift3>();
-    }
-
     template<int dir>
-    inline int check_bndry(const int face_idx) const {
-
-      int is_bndry = 0;
-
-      if        constexpr (dir == 0) {
-        is_bndry = face_idx & 1;
-      } else if constexpr (dir == 1) {
-        is_bndry = face_idx & 2;
-      } else if constexpr (dir == 2) {
-        is_bndry = face_idx & 4;
-      } else if constexpr (dir == 3) {
-        is_bndry = face_idx & 8;
-      } else if constexpr (dir == 4) {
-        is_bndry = face_idx & 16;
-      } else if constexpr (dir == 5) {
-        is_bndry = face_idx & 32;
-      }
-
-      return is_bndry;
-    }
-   
-    template<int dir>
-    inline int check_face_type(const std::array<int,D> &x) const {
+    inline constexpr int check_face_type(const std::array<int,D> &x) const {
 
       int face_idx = 0;
       
@@ -110,7 +78,7 @@ class FieldAccessor{
     //works for both nvc++ and g++
     //template recursion (still ugly ...)
     template<Shift shift, Shift... other_shifts>
-    inline constexpr int GetNeighborIdx(const std::array<int,D> &x, int i) const {
+    inline constexpr int GetNeighborIdx(int i) const {
       //currently unsafe: no check on dimensionality (should be done during stencil inst.)
       if constexpr        (shift == Shift::ShiftXp1) {
          i += 1;
@@ -127,7 +95,7 @@ class FieldAccessor{
       }
 
       if constexpr (sizeof...(other_shifts) != 0) {
-        return GetNeighborIdx<other_shifts...>(x, i);
+        return GetNeighborIdx<other_shifts...>(i);
       } 
 
       return i;//stop recursion and return the index of the neighbor
@@ -136,7 +104,7 @@ class FieldAccessor{
     T& operator[](const int i) const { return v[i];}
 
     template<Shift face_shift, Shift... other_shifts>
-    T operator()(const std::array<int,D> &x, const int i) const {
+    T operator()(const int i) const {
       //	      
       if constexpr ((sizeof...( other_shifts)  > 3)) {
         printf("Number of shifts is not supported.\n"); 
@@ -145,7 +113,7 @@ class FieldAccessor{
       //
       if constexpr (face_shift == Shift::NoShift) return v[i]; //no shifts, direct access
 
-      const auto j = GetNeighborIdx<face_shift, other_shifts...>(x,i); //shifted access
+      const auto j = GetNeighborIdx<face_shift, other_shifts...>(i); //shifted access
 
       return v[j];
     }
