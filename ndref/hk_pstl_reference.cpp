@@ -38,6 +38,20 @@ const int   nsteps    = 100;
 const Float dt        = tinterval / nsteps;
 const Float dx        = length / (nd[0]+static_cast<Float>(1.0));
 
+void dispatch_stencil_kernel(auto&& site_stencil_kernel, const int vol){
+  //	
+  auto policy = std::execution::par_unseq;
+  //
+  auto outer_loop_range = std::ranges::views::iota(0, vol);
+  //
+  std::for_each(policy,
+                std::ranges::begin(outer_loop_range),
+                std::ranges::end(outer_loop_range),
+                site_stencil_kernel);
+
+  return;
+}
+
 int main(){
 
   using StencilArgs = GenericNDStencilArg<Float, dims>;
@@ -75,11 +89,11 @@ int main(){
   struct timeval time_begin, time_end;
   
   //Create stencil functor instances:
-  std::unique_ptr<StencilArgs> args(new StencilArgs{c0, c1, nd});
+  std::unique_ptr<StencilArgs> args_ptr(new StencilArgs{v2, v1, c0, c1, nd});
   
-  auto func_ptr = std::make_shared<GenericNDStencil<stencil_type, StencilArgs>>(*args);
-
-  auto outer_loop_range = std::ranges::views::iota(0, vol);
+  auto& args = *args_ptr;
+  
+  auto func_ptr = std::make_shared<GenericNDStencil<stencil_type, StencilArgs>>(args);
   
   gettimeofday(&time_begin, NULL);
 #ifdef __NVCOMPILER_CUDA__
@@ -88,14 +102,12 @@ int main(){
   const int check_interval = std::numeric_limits<int>::max();
 #endif  
   //launch iterations
+  auto stencil_kernel = [&stencil = *func_ptr] (const auto i) { stencil(i); };
+
   for(int k = 0; k < nsteps; k++) {
-    args->SetInput(v1);
     // 
     if((k+1) % check_interval != 0) {  
-      std::for_each(policy,
-                    std::ranges::begin(outer_loop_range),
-                    std::ranges::end(outer_loop_range),
-                    [&stencil= *func_ptr, out = v2.data()] (const int i) {return out[i] = stencil(i);});
+      dispatch_stencil_kernel(stencil_kernel, vol);
     } else {    
       double l2nrm = std::transform_reduce( policy, 
                                             begin(v1), 
@@ -109,7 +121,7 @@ int main(){
       std::cout << "L2 norm (k= " << k <<" ) :: " << sqrt(l2nrm) << std::endl;
     }
     
-    std::swap(v1, v2);
+    args.Swap();
   }
 
   gettimeofday(&time_end, NULL);

@@ -31,8 +31,6 @@ void debug_7pt_stencil
   return;
 }
 
-auto sqr = [](double x) { return x * x; };
-
 template<int dir, int... other_dirs>
 inline constexpr int check_stencil_bndry(const int face_idx, int face_type = 0) {
 
@@ -70,22 +68,19 @@ class GenericNDStencilArg {
   
     static constexpr int Dims = D;
   
+    F out;//  
     F in;//stencil source , but not const!
 
     // Stencil params here:
     const std::array<T, 4> c;
 
-    GenericNDStencilArg(const std::vector<T> &in_, const T c0_, const T c1_, const std::array<int, D> dims) :
+    GenericNDStencilArg(std::vector<T> &out_, const std::vector<T> &in_, const T c0_, const T c1_, const std::array<int, D> dims) :
+    	out(out_, dims),
 	in (const_cast<std::vector<T>&>(in_), dims),
 	c{c0_, c1_, c1_* 0.5, c1_*_1div3_} { 
-    }
-    
-    GenericNDStencilArg(const T c0_, const T c1_, const std::array<int, D> dims) :
-	in (dims),
-	c{c0_, c1_, c1_* 0.5, c1_*_1div3_} { 
-    }
-    
-    void SetInput(std::vector<T> &in_) {in.Set(in_);}
+    }   
+    //
+    void Swap() { out.swap(in); }
 };
 
 //could be even more "generic", e.g. ND stencil
@@ -154,7 +149,7 @@ class GenericNDStencil {
     return neigh;
   }
 
-  inline typename std::enable_if<D <= 3, Tp>::type operator()(const int i){    
+  inline typename std::enable_if<D <= 3, void>::type operator()(const int i){    
     std::array<int, D> x{0};
 
     arg.in.Indx2Coord(x, i);
@@ -166,14 +161,18 @@ class GenericNDStencil {
     if      constexpr (ST == StencilTp::FaceEdgeCentered  && D > 1)      res += arg.c[2]*add_edge_neighbors(face_type, x,i);
     else if constexpr (ST == StencilTp::FaceEdgeCornerCentered && D > 2) res += arg.c[2]*add_edge_neighbors(face_type, x,i)+arg.c[3]*add_corner_neighbors(face_type, x,i);
 
-    return res;
+    arg.out[i] = res;
+    
+    return;
   }
 
   typename std::enable_if<D <= 4, double>::type operator()(Tp &out_v, const Tp &in_v){//
   
+     auto sqr = [](double x) { return x * x; };
+  
      const int i = &in_v - &arg.in[0];
      
-     out_v = this->operator()(i);          
+     this->operator()(i);          
 
      return sqr(static_cast<double>(out_v - in_v));
   }

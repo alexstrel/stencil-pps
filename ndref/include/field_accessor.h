@@ -15,14 +15,18 @@ class FieldAccessor{
 	N(dims),
         NxNy(D > 1 ? dims[0]*dims[1] : 0) {
         }
-
-    FieldAccessor(const std::array<int, D> &dims) :
-        v(nullptr), 
-	N(dims),
-        NxNy(D > 1 ? dims[0]*dims[1] : 0) {
-        }
         
-    void Set(std::vector<T> &latt) {v = latt.data();}   
+    void Set(T* in) {v = in;}  
+    T* Get() {return v;} 
+    
+    void swap(FieldAccessor &f){
+      //
+      T* tmp = f.Get();
+      f.Set(v);
+      v = tmp;
+      
+      return;
+    }
 
     inline int GetDim(int dim) {return N[dim];}
 
