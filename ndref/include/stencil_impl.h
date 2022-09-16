@@ -4,8 +4,6 @@
 #include <enums.h>
 #include <field_accessor.h>
 
-constexpr double _1div3_ = 1.0 / 3.0;
-
 template<typename T>
 void debug_7pt_stencil
 (std::vector<T> &out, const std::vector<T> &in, const int Lx, const int Ly, const int Lz, const float C0, const float C1)
@@ -59,7 +57,7 @@ inline constexpr int check_stencil_bndry(const int face_idx, int face_type = 0) 
   return face_type;
 }
 
-template <ArithmeticTp data_tp, int D=3>
+template <ArithmeticTp data_tp, int D, ArithmeticTp... coeffs>
 class GenericNDStencilArg {
   
   public:
@@ -72,12 +70,12 @@ class GenericNDStencilArg {
     F in;//stencil source , but not const!
 
     // Stencil params here:
-    const std::array<T, 4> c;
+    const std::array<T, sizeof...(coeffs)> c;
 
-    GenericNDStencilArg(std::vector<T> &out_, const std::vector<T> &in_, const T c0_, const T c1_, const std::array<int, D> dims) :
+    GenericNDStencilArg(std::vector<T> &out_, const std::vector<T> &in_,  const std::array<int, D> dims, const coeffs& ...c_) :
     	out(out_, dims),
 	in (const_cast<std::vector<T>&>(in_), dims),
-	c{c0_, c1_, c1_* 0.5, c1_*_1div3_} { 
+	c{c_...} { 
     }   
     //
     void Swap() { out.swap(in); }

@@ -15,11 +15,12 @@
 #include <execution>
 #include <chrono>
 
-
 #include <ranges>
 
 #include <stencil_utils.h>
 #include <stencil_impl.h>
+
+constexpr double _1div3_ = 1.0 / 3.0;
 
 using Float = float;
 
@@ -54,9 +55,9 @@ void dispatch_stencil_kernel(auto&& site_stencil_kernel, const int vol){
 
 int main(){
 
-  using StencilArgs = GenericNDStencilArg<Float, dims>;
+  using StencilArgs = GenericNDStencilArg<Float, dims, Float, Float, Float, Float>;//NB!
   
-  Float c0, c1;
+  Float c0, c1, c2, c3;
 
   c1 = kappa*dt/(dx*dx);
 
@@ -69,7 +70,10 @@ int main(){
     c0 = 1.0 - (44.0 / 13)*c1;
     c1 = (3.0*c1) / 13.0;//?
   }
-
+  // extra:
+  c2 = c1 * 0.5;
+  c3 = c1 *_1div3_;
+  
   //set execution policy:
   auto policy = std::execution::par_unseq;
 
@@ -89,7 +93,7 @@ int main(){
   struct timeval time_begin, time_end;
   
   //Create stencil functor instances:
-  std::unique_ptr<StencilArgs> args_ptr(new StencilArgs{v2, v1, c0, c1, nd});
+  std::unique_ptr<StencilArgs> args_ptr(new StencilArgs{v2, v1, nd, c0, c1, c2, c3});
   
   auto& args = *args_ptr;
   
