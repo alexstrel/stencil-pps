@@ -20,8 +20,6 @@
 #include <stencil_utils.h>
 #include <stencil_impl.h>
 
-constexpr double _1div3_ = 1.0 / 3.0;
-
 using Float = float;
 
 constexpr auto stencil_type = StencilTp::FaceEdgeCornerCentered;
@@ -67,12 +65,12 @@ int main(){
     c0 = 1.0 - 4.0*c1;
     c1 = c1 / 3.0;//?
   } else if (stencil_type == StencilTp::FaceEdgeCornerCentered) {
-    c0 = 1.0 - (44.0 / 13)*c1;
+    c0 = 1.0 - (44.0 / 13.0)*c1;
     c1 = (3.0*c1) / 13.0;//?
   }
   // extra:
   c2 = c1 * 0.5;
-  c3 = c1 *_1div3_;
+  c3 = c1 / 3.0;
   
   //set execution policy:
   auto policy = std::execution::par_unseq;
@@ -87,7 +85,7 @@ int main(){
 
   std::cout << "Done initialization :: " << vol << std::endl;
 
-  printf("Running forward Euler iterations for the 3d heat kernel %d times with params [c0=%le , c1=%le] ..\n", nsteps, c0, c1);
+  printf("Running forward Euler iterations for the 3d heat kernel %d times with params [c0=%le , c1=%le, c2=%le, c3=%le] ..\n", nsteps, c0, c1, c2, c3);
   fflush(stdout);
 
   struct timeval time_begin, time_end;

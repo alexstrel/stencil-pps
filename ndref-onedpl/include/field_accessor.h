@@ -1,6 +1,8 @@
 #pragma once
 
-template <typename T, int D=3>
+#include <common.h>
+
+template <ArithmeticTp T, int D=3>
 class FieldAccessor{
   private :
     T *v;//no allocation
@@ -10,8 +12,8 @@ class FieldAccessor{
     const int NxNy;
 
   public :
-    FieldAccessor(std::vector<T> &latt, const std::array<int, D> &dims) :
-        v(latt.data()), 
+    FieldAccessor(T *v_, const std::array<int, D> &dims) :
+        v(v_), 
 	N(dims),
         NxNy(D > 1 ? dims[0]*dims[1] : 0) {
         }
@@ -135,9 +137,9 @@ template <typename T, int D> struct field_mapper {
 };
 
 template <int D> struct field_mapper<double, D> {
-  typedef FieldAccessor<double, D> type;
+  using type = FieldAccessor<double, D>;
 };
 
 template <int D> struct field_mapper<float, D> {
-  typedef FieldAccessor<float, D> type;
+  using type = FieldAccessor<float, D>;
 };
