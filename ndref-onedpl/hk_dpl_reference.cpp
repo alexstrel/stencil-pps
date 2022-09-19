@@ -134,19 +134,28 @@ int main(){
     // 
     if((k+1) % check_interval != 0) {  
       dispatch_stencil_kernel(stencil_kernel, vol, policy);
-    } else {    //??
- #if 0
-      double l2nrm = std::transform_reduce( policy, 
-                                            begin(v1), 
-                                            end(v1), 
-                                            begin(v2), 
-                                            0.,  
-                                            std::plus<double>{}, 
-                                            [&func= *func_ptr] (const auto &in_el, auto &out_el) 
-					    			       {return func(out_el, in_el);} );
+    } else {    //don't do the norm check since double is not supported...
+      float l2nrm = oneapi::dpl::transform_reduce( policy, 
+                                                  counting_iterator(0), 
+                                                  counting_iterator(vol),  
+                                                  0.f,  
+                                                  std::plus<float>{},//NB! 
+                                                  [func= func_ptr.get(),
+                                                   v1 = v1.data(), 
+                                                   v2 = v2.data()] (const int i) {
+                                                   
+                                                     auto sqr = [](Float x) { return x * x; };
+                                                      
+                                                     auto v1_el = v1[i];
+                                                      
+					    	     func->operator()(i);
+					    	     
+					    	     auto v2_el = v2[i];
+					    	     
+					    	     return sqr(static_cast<Float>(v2_el - v1_el));
+					    	   } );
 
       std::cout << "L2 norm (k= " << k <<" ) :: " << sqrt(l2nrm) << std::endl;
-#endif
     }
     
     args.Swap();

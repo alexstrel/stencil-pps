@@ -126,10 +126,16 @@ class FieldAccessor{
 
     //3d version
     inline void Indx2Coord(std::array<int, D> &x, const int &i) const {
-      x[2] = i / NxNy;
-      const int tmp = (i - x[2]*NxNy);
-      x[1] = tmp / N[0];
-      x[0] = tmp - x[1]*N[0];
+      if constexpr (D == 3) {
+        x[2] = i / NxNy;
+        const int tmp = (i - x[2]*NxNy);
+        x[1] = tmp / N[0];
+        x[0] = tmp - x[1]*N[0];
+      } else 
+      if constexpr (D == 2) {
+        x[1] = i / N[0];
+        x[0] = i - x[1]*N[0];
+      }
     }
 };
 
