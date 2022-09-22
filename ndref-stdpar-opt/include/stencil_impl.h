@@ -96,71 +96,75 @@ class GenericNDStencil {
   constexpr GenericNDStencil(const Args &arg) : arg(arg) {}	
   
   template < int init_dir = 0, int base_dir = 2, int dir = 4 >
-  inline Tp add_corner_neighbors(const int face_type, const std::array<int, D> &x, const int i) {
+  inline Tp add_corner_neighbors(const int face_type, const std::array<int, D> &x, const int i, const int j) {
     //
     auto is_curr_dir_bndry =  check_stencil_bndry<init_dir, base_dir, dir>(face_type);
     //
-    auto neigh  = is_curr_dir_bndry == 0 ? arg.in.template operator()<shifts[init_dir], shifts[base_dir], shifts[dir] > (i, 0) :  arg.in.get_bndry_term<dir>(x,i);
+    auto neigh  = is_curr_dir_bndry == 0 ? arg.in.template operator()<shifts[init_dir], shifts[base_dir], shifts[dir] > (i, j) :  arg.in.get_bndry_term<dir>(x,i);
 
     if constexpr (dir % 2 == 0) {
-      return (neigh + add_corner_neighbors<init_dir, base_dir, dir+1>(face_type, x, i));
+      return (neigh + add_corner_neighbors<init_dir, base_dir, dir+1>(face_type, x, i, j));
     } else if constexpr (base_dir % 2 == 0) {
-      return (neigh + add_corner_neighbors<init_dir, base_dir+1>(face_type, x, i));
+      return (neigh + add_corner_neighbors<init_dir, base_dir+1>(face_type, x, i, j));
     } else if constexpr (init_dir % 2 == 0) {
-      return (neigh + add_corner_neighbors<init_dir+1>(face_type, x, i));
+      return (neigh + add_corner_neighbors<init_dir+1>(face_type, x, i, j));
     }
     // 
     return neigh;
   }
 
   template <int base_dir = 0, int dir = 2>
-  inline Tp add_edge_neighbors(const int face_type, const std::array<int, D> &x, const int i) {
+  inline Tp add_edge_neighbors(const int face_type, const std::array<int, D> &x, const int i, const int j) {
     //
     auto is_curr_dir_bndry =  check_stencil_bndry<base_dir, dir>(face_type);
     //
-    auto neigh  = is_curr_dir_bndry == 0 ? arg.in.template operator()<shifts[base_dir], shifts[dir] > (i, 0) : arg.in.get_bndry_term<dir>(x,i);
+    auto neigh  = is_curr_dir_bndry == 0 ? arg.in.template operator()<shifts[base_dir], shifts[dir] > (i, j) : arg.in.get_bndry_term<dir>(x,i,j);
     //
     if        constexpr ( dir % 2 == 0) {
-      return (neigh + add_edge_neighbors<base_dir, dir+1>(face_type, x, i));
+      return (neigh + add_edge_neighbors<base_dir, dir+1>(face_type, x, i, j));
     } else if constexpr (base_dir < (2*D-1)) {//
       constexpr int next_dir      = 2*(((base_dir+1) / 2 + 1) % D);
-      return (neigh + add_edge_neighbors<base_dir+1, next_dir>(face_type, x, i));
+      return (neigh + add_edge_neighbors<base_dir+1, next_dir>(face_type, x, i, j));
     }
     //end recursion
     return neigh;
   }
 
   template <int dir = 0>
-  inline Tp add_neighbors(int &face_type, const std::array<int, D> &x, const int i) {
+  inline Tp add_neighbors(int &face_type, const std::array<int, D> &x, const int i, const int j) {
     //
-    auto current_face_type = arg.in.check_face_type<dir>(x);
+    auto current_face_type = arg.in.check_face_type<dir>(x, j);
     //
-    auto neigh  = current_face_type == 0 ? arg.in.template operator()<shifts[dir]> (i, 0) : arg.in.get_bndry_term<dir>(x,i);
+    auto neigh  = current_face_type == 0 ? arg.in.template operator()<shifts[dir]> (i, j) : arg.in.get_bndry_term<dir>(x,i,j);
     // Update face type information:
     if constexpr (ST == StencilTp::FaceEdgeCentered or ST == StencilTp::FaceEdgeCornerCentered){
       face_type = face_type | current_face_type;
     }
     //
     if constexpr (dir < (2*D-1)) {
-      return (neigh + add_neighbors<dir+1>(face_type, x, i));
+      return (neigh + add_neighbors<dir+1>(face_type, x, i, j));
     }
     // 
     return neigh;
   }
 
-  inline typename std::enable_if<D <= 3, void>::type operator()(const int i){    
+  inline typename std::enable_if<D <= 3, void>::type operator()(const int l){
+    //    
+    const int i = l / arg.in.stencil_cell_size; 
+    const int j = l % arg.in.stencil_cell_size; 
+    
     std::array<int, D> x{0};
 
     arg.in.Indx2Coord(x, i);
     //
     int face_type = 0;
     //
-    auto res = arg.c[0]*arg.in.template operator()<Shift::NoShift> (i, 0) + arg.c[1]*add_neighbors(face_type, x, i);
+    auto res = arg.c[0]*arg.in.template operator()<Shift::NoShift> (i, j) + arg.c[1]*add_neighbors(face_type,x,i,j);
 
-    if      constexpr (ST == StencilTp::FaceEdgeCentered  && D > 1)      res += arg.c[2]*add_edge_neighbors(face_type, x,i);
-    else if constexpr (ST == StencilTp::FaceEdgeCornerCentered && D > 2) res += arg.c[2]*add_edge_neighbors(face_type, x,i)+arg.c[3]*add_corner_neighbors(face_type, x,i);
+    if      constexpr (ST == StencilTp::FaceEdgeCentered  && D > 1)      res += arg.c[2]*add_edge_neighbors(face_type,x,i,j);
+    else if constexpr (ST == StencilTp::FaceEdgeCornerCentered && D > 2) res += arg.c[2]*add_edge_neighbors(face_type,x,i,j)+arg.c[3]*add_corner_neighbors(face_type,x,i,j);
 
-    arg.out[i][0] = res;
+    arg.out[i][j] = res;
     
     return;
   }

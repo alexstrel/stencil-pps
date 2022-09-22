@@ -32,7 +32,8 @@ const int dims  = 3;
 const int gridsz= 768;
 
 const std::array<int, dims> nd{gridsz, gridsz, gridsz};
-const int vol = (nd[0]*nd[1]*nd[2]) / (Mx*My*Mz);
+const std::array<int, dims> gd{nd[0]/Mx, nd[1]/My, nd[2]/Mz};
+const int vol = (gd[0]*gd[1]*gd[2]);
 
 const Float kappa     = 0.1;
 const Float length    = 1000.0;
@@ -95,7 +96,7 @@ int main(){
   struct timeval time_begin, time_end;
   
   //Create stencil functor instances:
-  std::unique_ptr<StencilArgs> args_ptr(new StencilArgs{v2, v1, nd, c0, c1, c2, c3});
+  std::unique_ptr<StencilArgs> args_ptr(new StencilArgs{v2, v1, gd, c0, c1, c2, c3});
   
   auto& args = *args_ptr;
   
@@ -140,7 +141,7 @@ int main(){
   auto &f_tmp   = nsteps & 1 ? v1 : v2;
   create_field<decltype(policy), Float, Mx,My,Mz>(policy, f_tmp, nd, kappa, length, time);
 
-  double err = accuracy<Float, false, Mx, My, Mz>(f_tmp,f_final);
+  double err = accuracy<Float, true, Mx, My, Mz>(f_tmp,f_final);
 
   double elapsed_time = (time_end.tv_sec - time_begin.tv_sec)+(time_end.tv_usec - time_begin.tv_usec)*1.0e-6;
   double Gflops = vol*(stencil_type == StencilTp::FaceCentered ? 8.0 : stencil_type == StencilTp::FaceEdgeCentered ? 21.0 : 30.0)*nsteps/elapsed_time * 1.0e-09;
