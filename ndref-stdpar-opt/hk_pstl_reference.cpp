@@ -84,9 +84,9 @@ int main(){
   std::vector<impl::StencilCell<Float, Mx,My,Mz>> v2(vol);
   //
     //initialize fields:
-  create_field<decltype(policy), Float, Mx,My,Mz>(policy, v1, nd, kappa, length, 0.0);
+  create_field<decltype(policy), Float, false, Mx,My,Mz>(policy, v1, nd, kappa, length, 0.0);
   //
-  //std::fill(policy, v2.begin(), v2.end(), 0.0);
+  create_field<decltype(policy), Float, true,  Mx,My,Mz>(policy, v1, nd, 0.0,   length, 0.0);
 
   std::cout << "Done initialization :: " << vol << std::endl;
 
@@ -139,7 +139,7 @@ int main(){
 
   auto &f_final = nsteps & 1 ? v2 : v1;
   auto &f_tmp   = nsteps & 1 ? v1 : v2;
-  create_field<decltype(policy), Float, Mx,My,Mz>(policy, f_tmp, nd, kappa, length, time);
+  create_field<decltype(policy), Float, false, Mx,My,Mz>(policy, f_tmp, nd, kappa, length, time);
 
   double err = accuracy<Float, true, Mx, My, Mz>(f_tmp,f_final);
 
