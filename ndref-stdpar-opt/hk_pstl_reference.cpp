@@ -22,9 +22,9 @@
 
 using Float = float;
 
-constexpr int Mx = 1;
-constexpr int My = 1;
-constexpr int Mz = 1;
+constexpr int Mx = 4;
+constexpr int My = 4;
+constexpr int Mz = 4;
 
 constexpr auto stencil_type = StencilTp::FaceCentered;
 
@@ -42,11 +42,11 @@ const int   nsteps    = 100;
 const Float dt        = tinterval / nsteps;
 const Float dx        = length / (nd[0]+static_cast<Float>(1.0));
 
-void dispatch_stencil_kernel(auto&& site_stencil_kernel, const int vol){
+void dispatch_stencil_kernel(auto&& site_stencil_kernel, const int len){
   //	
   auto policy = std::execution::par_unseq;
   //
-  auto outer_loop_range = std::ranges::views::iota(0, vol);
+  auto outer_loop_range = std::ranges::views::iota(0, len);
   //
   std::for_each(policy,
                 std::ranges::begin(outer_loop_range),
@@ -104,7 +104,9 @@ int main(){
   //
   auto stencil_kernel = [&stencil = *func_ptr] (const auto i) { stencil(i); };  
   
-  dispatch_stencil_kernel(stencil_kernel, vol);
+  const int exe_domain = vol * Mx *My *Mz;
+
+  dispatch_stencil_kernel(stencil_kernel, exe_domain);
 
   gettimeofday(&time_begin, NULL);
 #ifdef __NVCOMPILER_CUDA__
@@ -117,7 +119,7 @@ int main(){
   for(int k = 0; k < nsteps; k++) {
     // 
     if((k+1) % check_interval != 0) {  
-      dispatch_stencil_kernel(stencil_kernel, vol);
+      dispatch_stencil_kernel(stencil_kernel, exe_domain);
     } else {   
 #if 0         
       double l2nrm = std::transform_reduce( policy, 
@@ -147,9 +149,9 @@ int main(){
   double err = accuracy<Float, true, Mx, My, Mz>(f_tmp,f_final);
 
   double elapsed_time = (time_end.tv_sec - time_begin.tv_sec)+(time_end.tv_usec - time_begin.tv_usec)*1.0e-6;
-  double Gflops = vol*(stencil_type == StencilTp::FaceCentered ? 8.0 : stencil_type == StencilTp::FaceEdgeCentered ? 21.0 : 30.0)*nsteps/elapsed_time * 1.0e-09;
-  double Gstens = vol*1.0*nsteps/elapsed_time * 1.0e-06;
-  double thput  = vol * sizeof(Float) * 3.0 * nsteps
+  double Gflops = vol*Mx*My*Mz*(stencil_type == StencilTp::FaceCentered ? 8.0 : stencil_type == StencilTp::FaceEdgeCentered ? 21.0 : 30.0)*nsteps/elapsed_time * 1.0e-09;
+  double Gstens = vol*Mx*My*Mz*1.0*nsteps/elapsed_time * 1.0e-06;
+  double thput  = vol*Mx*My*Mz * sizeof(Float) * 3.0 * nsteps
       / elapsed_time * 1.0e-09;
 
   fprintf(stderr, "Elapsed time : %.3f (s)\n", elapsed_time);

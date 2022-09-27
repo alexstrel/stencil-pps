@@ -22,10 +22,10 @@
 
 using Float = float;
 
-constexpr auto stencil_type = StencilTp::FaceEdgeCornerCentered;
+constexpr auto stencil_type = StencilTp::FaceCentered;
 
 const int dims  = 3;
-const int gridsz= 768;
+const int gridsz= 1024;
 
 const std::array<int, dims> nd{gridsz, gridsz, gridsz};
 const int vol = nd[0]*nd[1]*nd[2];
