@@ -14,14 +14,22 @@ class FieldAccessor{
     StencilCell *v;//no allocation
 
     const std::array<int, D> N;//domain size 
-
+    const std::array<int, D> Nm1;
+    
     const int NxNy;
+    const int NxNymNx;
+    const int NxNyNz;    
+    const int NxNyNzmNxNy;        
 
   public :
     FieldAccessor(std::vector<StencilCell> &latt, const std::array<int, D> &dims) :
         v(latt.data()), 
         N(dims),
-        NxNy(D > 1 ? dims[0]*dims[1] : 0) {
+        Nm1{dims[0]-1, dims[1]-1, dims[2]-1},
+        NxNy(D > 1 ? dims[0]*dims[1] : 0),
+        NxNymNx(D > 1 ? dims[0]*dims[1]-dims[0] : 0), 
+        NxNyNz(D > 2 ? dims[0]*dims[1]*dims[3] : 0),
+        NxNyNzmNxNy(D > 2 ? dims[0]*dims[1]*dims[2]-dims[0]*dims[1] : 0) {
         }
         
     void Set(StencilCell* in) {v = in;}  
@@ -63,20 +71,22 @@ class FieldAccessor{
     template<int dir>
     inline constexpr int check_face_type(const std::array<int,D> &x, const int i) const {
 
-      int domain_face_idx = 0;
+      constexpr int num_dirs = 2*D;
+      constexpr int shift    = num_dirs;
+      int domain_face_idx    = 0;
       
       if        constexpr (dir == 0) {
-        if (x[0] == N[0] - 1) domain_face_idx = 1; 
+        if (x[0] == Nm1[0]  ) domain_face_idx = 1; 
       } else if constexpr (dir == 1) {
         if (x[0] == 0       ) domain_face_idx = 2;
       } else if constexpr (dir == 2) {
-        if (x[1] == N[1] - 1) domain_face_idx = 4;
+        if (x[1] == Nm1[1]  ) domain_face_idx = 4;
       } else if constexpr (dir == 3) {
         if (x[1] == 0       ) domain_face_idx = 8;
       } else if constexpr (dir == 4) {
-        if (x[2] == N[2] - 1) domain_face_idx =16;
+        if (x[2] == Nm1[2]  ) domain_face_idx =16;
       } else if constexpr (dir == 5) {
-        if (x[2] == 0) domain_face_idx =32;
+        if (x[2] == 0       ) domain_face_idx =32;
       }
       
       if(domain_face_idx != 0) {
@@ -85,17 +95,17 @@ class FieldAccessor{
         StencilCell::Indx2Coord(y, i);
         
         if constexpr (dir == 0) {
-          if (domain_face_idx == 1 && y[0] != StencilCell::m[0] - 1) domain_face_idx = 0; 
+          if (domain_face_idx == 1 && y[0] < StencilCell::m[0] - 1) domain_face_idx <<= shift; 
         } else if constexpr (dir == 1) {
-          if (domain_face_idx == 2 && y[0] != 0                    ) domain_face_idx = 0;
+          if (domain_face_idx == 2 && y[0] > 0                    ) domain_face_idx <<= shift;
         } else if constexpr (dir == 2) {
-          if (domain_face_idx == 4 && y[1] != StencilCell::m[1] - 1) domain_face_idx = 0;
+          if (domain_face_idx == 4 && y[1] < StencilCell::m[1] - 1) domain_face_idx <<= shift;
         } else if constexpr (dir == 3) {
-          if (domain_face_idx == 8 && y[1] != 0                    ) domain_face_idx = 0;
+          if (domain_face_idx == 8 && y[1] > 0                    ) domain_face_idx <<= shift;
         } else if constexpr (dir == 4) {
-         if (domain_face_idx == 16 && y[2] != StencilCell::m[2] - 1) domain_face_idx = 0;
+         if (domain_face_idx == 16 && y[2] < StencilCell::m[2] - 1) domain_face_idx <<= shift;
         } else if constexpr (dir == 5) {
-         if (domain_face_idx == 32 && y[2] != 0                    ) domain_face_idx = 0;
+         if (domain_face_idx == 32 && y[2] > 0                    ) domain_face_idx <<= shift;
         }        
       }
 
@@ -103,8 +113,49 @@ class FieldAccessor{
     }
 
     template<int dir>
-    inline T get_bndry_term(const std::array<int, D> &x, const int j, const int i) const {
+    inline T get_bndry_term(const int face_type, const std::array<int, D> &x, const int j, const int i) const {
+      {
+        if constexpr (dir == 0) {
+          if (face_type & 64  ) {
+            const int k = j-Nm1[0];
+            const int l = i+1;
+            return v[k][l]; 
+          }
+        } else if constexpr (dir == 1) {
+          if (face_type & 128 ) {
+            const int k = j+Nm1[0];
+            const int l = i-1;
+            return v[k][l]; 
+          }
+        } else if constexpr (dir == 2) {
+          if (face_type & 256 ) {
+            const int k = j-NxNymNx;
+            const int l = i+StencilCell::m[0];
+            return v[k][l]; 
+          }
+        } else if constexpr (dir == 3) {
+          if (face_type & 512 ){
+            const int k = j+NxNymNx;
+            const int l = i-StencilCell::m[0];
+            return v[k][l]; 
+          }
+        } else if constexpr (dir == 4) {
+          if (face_type & 1024){
+            const int k = j-NxNyNzmNxNy;
+            const int l = i+StencilCell::m[0]*StencilCell::m[1];
+            return v[k][l]; 
+          }
+        } else if constexpr (dir == 5) {
+          if (face_type & 2048){
+            const int k = j+NxNyNzmNxNy;
+            const int l = i-StencilCell::m[0]*StencilCell::m[1];
+            return v[k][l]; 
+          }
+        }  
+      } 
+      // For "true" boundary:  
       return static_cast<T>(0.0);//Trivial BC
+      
     }
 
     //works for both nvc++ and g++

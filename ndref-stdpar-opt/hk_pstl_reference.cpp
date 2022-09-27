@@ -22,9 +22,9 @@
 
 using Float = float;
 
-constexpr int Mx = 1;
-constexpr int My = 1;
-constexpr int Mz = 1;
+constexpr int Mx = 4;
+constexpr int My = 4;
+constexpr int Mz = 4;
 
 constexpr auto stencil_type = StencilTp::FaceCentered;
 
@@ -111,6 +111,7 @@ int main(){
   //launch iterations
   auto stencil_kernel = [&stencil = *func_ptr] (const auto i) { stencil(i); };
 
+  printf("Start iterations!\n");  
   for(int k = 0; k < nsteps; k++) {
     // 
     if((k+1) % check_interval != 0) {  

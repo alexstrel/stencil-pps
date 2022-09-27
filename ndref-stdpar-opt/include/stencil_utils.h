@@ -14,6 +14,8 @@ void create_field(const Policy &p,
                   const T time) {
                   
   std::vector<impl::StencilCell<T, M...>> tmp(out.size());                  
+
+  printf("Stencil size %d\n", tmp[0].size());
   
   const std::array<T, 3> dnl{length / (nl[0]+static_cast<T>(1.0)), length /(nl[1]+static_cast<T>(1.0)), length / (nl[2]+static_cast<T>(1.0))} ; 	
   
