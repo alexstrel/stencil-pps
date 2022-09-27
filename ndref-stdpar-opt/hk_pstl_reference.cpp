@@ -22,14 +22,14 @@
 
 using Float = float;
 
-constexpr int Mx = 4;
-constexpr int My = 4;
-constexpr int Mz = 4;
+constexpr int Mx = 1;
+constexpr int My = 1;
+constexpr int Mz = 1;
 
 constexpr auto stencil_type = StencilTp::FaceCentered;
 
 const int dims  = 3;
-const int gridsz= 768;
+const int gridsz=1024;
 
 const std::array<int, dims> nd{gridsz, gridsz, gridsz};
 const std::array<int, dims> gd{nd[0]/Mx, nd[1]/My, nd[2]/Mz};
@@ -101,7 +101,11 @@ int main(){
   auto& args = *args_ptr;
   
   auto func_ptr = std::make_shared<GenericNDStencil<stencil_type, StencilArgs>>(args);
+  //
+  auto stencil_kernel = [&stencil = *func_ptr] (const auto i) { stencil(i); };  
   
+  dispatch_stencil_kernel(stencil_kernel, vol);
+
   gettimeofday(&time_begin, NULL);
 #ifdef __NVCOMPILER_CUDA__
   const int check_interval = 250;
@@ -109,8 +113,6 @@ int main(){
   const int check_interval = std::numeric_limits<int>::max();
 #endif  
   //launch iterations
-  auto stencil_kernel = [&stencil = *func_ptr] (const auto i) { stencil(i); };
-
   printf("Start iterations!\n");  
   for(int k = 0; k < nsteps; k++) {
     // 

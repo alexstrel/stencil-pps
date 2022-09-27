@@ -89,32 +89,33 @@ class FieldAccessor{
         if (x[2] == 0       ) domain_face_idx =32;
       }
       
-      if(domain_face_idx != 0) {
-        std::array<int, StencilCell::D> y{0};
+      if constexpr (StencilCell::cell_size > 1) {
+        if(domain_face_idx != 0) {
+          std::array<int, StencilCell::D> y{0};
 
-        StencilCell::Indx2Coord(y, i);
+          StencilCell::Indx2Coord(y, i);
         
-        if constexpr (dir == 0) {
-          if (domain_face_idx == 1 && y[0] < StencilCell::m[0] - 1) domain_face_idx <<= shift; 
-        } else if constexpr (dir == 1) {
-          if (domain_face_idx == 2 && y[0] > 0                    ) domain_face_idx <<= shift;
-        } else if constexpr (dir == 2) {
-          if (domain_face_idx == 4 && y[1] < StencilCell::m[1] - 1) domain_face_idx <<= shift;
-        } else if constexpr (dir == 3) {
-          if (domain_face_idx == 8 && y[1] > 0                    ) domain_face_idx <<= shift;
-        } else if constexpr (dir == 4) {
-         if (domain_face_idx == 16 && y[2] < StencilCell::m[2] - 1) domain_face_idx <<= shift;
-        } else if constexpr (dir == 5) {
-         if (domain_face_idx == 32 && y[2] > 0                    ) domain_face_idx <<= shift;
-        }        
+          if constexpr (dir == 0) {
+            if (domain_face_idx == 1 && y[0] < StencilCell::m[0] - 1) domain_face_idx <<= shift; 
+          } else if constexpr (dir == 1) {
+            if (domain_face_idx == 2 && y[0] > 0                    ) domain_face_idx <<= shift;
+          } else if constexpr (dir == 2) {
+            if (domain_face_idx == 4 && y[1] < StencilCell::m[1] - 1) domain_face_idx <<= shift;
+          } else if constexpr (dir == 3) {
+            if (domain_face_idx == 8 && y[1] > 0                    ) domain_face_idx <<= shift;
+          } else if constexpr (dir == 4) {
+            if (domain_face_idx == 16 && y[2] < StencilCell::m[2] - 1) domain_face_idx <<= shift;
+          } else if constexpr (dir == 5) {
+            if (domain_face_idx == 32 && y[2] > 0                    ) domain_face_idx <<= shift;
+          }        
+        }
       }
-
       return domain_face_idx;
     }
 
     template<int dir>
     inline T get_bndry_term(const int face_type, const std::array<int, D> &x, const int j, const int i) const {
-      {
+      if constexpr (StencilCell::cell_size > 1){
         if constexpr (dir == 0) {
           if (face_type & 64  ) {
             const int k = j-Nm1[0];
