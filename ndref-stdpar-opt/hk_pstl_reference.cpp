@@ -22,9 +22,9 @@
 
 using Float = float;
 
-constexpr int Mx = 4;
-constexpr int My = 4;
-constexpr int Mz = 4;
+constexpr int Mx = 1;
+constexpr int My = 1;
+constexpr int Mz = 1;
 
 constexpr auto stencil_type = StencilTp::FaceCentered;
 
@@ -86,7 +86,7 @@ int main(){
     //initialize fields:
   create_field<decltype(policy), Float, false, Mx,My,Mz>(policy, v1, nd, kappa, length, 0.0);
   //
-  create_field<decltype(policy), Float, true,  Mx,My,Mz>(policy, v1, nd, 0.0,   length, 0.0);
+  create_field<decltype(policy), Float, true,  Mx,My,Mz>(policy, v2, nd, 0.0,   length, 0.0);
 
   std::cout << "Done initialization :: " << vol << std::endl;
 
@@ -105,8 +105,6 @@ int main(){
   auto stencil_kernel = [&stencil = *func_ptr] (const auto i) { stencil(i); };  
   
   const int exe_domain = vol * Mx *My *Mz;
-
-  dispatch_stencil_kernel(stencil_kernel, exe_domain);
 
   gettimeofday(&time_begin, NULL);
 #ifdef __NVCOMPILER_CUDA__
