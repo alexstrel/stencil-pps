@@ -2,13 +2,14 @@
 
 #include <cstdio>
 #include <iostream>
+#include <complex>
 
-#include <register_traits.h>
-#include <float_vector.h>
-#include <complex_quda.h>
-#include <math_helper.cuh>
+//#include <register_traits.h>
+//#include <float_vector.h>
+//#include <complex_quda.h>
+//#include <math_helper.cuh>
 
-namespace quda {
+namespace hisq{
 
   template <typename T> constexpr bool is_nan(T x) { return x != x; }
   
@@ -24,8 +25,8 @@ namespace quda {
   template <> struct RealType<std::complex<short> > { using type = short;  };
   template <> struct RealType<std::complex<int8_t>> { using type = int8_t; };
 
-  template<ArithmeticTp T, int N, int bSize>
-  typename Matrix {
+  template<ArithmeticTp T, int N, int bSize = 1>
+  class Matrix {
       using real = typename RealType<T>::type;
 
     private:
@@ -39,6 +40,9 @@ namespace quda {
         constexpr int cols() const { return N; }
         constexpr int batch_size() const { return bSize; }
         constexpr int size()       const { return N*N;   }
+        
+        static constexpr int Rows() { return N; }
+        static constexpr int Cols() { return N; }
 
         inline Matrix() = default;
 
@@ -62,18 +66,10 @@ namespace quda {
         inline auto const & operator()(int i, int j, int b) const {
           return data[index(i,j,b)];
         }
-
-        //inline auto const & operator()(int l, int b) const {
-        //  return data[index(l,b)];
-        //}
         
         inline auto & operator()(int i, int j, int b) {
           return data[index(i,j,b)];
         }        
-
-        //inline auto & operator()(int l, int b) {
-        //  return data[index(i,b)];
-        //}
         
         inline auto const & operator()(int l, int b) const {
           int j = l % N;
@@ -190,7 +186,7 @@ namespace quda {
   /**
      @brief Specialization of complex matrix multiplication that will issue optimal fma instructions
    */
-  template< template<ArithmeticTp,int,int> typename Mat, ArithmeticTp T, int N>
+  template< template<ArithmeticTp,int,int> typename Mat, ArithmeticTp T, int N, int bSize>
     inline Mat<T,N,bSize> operator*(const Mat<T,N,bSize> &a, const Mat<T,N,bSize> &b)
     {
       Mat<T,N,bSize> result;
@@ -265,13 +261,15 @@ namespace quda {
   // the compiler knows to store the
   // data elements in registers, so I won't do
   // it right now.
-  template<ArithmeticTp T, int N, int bSize>
+  template<ArithmeticTp T, int N, int bSize = 1>
     class Array
     {
       private:
         std::array<std::complex<T>, N*bSize> data;
 
       public:
+      
+        static constexpr int size() { return N; }
         // access function
         inline auto const & operator[](int i) const{ return data[i]; }
         inline auto const & operator()(int i, int j) const{ return data[i*bSize+j]; }
@@ -283,13 +281,21 @@ namespace quda {
 
 
   template<ArithmeticTp T, int N, int bSize>
-    inline void copyColumn(const Matrix<T,N, bsize>& m, int c, Array<T,N, bSize>* a){   
+    inline void copyColumn(const Matrix<T,N, bSize>& m, int c, Array<T,N, bSize>& a){   
 #pragma unroll
       for (int i=0; i<N; ++i){
 #pragma unroll
         for (int l = 0; l < bSize; l++) { 
-          (*a)(i,l) = m(i,c,l); // c is the column index
+          a(i,l) = m(i,c,l); // c is the column index
         }
       }
     }
-} // end namespace impl
+   //internal data format 
+   template <ArithmeticTp Float> using su3_matrix_  = Matrix<Float, 3>;
+   template <ArithmeticTp Float> using su3_vector_  = Array<Float, 3>;      
+   //external data format
+   //
+   template <ArithmeticTp Float, int N, int bSize> using sun_matrix  = Matrix<Float, N, bSize>;
+   template <ArithmeticTp Float, int N, int bSize> using sun_vector  = Array<Float, N, bSize>;   
+   
+} // end namespace sun
