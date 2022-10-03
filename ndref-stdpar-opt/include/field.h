@@ -14,16 +14,44 @@ consteval int getsize() {
   for (int &i : r)  s = s*i;
 
   return s;
+}
+
+template<int... M>
+consteval decltype(auto) compute_global_offsets() {
+
+  std::array<int, sizeof... (M)> m{M...};
+  //
+  std::array<int, sizeof... (M)> offsets{M...};
+  //
+  int i = 0;
+  //
+#if 0  
+  offsets[0] = m[0]; 
+  //
+  for (int &m_ : m) { 
+    offests[i+1] = offsets[i]*m_;//!
+    i += 1;
+  }
+#else
+  int prev_offset = 1; 
+  //
+  for (int &m_ : m) { 
+    offests[i]  = prev_offset*m_;//m[0], m[0]*m[1], m[0]*m[1]*m[2]
+    prev_offset = offests[i];
+    i += 1;
+  }
+#endif
+  return offsets;
 }	
 
 template <ArithmeticTp T, int... M>
 class StencilCell {
    public :
      using value_type = T;
-     //local dimensions
-     static constexpr int D{sizeof...(M)};
-     static constexpr std::array<int, D> m{M...};
+
+     static constexpr std::array<int, sizeof...(M)> m{M...};
      static constexpr int cell_size{getsize<M...>()};
+     static constexpr std::array<int, sizeof...(M)> offsets{compute_global_offsets<M...>()};     
 
      T data[cell_size];
 
@@ -41,14 +69,27 @@ class StencilCell {
      auto operator=(StencilCell&&     ) -> StencilCell& = default;
      
    //private:
-     inline static void Indx2Coord(std::array<int, D> &x, const int &i) {
-       if constexpr (D == 3) {
-         constexpr int NxNy = m[0]*m[1];
-         x[2] = i / NxNy;
-         const int tmp = (i - x[2]*NxNy);
-         x[1] = tmp / m[0];
-         x[0] = tmp - x[1]*m[0];
+     inline static decltype(auto) Indx2Coord(const int &i) {
+       //
+       std::array<int, sizeof...(M)> x;     
+     
+       x[0] = i; // return for 1D domain, otherwise use also as temp.
+           
+       if constexpr (sizeof...(M) > 2) {
+         // First, compute higher dim coords:
+#pragma unroll         
+         for (int j = (sizeof...(M)-1); j > 1; j--) {
+           x[j] = x[0] / offsets[j-1];
+           x[0] = (x[0] - x[j]*offsets[j-1]);
+         }
        }
+       //
+       if constexpr (sizeof...(M) > 1) {
+         x[1] = x[0] / offsets[0];
+         x[0] = x[0] - x[1]*offsets[0];       
+       } 
+       
+       return x;     
      }
    
 };

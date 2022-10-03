@@ -26,7 +26,7 @@ constexpr int Mx = 1;
 constexpr int My = 1;
 constexpr int Mz = 1;
 
-constexpr auto stencil_type = StencilTp::FaceCentered;
+constexpr auto stencil_type = StencilTp::FaceEdgeCornerCentered;
 
 const int dims  = 3;
 const int gridsz=1024;

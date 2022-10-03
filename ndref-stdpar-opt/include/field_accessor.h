@@ -6,30 +6,38 @@
 template <typename StencilCell, int D=3>
 class FieldAccessor{
   public:
-    using T = typename StencilCell::value_type; 
+    using T      = typename StencilCell::value_type; 
+    using iarrD  = std::array<int, D>; 
     
     static constexpr int stencil_cell_size = StencilCell::cell_size;
 
   private :
     StencilCell *v;//no allocation
-
-    const std::array<int, D> N;//domain size 
-    const std::array<int, D> Nm1;
     
+    const iarrD Nm1;    
+    const iarrD strides;       
+
+    const int Nx;
     const int NxNy;
-    const int NxNymNx;
-    const int NxNyNz;    
-    const int NxNyNzmNxNy;        
+    const int NxNyNz;
 
   public :
     FieldAccessor(std::vector<StencilCell> &latt, const std::array<int, D> &dims) :
         v(latt.data()), 
-        N(dims),
-        Nm1{dims[0]-1, dims[1]-1, dims[2]-1},
-        NxNy(D > 1 ? dims[0]*dims[1] : 0),
-        NxNymNx(D > 1 ? dims[0]*dims[1]-dims[0] : 0), 
-        NxNyNz(D > 2 ? dims[0]*dims[1]*dims[3] : 0),
-        NxNyNzmNxNy(D > 2 ? dims[0]*dims[1]*dims[2]-dims[0]*dims[1] : 0) {
+	Nm1([d=dims]()->iarrD {iarrD Nm1; for(int i = 0; i < D; i++) Nm1[i] = d[i] -1; return Nm1;} ()),
+	strides([d=dims]()->iarrD {
+                iarrD strides;
+                int prev_stride{1};
+                for(int i = 0; i < D; i++) {
+                  int tmp    = prev_stride*d[i];
+		  strides[i] = tmp - prev_stride;
+                  prev_stride= tmp;
+                } return strides;} ()),
+	Nx{dims[0]},
+        NxNy{D > 1 ? dims[0]*dims[1] : 0},
+        NxNyNz{D > 2 ? dims[0]*dims[1]*dims[3] : 0}
+	{
+        
         }
         
     void Set(StencilCell* in) {v = in;}  
@@ -91,9 +99,8 @@ class FieldAccessor{
       
       if constexpr (StencilCell::cell_size > 1) {
         if(domain_face_idx != 0) {
-          std::array<int, StencilCell::D> y{0};
 
-          StencilCell::Indx2Coord(y, i);
+          const auto y = StencilCell::Indx2Coord(i);
         
           if constexpr (dir == 0) {
             if (domain_face_idx == 1 && y[0] < StencilCell::m[0] - 1) domain_face_idx <<= shift; 
@@ -118,37 +125,37 @@ class FieldAccessor{
       if constexpr (StencilCell::cell_size > 1){
         if constexpr (dir == 0) {
           if (face_type & 64  ) {
-            const int k = j-Nm1[0];
+            const int k = j-strides[0];// Nm1[0];
             const int l = i+1;
             return v[k][l]; 
           }
         } else if constexpr (dir == 1) {
           if (face_type & 128 ) {
-            const int k = j+Nm1[0];
+            const int k = j+strides[0];
             const int l = i-1;
             return v[k][l]; 
           }
         } else if constexpr (dir == 2) {
           if (face_type & 256 ) {
-            const int k = j-NxNymNx;
+            const int k = j-strides[1];//NxNymNx;
             const int l = i+StencilCell::m[0];
             return v[k][l]; 
           }
         } else if constexpr (dir == 3) {
           if (face_type & 512 ){
-            const int k = j+NxNymNx;
+            const int k = j+strides[1];//NxNymNx;
             const int l = i-StencilCell::m[0];
             return v[k][l]; 
           }
         } else if constexpr (dir == 4) {
           if (face_type & 1024){
-            const int k = j-NxNyNzmNxNy;
+            const int k = j-strides[2];//NxNyNzmNxNy;
             const int l = i+StencilCell::m[0]*StencilCell::m[1];
             return v[k][l]; 
           }
         } else if constexpr (dir == 5) {
           if (face_type & 2048){
-            const int k = j+NxNyNzmNxNy;
+            const int k = j+strides[2];//NxNyNzmNxNy;
             const int l = i-StencilCell::m[0]*StencilCell::m[1];
             return v[k][l]; 
           }
@@ -169,13 +176,13 @@ class FieldAccessor{
       } else if constexpr (shift == Shift::ShiftXm1) {
          j -= 1;
       } else if constexpr (shift == Shift::ShiftYp1) {
-         j += N[0];
+         j += Nx;//Nx
       } else if constexpr (shift == Shift::ShiftYm1) {
-         j -= N[0];
+         j -= Nx;//Nx
       } else if constexpr (shift == Shift::ShiftZp1) {
-         j += NxNy;
+         j += NxNy;//NxNy
       } else if constexpr (shift == Shift::ShiftZm1) {
-         j -= NxNy;
+         j -= NxNy;//NxNy
       }
 
       if constexpr (sizeof...(other_shifts) != 0) {
@@ -203,10 +210,15 @@ class FieldAccessor{
     }
 
     //3d version
-    inline void Indx2Coord(std::array<int, D> &x, const int &i) const {
+    inline decltype(auto) Indx2Coord(const int &i) const {
+    
+      std::array<int, D> x;
+      
       x[2] = i / NxNy;
       const int tmp = (i - x[2]*NxNy);
-      x[1] = tmp / N[0];
-      x[0] = tmp - x[1]*N[0];
+      x[1] = tmp / Nx;
+      x[0] = tmp - x[1]*Nx;
+      
+      return x;
     }
 };
