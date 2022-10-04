@@ -150,8 +150,8 @@ class GenericNDStencil {
 
   inline typename std::enable_if<D <= 3, void>::type operator()(const int l){
     //    
-    const int i = l / arg.in.stencil_cell_size; 
-    const int j = l % arg.in.stencil_cell_size; 
+    const int i = l / arg.in.stencil_grid_size; 
+    const int j = l % arg.in.stencil_grid_size; 
     //    
     auto x = arg.in.Indx2Coord(i);
     //

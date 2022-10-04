@@ -58,7 +58,7 @@ void dispatch_stencil_kernel(auto&& site_stencil_kernel, const int len){
 
 int main(){
 
-  using StencilArgs = GenericNDStencilArg<impl::StencilCell<Float, Mx,My,Mz>, dims, Float, Float, Float, Float>;//NB!
+  using StencilArgs = GenericNDStencilArg<impl::StencilGrid<Float, Mx,My,Mz>, dims, Float, Float, Float, Float>;//NB!
   
   Float c0, c1, c2, c3;
 
@@ -80,8 +80,8 @@ int main(){
   //set execution policy:
   auto policy = std::execution::par_unseq;
 
-  std::vector<impl::StencilCell<Float, Mx,My,Mz>> v1(vol);
-  std::vector<impl::StencilCell<Float, Mx,My,Mz>> v2(vol);
+  std::vector<impl::StencilGrid<Float, Mx,My,Mz>> v1(vol);
+  std::vector<impl::StencilGrid<Float, Mx,My,Mz>> v2(vol);
   //
     //initialize fields:
   create_field<decltype(policy), Float, false, Mx,My,Mz>(policy, v1, nd, kappa, length, 0.0);

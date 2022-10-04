@@ -6,7 +6,7 @@ namespace impl
 {
 
 template<int... M>
-consteval int getsize() {
+consteval int get_grid_size() {
 
   std::array<int, sizeof... (M)> r{M...};
   int s = 1;
@@ -37,28 +37,28 @@ consteval decltype(auto) compute_global_offsets() {
 }	
 
 template <ArithmeticTp T, int... M>
-class StencilCell {
+class StencilGrid {
    public :
      using value_type = T;
 
      static constexpr std::array<int, sizeof...(M)> m{M...};
-     static constexpr int cell_size{getsize<M...>()};
+     static constexpr int grid_size{get_grid_size<M...>()};
      static constexpr std::array<int, sizeof...(M)> offsets{compute_global_offsets<M...>()};     
 
-     T data[cell_size];
+     T data[grid_size];
 
-     StencilCell() = default;
-     StencilCell(const StencilCell<T, M...> &) = default;
-     StencilCell(StencilCell<T, M...> &&)      = default;
+     StencilGrid() = default;
+     StencilGrid(const StencilGrid<T, M...> &) = default;
+     StencilGrid(StencilGrid<T, M...> &&)      = default;
    
      //basic accessors
      constexpr T &operator[](const int i) { return data[i]; }
      constexpr const T &operator[](const int i) const { return data[i]; }
 
-     constexpr int size() const { return getsize<M...>(); }   
+     constexpr int size() const { return get_grid_size<M...>(); }   
 
-     auto operator=(const StencilCell&) -> StencilCell& = default;
-     auto operator=(StencilCell&&     ) -> StencilCell& = default;
+     auto operator=(const StencilGrid&) -> StencilGrid& = default;
+     auto operator=(StencilGrid&&     ) -> StencilGrid& = default;
      
    //private:
      inline static decltype(auto) Indx2Coord(const int &i) {

@@ -7,13 +7,13 @@ const double _2pi = (2*_pi);
 
 template<typename Policy,  ArithmeticTp T, bool is_zero, int... M>
 void create_field(const Policy &p,
-                  std::vector<impl::StencilCell<T, M...>> &out,
+                  std::vector<impl::StencilGrid<T, M...>> &out,
                   const std::array<int, 3> nl,
                   const T kappa,
                   const T length,
                   const T time) {
                   
-  std::vector<impl::StencilCell<T, M...>> tmp(out.size());                  
+  std::vector<impl::StencilGrid<T, M...>> tmp(out.size());                  
 
   printf("Stencil size %d\n", tmp[0].size());
   
@@ -63,7 +63,7 @@ void create_field(const Policy &p,
 }
 
 template<ArithmeticTp T, bool rel_error, int... M>
-T accuracy(const std::vector<impl::StencilCell<T, M...>> &in1, std::vector<impl::StencilCell<T, M...>> &in2) {
+T accuracy(const std::vector<impl::StencilGrid<T, M...>> &in1, std::vector<impl::StencilGrid<T, M...>> &in2) {
 
   double err   = 0.0;
   double norm  = 0.0;

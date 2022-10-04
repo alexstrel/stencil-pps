@@ -3,16 +3,16 @@
 #include <common.h>
 #include <field.h>
 
-template <typename StencilCell, int D=3>
+template <typename StencilGrid, int D=3>
 class FieldAccessor{
   public:
-    using T      = typename StencilCell::value_type; 
+    using T      = typename StencilGrid::value_type; 
     using iarrD  = std::array<int, D>; 
     
-    static constexpr int stencil_cell_size = StencilCell::cell_size;
+    static constexpr int stencil_grid_size = StencilGrid::grid_size;
 
   private :
-    StencilCell *v;//no allocation
+    StencilGrid *v;//no allocation
     
     const iarrD Nm1;    
     const iarrD strides;       
@@ -22,7 +22,7 @@ class FieldAccessor{
     const int NxNyNz;
 
   public :
-    FieldAccessor(std::vector<StencilCell> &latt, const std::array<int, D> &dims) :
+    FieldAccessor(std::vector<StencilGrid> &latt, const std::array<int, D> &dims) :
         v(latt.data()), 
 	Nm1([d=dims]()->iarrD {iarrD Nm1; for(int i = 0; i < D; i++) Nm1[i] = d[i] -1; return Nm1;} ()),
 	strides([d=dims]()->iarrD {
@@ -33,28 +33,24 @@ class FieldAccessor{
 		  strides[i] = tmp - prev_stride;
                   prev_stride= tmp;
                 } return strides;} ()),
-	Nx{dims[0]},
+        Nx{dims[0]},
         NxNy{D > 1 ? dims[0]*dims[1] : 0},
         NxNyNz{D > 2 ? dims[0]*dims[1]*dims[2] : 0}
 	{
         
         }
         
-    void Set(StencilCell* in) {v = in;}  
-    StencilCell* Get() {return v;} 
+    void Set(StencilGrid* in) {v = in;}  
+    StencilGrid* Get() {return v;} 
     
     void swap(FieldAccessor &f){
       //
-      StencilCell* tmp = f.Get();
+      StencilGrid* tmp = f.Get();
       f.Set(v);
       v = tmp;
       
       return;
-    }
-
-    inline int GetDim(int dim) {return N[dim];}
-
-    inline decltype(auto) GetDims() const {return N;} 
+    } 
 
     template <Shift shift>
     inline int get_shift_dir() const {
@@ -97,21 +93,21 @@ class FieldAccessor{
         if (x[2] == 0       ) domain_face_idx =32;
       }
       
-      if constexpr (StencilCell::cell_size > 1) {
+      if constexpr (stencil_grid_size > 1) {
         if(domain_face_idx != 0) {
 
-          const auto y = StencilCell::Indx2Coord(i);
+          const auto y = StencilGrid::Indx2Coord(i);
         
           if constexpr (dir == 0) {
-            if (domain_face_idx == 1 && y[0] < StencilCell::m[0] - 1) domain_face_idx <<= shift; 
+            if (domain_face_idx == 1 && y[0] < StencilGrid::m[0] - 1) domain_face_idx <<= shift; 
           } else if constexpr (dir == 1) {
             if (domain_face_idx == 2 && y[0] > 0                    ) domain_face_idx <<= shift;
           } else if constexpr (dir == 2) {
-            if (domain_face_idx == 4 && y[1] < StencilCell::m[1] - 1) domain_face_idx <<= shift;
+            if (domain_face_idx == 4 && y[1] < StencilGrid::m[1] - 1) domain_face_idx <<= shift;
           } else if constexpr (dir == 3) {
             if (domain_face_idx == 8 && y[1] > 0                    ) domain_face_idx <<= shift;
           } else if constexpr (dir == 4) {
-            if (domain_face_idx == 16 && y[2] < StencilCell::m[2] - 1) domain_face_idx <<= shift;
+            if (domain_face_idx == 16 && y[2] < StencilGrid::m[2] - 1) domain_face_idx <<= shift;
           } else if constexpr (dir == 5) {
             if (domain_face_idx == 32 && y[2] > 0                    ) domain_face_idx <<= shift;
           }        
@@ -122,7 +118,7 @@ class FieldAccessor{
 
     template<int dir>
     inline T get_bndry_term(const int face_type, const std::array<int, D> &x, const int j, const int i) const {
-      if constexpr (StencilCell::cell_size > 1){
+      if constexpr (stencil_grid_size > 1){
         if constexpr (dir == 0) {
           if (face_type & 64  ) {
             const int k = j-strides[0];// Nm1[0];
@@ -138,25 +134,25 @@ class FieldAccessor{
         } else if constexpr (dir == 2) {
           if (face_type & 256 ) {
             const int k = j-strides[1];//NxNymNx;
-            const int l = i+StencilCell::m[0];
+            const int l = i+StencilGrid::m[0];
             return v[k][l]; 
           }
         } else if constexpr (dir == 3) {
           if (face_type & 512 ){
             const int k = j+strides[1];//NxNymNx;
-            const int l = i-StencilCell::m[0];
+            const int l = i-StencilGrid::m[0];
             return v[k][l]; 
           }
         } else if constexpr (dir == 4) {
           if (face_type & 1024){
             const int k = j-strides[2];//NxNyNzmNxNy;
-            const int l = i+StencilCell::m[0]*StencilCell::m[1];
+            const int l = i+StencilGrid::m[0]*StencilGrid::m[1];
             return v[k][l]; 
           }
         } else if constexpr (dir == 5) {
           if (face_type & 2048){
             const int k = j+strides[2];//NxNyNzmNxNy;
-            const int l = i-StencilCell::m[0]*StencilCell::m[1];
+            const int l = i-StencilGrid::m[0]*StencilGrid::m[1];
             return v[k][l]; 
           }
         }  
@@ -192,7 +188,7 @@ class FieldAccessor{
       return j;//stop recursion and return the index of the neighbor
     }
 
-    StencilCell& operator[](const int j) const { return v[j];}
+    StencilGrid& operator[](const int j) const { return v[j];}
 
     template<Shift face_shift, Shift... other_shifts>
     T operator()(const int j, const int i) const {
