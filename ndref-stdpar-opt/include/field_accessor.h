@@ -35,7 +35,7 @@ class FieldAccessor{
                 } return strides;} ()),
 	Nx{dims[0]},
         NxNy{D > 1 ? dims[0]*dims[1] : 0},
-        NxNyNz{D > 2 ? dims[0]*dims[1]*dims[3] : 0}
+        NxNyNz{D > 2 ? dims[0]*dims[1]*dims[2] : 0}
 	{
         
         }

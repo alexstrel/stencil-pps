@@ -25,14 +25,6 @@ consteval decltype(auto) compute_global_offsets() {
   //
   int i = 0;
   //
-#if 0  
-  offsets[0] = m[0]; 
-  //
-  for (int &m_ : m) { 
-    offests[i+1] = offsets[i]*m_;//!
-    i += 1;
-  }
-#else
   int prev_offset = 1; 
   //
   for (int &m_ : m) { 
@@ -40,7 +32,7 @@ consteval decltype(auto) compute_global_offsets() {
     prev_offset = offests[i];
     i += 1;
   }
-#endif
+
   return offsets;
 }	
 
