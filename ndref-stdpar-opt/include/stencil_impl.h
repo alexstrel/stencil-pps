@@ -63,10 +63,13 @@ class GenericNDStencilArg {
   
   public:
     using T = data_tp::value_type;
-    using F = FieldAccessor<data_tp, D>;
-  
+    using S = FieldArgs<D>;
+    using F = FieldAccessor<data_tp, S>;
+    //
     static constexpr int Dims = D;
-  
+    //
+    S accessor_args;
+
     F out;//  
     F in;//stencil source , but not const!
 
@@ -74,8 +77,9 @@ class GenericNDStencilArg {
     const std::array<T, sizeof...(coeffs)> c;
 
     GenericNDStencilArg(std::vector<data_tp> &out_, const std::vector<data_tp> &in_,  const std::array<int, D> dims, const coeffs& ...c_) :
-    	out(out_, dims),
-	in (const_cast<std::vector<data_tp>&>(in_), dims),
+	accessor_args(dims),    
+    	out(out_, accessor_args),
+	in (const_cast<std::vector<data_tp>&>(in_), accessor_args),
 	c{c_...} { 
     }   
     //

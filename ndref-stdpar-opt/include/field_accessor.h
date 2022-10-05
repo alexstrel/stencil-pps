@@ -3,42 +3,51 @@
 #include <common.h>
 #include <field.h>
 
-template <typename StencilGrid, int D=3>
-class FieldAccessor{
+template <int D=3>
+class FieldArgs{
   public:
-    using T      = typename StencilGrid::value_type; 
-    using iarrD  = std::array<int, D>; 
+    static constexpr int Dims = D;
+
+    const std::array<int, D> Nm1;    
+    const std::array<int, D> strides;//Nx-1, NxNy-Nx, NxNyNz-NxNy    
+    const std::array<int, D> offsets;//Nx, NxNy, NxNyNz, ... etc 
     
-    static constexpr int stencil_grid_size = StencilGrid::grid_size;
-
-  private :
-    StencilGrid *v;//no allocation
-    
-    const iarrD Nm1;    
-    const iarrD strides;       
-
-    const int Nx;
-    const int NxNy;
-    const int NxNyNz;
-
-  public :
-    FieldAccessor(std::vector<StencilGrid> &latt, const std::array<int, D> &dims) :
-        v(latt.data()), 
-	Nm1([d=dims]()->iarrD {iarrD Nm1; for(int i = 0; i < D; i++) Nm1[i] = d[i] -1; return Nm1;} ()),
-	strides([d=dims]()->iarrD {
-                iarrD strides;
+    FieldArgs(const std::array<int, D> &dims) :
+        Nm1([d=dims]()->std::array<int, D> {std::array<int, D> Nm1; for(int i = 0; i < D; i++) Nm1[i] = d[i] -1; return Nm1;} ()),
+	strides([d=dims]()->std::array<int, D> {
+                std::array<int, D> strides;
                 int prev_stride{1};
                 for(int i = 0; i < D; i++) {
                   int tmp    = prev_stride*d[i];
 		  strides[i] = tmp - prev_stride;
                   prev_stride= tmp;
                 } return strides;} ()),
-        Nx{dims[0]},
-        NxNy{D > 1 ? dims[0]*dims[1] : 0},
-        NxNyNz{D > 2 ? dims[0]*dims[1]*dims[2] : 0}
-	{
-        
-        }
+	offsets([d=dims]()->std::array<int, D> {
+                std::array<int, D> offsets{d[0]};
+                for(int i = 1; i < D; i++) {
+                  offsets[i] = offsets[i-1]*d[i];
+                } return offsets;} ()) {}
+    
+};
+
+template <typename StencilGrid, typename Arg>
+class FieldAccessor{
+  public:
+    using T      = typename StencilGrid::value_type; 
+
+    static constexpr int stencil_grid_size = StencilGrid::grid_size;
+    static constexpr int D                 = Arg::Dims;
+
+  private :
+    StencilGrid *v;//no allocation
+    
+    const Arg &args;
+
+  public :
+    FieldAccessor(std::vector<StencilGrid> &latt, const Arg &args) :
+        v(latt.data()), 
+        args(args)
+	{ }
         
     void Set(StencilGrid* in) {v = in;}  
     StencilGrid* Get() {return v;} 
@@ -80,15 +89,15 @@ class FieldAccessor{
       int domain_face_idx    = 0;
       
       if        constexpr (dir == 0) {
-        if (x[0] == Nm1[0]  ) domain_face_idx = 1; 
+        if (x[0] == args.Nm1[0]  ) domain_face_idx = 1; 
       } else if constexpr (dir == 1) {
         if (x[0] == 0       ) domain_face_idx = 2;
       } else if constexpr (dir == 2) {
-        if (x[1] == Nm1[1]  ) domain_face_idx = 4;
+        if (x[1] == args.Nm1[1]  ) domain_face_idx = 4;
       } else if constexpr (dir == 3) {
         if (x[1] == 0       ) domain_face_idx = 8;
       } else if constexpr (dir == 4) {
-        if (x[2] == Nm1[2]  ) domain_face_idx =16;
+        if (x[2] == args.Nm1[2]  ) domain_face_idx =16;
       } else if constexpr (dir == 5) {
         if (x[2] == 0       ) domain_face_idx =32;
       }
@@ -121,37 +130,37 @@ class FieldAccessor{
       if constexpr (stencil_grid_size > 1){
         if constexpr (dir == 0) {
           if (face_type & 64  ) {
-            const int k = j-strides[0];// Nm1[0];
+            const int k = j-args.strides[0];// Nm1[0];
             const int l = i+1;
             return v[k][l]; 
           }
         } else if constexpr (dir == 1) {
           if (face_type & 128 ) {
-            const int k = j+strides[0];
+            const int k = j+args.strides[0];
             const int l = i-1;
             return v[k][l]; 
           }
         } else if constexpr (dir == 2) {
           if (face_type & 256 ) {
-            const int k = j-strides[1];//NxNymNx;
+            const int k = j-args.strides[1];//NxNymNx;
             const int l = i+StencilGrid::m[0];
             return v[k][l]; 
           }
         } else if constexpr (dir == 3) {
           if (face_type & 512 ){
-            const int k = j+strides[1];//NxNymNx;
+            const int k = j+args.strides[1];//NxNymNx;
             const int l = i-StencilGrid::m[0];
             return v[k][l]; 
           }
         } else if constexpr (dir == 4) {
           if (face_type & 1024){
-            const int k = j-strides[2];//NxNyNzmNxNy;
+            const int k = j-args.strides[2];//NxNyNzmNxNy;
             const int l = i+StencilGrid::m[0]*StencilGrid::m[1];
             return v[k][l]; 
           }
         } else if constexpr (dir == 5) {
           if (face_type & 2048){
-            const int k = j+strides[2];//NxNyNzmNxNy;
+            const int k = j+args.strides[2];//NxNyNzmNxNy;
             const int l = i-StencilGrid::m[0]*StencilGrid::m[1];
             return v[k][l]; 
           }
@@ -172,13 +181,13 @@ class FieldAccessor{
       } else if constexpr (shift == Shift::ShiftXm1) {
          j -= 1;
       } else if constexpr (shift == Shift::ShiftYp1) {
-         j += Nx;//Nx
+         j += args.offsets[0];//Nx
       } else if constexpr (shift == Shift::ShiftYm1) {
-         j -= Nx;//Nx
+         j -= args.offsets[0];//Nx
       } else if constexpr (shift == Shift::ShiftZp1) {
-         j += NxNy;//NxNy
+         j += args.offsets[1];//NxNy
       } else if constexpr (shift == Shift::ShiftZm1) {
-         j -= NxNy;//NxNy
+         j -= args.offsets[1];//NxNy
       }
 
       if constexpr (sizeof...(other_shifts) != 0) {
@@ -205,16 +214,26 @@ class FieldAccessor{
       return v[k][i];
     }
 
-    //3d version
     inline decltype(auto) Indx2Coord(const int &i) const {
-    
-      std::array<int, D> x;
-      
-      x[2] = i / NxNy;
-      const int tmp = (i - x[2]*NxNy);
-      x[1] = tmp / Nx;
-      x[0] = tmp - x[1]*Nx;
-      
-      return x;
-    }
+       //
+       std::array<int, D> x;
+
+       x[0] = i; // return it for 1D domain, otherwise use it also as temp.
+
+       if constexpr (D > 2) {
+         // First, compute higher dim coords:
+#pragma unroll
+         for (int j = D - 1; j > 1; j--) {
+           x[j] = x[0] / args.offsets[j-1];
+           x[0] = (x[0] - x[j]*args.offsets[j-1]);
+         }
+       }
+       //
+       if constexpr (D > 1) {
+         x[1] = x[0] / args.offsets[0];
+         x[0] = x[0] - x[1]*args.offsets[0];
+       }
+
+       return x;
+     }
 };
