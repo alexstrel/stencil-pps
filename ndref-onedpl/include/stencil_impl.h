@@ -62,9 +62,12 @@ class GenericNDStencilArg {
   
   public:
     using T = data_tp;
-    using F = typename field_mapper<T, D>::type;
+    using S = FieldArgs<D>;
+    using F = typename field_mapper<T, S>::type;
   
     static constexpr int Dims = D;
+    //
+    S accessor_args;    
   
     F out;//  
     F in;//stencil source , but not const!
@@ -73,8 +76,9 @@ class GenericNDStencilArg {
     const std::array<T, sizeof...(coeffs)> c;
 
     GenericNDStencilArg(std::vector<T, Allocator> &out_, const std::vector<T, Allocator> &in_, const std::array<int, D> dims, const coeffs& ...c_) :
-    	out(out_.data(), dims),
-	in (const_cast<std::vector<T, Allocator>&>(in_).data(), dims),
+    	accessor_args(dims),
+    	out(out_.data(), accessor_args),
+	in (const_cast<std::vector<T, Allocator>&>(in_).data(), accessor_args),	
 	c{c_...} { 
     }   
     //
@@ -147,10 +151,9 @@ class GenericNDStencil {
     return neigh;
   }
 
-  inline typename std::enable_if<D <= 3, void>::type operator()(const int i){    
-    std::array<int, D> x{0};
-
-    arg.in.Indx2Coord(x, i);
+  inline typename std::enable_if<D <= 3, void>::type operator()(const int i){ 
+     
+    auto x = arg.in.Indx2Coord(i);
     //
     int face_type = 0;
     //
