@@ -10,7 +10,7 @@ class FieldArgs{
     const std::tuple<std::array<int, D>, std::array<int, D>> params;
 
     FieldArgs(const std::array<int, D> &dims) :
-	params([d=dims]()->std::tuple<std::array<int, D>, std::array<int, D>> {
+	params([d=dims]()->decltype(auto) {
                 std::array<int, D> nm1{d[0]-1};		
                 std::array<int, D> offsets{d[0]};//Nx, NxNy, NxNyNz, ... etc
                 //
