@@ -58,7 +58,7 @@ inline constexpr int check_stencil_bndry(const int face_idx, int face_type = 0) 
   return face_type;
 }
 
-template <typename data_tp, int D, ArithmeticTp... coeffs>
+template <typename data_tp, int D, int M, ArithmeticTp... coeffs>
 class GenericNDStencilArg {
   
   public:
@@ -66,7 +66,8 @@ class GenericNDStencilArg {
     using S = FieldArgs<D>;
     using F = FieldAccessor<data_tp, S>;
     //
-    static constexpr int Dims = D;
+    static constexpr int Dims        = D;
+    static constexpr int inner_range = M;
     //
     S accessor_args;
 
@@ -92,6 +93,7 @@ class GenericNDStencil {
   using Tp = typename Args::T;
   //
   static constexpr int D   = Args::Dims;
+  static constexpr int M   = Args::inner_range;
 
   const Args& arg;
   
@@ -152,21 +154,26 @@ class GenericNDStencil {
     return neigh;
   }
 
-  inline typename std::enable_if<D <= 3, void>::type operator()(const int l){
-    //    
-    const int i = l / arg.in.stencil_grid_size; 
-    const int j = l % arg.in.stencil_grid_size; 
-    //    
-    auto x = arg.in.Indx2Coord(i);
+  inline typename std::enable_if<D <= 3, void>::type operator()(const int k){
     //
-    int face_type = 0;
-    //
-    auto res = arg.c[0]*arg.in.template operator()<Shift::NoShift> (i, j) + arg.c[1]*add_neighbors(face_type,x,i,j);
+#pragma unroll 
+    for(int offset = 0; offset < M; offset++ ) {//perform prefetching if necessary
+      const int l = k*M + offset;
+      
+      const int i = l / arg.in.stencil_grid_size; 
+      const int j = l % arg.in.stencil_grid_size; 
+      //    
+      auto x = arg.in.Indx2Coord(i);
+      //
+      int face_type = 0;
+      //
+      auto res = arg.c[0]*arg.in.template operator()<Shift::NoShift> (i, j) + arg.c[1]*add_neighbors(face_type,x,i,j);
 
-    if      constexpr (ST == StencilTp::FaceEdgeCentered  && D > 1)      res += arg.c[2]*add_edge_neighbors(face_type,x,i,j);
-    else if constexpr (ST == StencilTp::FaceEdgeCornerCentered && D > 2) res += arg.c[2]*add_edge_neighbors(face_type,x,i,j)+arg.c[3]*add_corner_neighbors(face_type,x,i,j);
+      if      constexpr (ST == StencilTp::FaceEdgeCentered  && D > 1)      res += arg.c[2]*add_edge_neighbors(face_type,x,i,j);
+      else if constexpr (ST == StencilTp::FaceEdgeCornerCentered && D > 2) res += arg.c[2]*add_edge_neighbors(face_type,x,i,j)+arg.c[3]*add_corner_neighbors(face_type,x,i,j);
 
-    arg.out[i][j] = res;
+      arg.out[i][j] = res;
+    }
     
     return;
   }

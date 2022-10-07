@@ -28,12 +28,19 @@ constexpr int Mz = 1;
 
 constexpr auto stencil_type = StencilTp::FaceEdgeCornerCentered;
 
-const int dims  = 3;
-const int gridsz=1024;
+constexpr int dims  = 3;
+constexpr int gridsz=1024;
 
-const std::array<int, dims> nd{gridsz, gridsz, gridsz};
-const std::array<int, dims> gd{nd[0]/Mx, nd[1]/My, nd[2]/Mz};
-const int vol = (gd[0]*gd[1]*gd[2]);
+constexpr std::array<int, dims> nd{gridsz, gridsz, gridsz};
+constexpr std::array<int, dims> gd{nd[0]/Mx, nd[1]/My, nd[2]/Mz};
+constexpr int vol = (gd[0]*gd[1]*gd[2]);
+
+#ifdef __NVCOMPILER_CUDA__
+constexpr auto inner_loop_range = 1;//better 2 for double and 4 for floats
+#else
+constexpr int M = 8;
+constexpr auto inner_loop_range = M > gd[0] ? 1 : M;
+#endif
 
 const Float kappa     = 0.1;
 const Float length    = 1000.0;
@@ -58,7 +65,7 @@ void dispatch_stencil_kernel(auto&& site_stencil_kernel, const int len){
 
 int main(){
 
-  using StencilArgs = GenericNDStencilArg<impl::StencilGrid<Float, Mx,My,Mz>, dims, Float, Float, Float, Float>;//NB!
+  using StencilArgs = GenericNDStencilArg<impl::StencilGrid<Float, Mx,My,Mz>, dims, inner_loop_range, Float, Float, Float, Float>;//NB!
   
   Float c0, c1, c2, c3;
 
