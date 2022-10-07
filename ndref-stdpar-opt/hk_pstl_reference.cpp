@@ -111,7 +111,7 @@ int main(){
   //
   auto stencil_kernel = [&stencil = *func_ptr] (const auto i) { stencil(i); };  
   
-  const int exe_domain = vol * Mx *My *Mz;
+  const int exe_domain = (vol * Mx *My *Mz) / inner_loop_range;
 
   gettimeofday(&time_begin, NULL);
 #ifdef __NVCOMPILER_CUDA__
