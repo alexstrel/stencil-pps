@@ -28,19 +28,12 @@ constexpr int Mz = 1;
 
 constexpr auto stencil_type = StencilTp::FaceEdgeCornerCentered;
 
-constexpr int dims  = 3;
-constexpr int gridsz=1024;
+const int dims  = 3;
+const int gridsz=1024;
 
-constexpr std::array<int, dims> nd{gridsz, gridsz, gridsz};
-constexpr std::array<int, dims> gd{nd[0]/Mx, nd[1]/My, nd[2]/Mz};
-constexpr int vol = (gd[0]*gd[1]*gd[2]);
-
-#ifdef __NVCOMPILER_CUDA__
-constexpr auto inner_loop_range = 1;//better 2 for double and 4 for floats
-#else
-constexpr int M = 8;
-constexpr auto inner_loop_range = M > gd[0] ? 1 : M;
-#endif
+const std::array<int, dims> nd{gridsz, gridsz, gridsz};
+const std::array<int, dims> gd{nd[0]/Mx, nd[1]/My, nd[2]/Mz};
+const int vol = (gd[0]*gd[1]*gd[2]);
 
 const Float kappa     = 0.1;
 const Float length    = 1000.0;
@@ -65,7 +58,7 @@ void dispatch_stencil_kernel(auto&& site_stencil_kernel, const int len){
 
 int main(){
 
-  using StencilArgs = GenericNDStencilArg<impl::StencilGrid<Float, Mx,My,Mz>, dims, inner_loop_range, Float, Float, Float, Float>;//NB!
+  using StencilArgs = GenericNDStencilArg<impl::StencilGrid<Float, Mx,My,Mz>, dims, Float, Float, Float, Float>;//NB!
   
   Float c0, c1, c2, c3;
 
@@ -97,8 +90,8 @@ int main(){
 
   std::cout << "Done initialization :: " << vol << std::endl;
 
-  printf("Running forward Euler iterations for the 3d heat kernel %d times with params [c0=%le , c1=%le, c2=%le, c3=%le] ..\n", nsteps, c0, c1, c2, c3);
-  fflush(stdout);
+  std::cout << "Running forward Euler iterations for the 3d heat kernel" << nsteps <<" times with params [c0="  << c0 <<", c1="<< c1 <<", c2=" << c2 <<", c3="<< c3 <<"]" << std::endl;
+  std::cout << std::flush;
 
   struct timeval time_begin, time_end;
   
@@ -111,7 +104,7 @@ int main(){
   //
   auto stencil_kernel = [&stencil = *func_ptr] (const auto i) { stencil(i); };  
   
-  const int exe_domain = (vol * Mx *My *Mz) / inner_loop_range;
+  const int exe_domain = vol * Mx *My *Mz;
 
   gettimeofday(&time_begin, NULL);
 #ifdef __NVCOMPILER_CUDA__

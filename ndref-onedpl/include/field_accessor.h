@@ -152,9 +152,7 @@ class FieldAccessor{
        //
        const auto& offsets = args.get_offsets();
        //
-       std::array<int, D> x;
-
-       x[0] = i; // return it for 1D domain, otherwise use it also as temp.
+       std::array<int, D> x{i}; //return it for 1D domain, otherwise use it also as temp.
 
        if constexpr (D > 2) {
          // First, compute higher dim coords:
