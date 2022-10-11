@@ -67,7 +67,7 @@ class GenericNDStencilArg {
     using F = FieldAccessor<data_tp, S>;
     //
     static constexpr int Dims{D};
-    static constexpr int Dims_ = std::max(D,3);
+    static constexpr int EDims = std::max(D,3);
     //
     static constexpr int Bx{blockx};
     static constexpr int By{D > 1 ? blocky : 1};    
@@ -79,7 +79,7 @@ class GenericNDStencilArg {
     F in;//stencil source , but not const!
 
     // Stencil params here:
-    const std::array<int, Dims_> block_offsets;//only 3d blocking is supported
+    const std::array<int, EDims> block_offsets;//only 3d blocking is supported
     const std::array<T, sizeof...(coeffs)> c;
 
     GenericNDStencilArg(std::vector<data_tp> &out_, const std::vector<data_tp> &in_,  const std::array<int, D> dims, const coeffs& ...c_) :
@@ -88,38 +88,16 @@ class GenericNDStencilArg {
 	in (const_cast<std::vector<data_tp>&>(in_), accessor_args),
 	block_offsets([d=dims]()->decltype(auto) {
 	        std::array<int, 3> b{blockx, blocky, blockz};
-	        std::array<int, Dims_> tmp{d[0] / b[0], 1 ,1};//Nx/Bx, NxNy/(BxBy), NxNyNz/(BxByBz), NxNyNzNt/(BxByBz), etc..
+	        std::array<int, EDims> tmp{d[0] / b[0], 1 ,1};//Nx/Bx, NxNy/(BxBy), NxNyNz/(BxByBz), NxNyNzNt/(BxByBz), etc..
 	        //
-                for(int i = 1; i < Dims_; i++) {
+                for(int i = 1; i < EDims; i++) {
 		  tmp[i] = tmp[i-1]*( i < 3 ? d[i] / b[i] : d[i]);
                 } return tmp;} ()),	
 	c{c_...} { 
     }   
     //
     void Swap() { out.swap(in); }
-    
-    inline decltype(auto) Indx2BlockCoord(const int &i) const {
-       //
-       std::array<int, Dims_> x;
-
-       x[0] = i; // return it for 1D domain, otherwise use it also as temp.
-
-       if constexpr (D > 2) {
-         // First, compute higher dim coords:
-#pragma unroll
-         for (int j = D - 1; j > 1; j--) {
-           x[j] = x[0] / block_offsets[j-1];
-           x[0] = (x[0] - x[j]*block_offsets[j-1]);
-         }
-       }
-       //
-       if constexpr (D > 1) {
-         x[1] = x[0] / block_offsets[0];
-         x[0] = x[0] - x[1]*block_offsets[0];
-       }
-
-       return x;
-     }    
+     
 };
 
 //could be even more "generic", e.g. ND stencil
@@ -128,7 +106,7 @@ class GenericNDStencil {
   using Tp = typename Args::T;
   //
   static constexpr int D{Args::Dims};//real dimensions,
-  static constexpr int D_{Args::Dims_};//needed for 3D blocking,
+  static constexpr int E{Args::EDims};//needed for 3D blocking,
   // 
   static constexpr int BlckX{Args::Bx};
   static constexpr int BlckY{Args::By};
@@ -142,7 +120,7 @@ class GenericNDStencil {
   constexpr GenericNDStencil(const Args &arg) : arg(arg) {}	
   
   template < int init_dir = 0, int base_dir = 2, int dir = 4 >
-  inline Tp add_corner_neighbors(const int face_type, const std::array<int, D_> &x, const int i, const int j) {
+  inline Tp add_corner_neighbors(const int face_type, const std::array<int, E> &x, const int i, const int j) {
     //
     auto is_curr_dir_bndry =  check_stencil_bndry<init_dir, base_dir, dir>(face_type);
     //
@@ -160,7 +138,7 @@ class GenericNDStencil {
   }
 
   template <int base_dir = 0, int dir = 2>
-  inline Tp add_edge_neighbors(const int face_type, const std::array<int, D_> &x, const int i, const int j) {
+  inline Tp add_edge_neighbors(const int face_type, const std::array<int, E> &x, const int i, const int j) {
     //
     auto is_curr_dir_bndry =  check_stencil_bndry<base_dir, dir>(face_type);
     //
@@ -177,9 +155,9 @@ class GenericNDStencil {
   }
 
   template <int dir = 0>
-  inline Tp add_neighbors(int &face_type, const std::array<int, D_> &x, const int i, const int j) {
+  inline Tp add_neighbors(int &face_type, const std::array<int, E> &x, const int i, const int j) {
     //
-    int current_face_type = arg.in.check_face_type<dir>(x, j);
+    auto current_face_type = arg.in.check_face_type<dir>(x, j);
     //
     auto neigh  = current_face_type == 0 ? arg.in.template operator()<shifts[dir]> (i,j) : arg.in.get_bndry_term<dir>(current_face_type,x,i,j);
     // Update face type information:
@@ -198,9 +176,9 @@ class GenericNDStencil {
     //
     const int j = k % arg.in.stencil_grid_size;     
     // Compute base coord:
-    int  i = (k / arg.in.stencil_grid_size) * BlckV; 
+    const int i0= (k / arg.in.stencil_grid_size) * BlckV; 
     //
-    auto x = arg.in.Indx2Coord(i);
+    auto x = arg.in.Indx2Coord(i0);
     // Keep 3D base point
     const std::array<int, 3> y{x[0], x[1], x[2]}; 
 #pragma unroll 
@@ -213,7 +191,8 @@ class GenericNDStencil {
         for(int bx = 0; bx < BlckX; bx++ ) {//perform prefetching if necessary
           //
           x[0] = y[0] + bx;
-          i    = arg.in.Coord2Indx(x);
+          
+          const auto i  = arg.in.Coord2Indx(x);
           int face_type = 0;
           //
           auto res = arg.c[0]*arg.in.template operator()<Shift::NoShift> (i, j) + arg.c[1]*add_neighbors(face_type,x,i,j);

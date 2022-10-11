@@ -35,9 +35,9 @@ constexpr int Bz = 1;
 constexpr auto stencil_type = StencilTp::FaceEdgeCornerCentered;
 
 constexpr int dims  = 3;
-constexpr int gridsz=1024;
+constexpr int L     = 1024;
 
-constexpr std::array<int, dims> nd{gridsz, gridsz, gridsz};
+constexpr std::array<int, dims> nd{L, L, L};
 constexpr std::array<int, dims> gd{nd[0]/Mx, nd[1]/My, nd[2]/Mz};
 constexpr int vol = (gd[0]*gd[1]*gd[2]);
 

@@ -63,9 +63,7 @@ class StencilGrid {
    //private:
      inline static decltype(auto) Indx2Coord(const int &i) {
        //
-       std::array<int, sizeof...(M)> x;     
-     
-       x[0] = i; // return for 1D domain, otherwise use also as temp.
+       std::array<int, sizeof...(M)> x{i};// return for 1D domain, otherwise use also as temp.
            
        if constexpr (sizeof...(M) > 2) {
          // First, compute higher dim coords:

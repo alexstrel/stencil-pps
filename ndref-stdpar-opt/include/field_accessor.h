@@ -36,7 +36,7 @@ class FieldAccessor{
 
     static constexpr int stencil_grid_size = StencilGrid::grid_size;
     static constexpr int D                 = Arg::Dims;
-    static constexpr int D_                = std::max(Arg::Dims, 3);
+    static constexpr int E                 = std::max(Arg::Dims, 3);
 
   private :
     StencilGrid *v;//no allocation
@@ -82,7 +82,7 @@ class FieldAccessor{
     }	    
 
     template<int dir>
-    inline int check_face_type(const std::array<int,D_> &x, const int i) const {
+    inline int check_face_type(const std::array<int,E> &x, const int i) const {
 
       constexpr int num_dirs = 2*D;
       constexpr int shift    = num_dirs;
@@ -128,8 +128,8 @@ class FieldAccessor{
       return domain_face_idx;
     }
 
-    template<int dir>//D_>=D
-    inline T get_bndry_term(const int face_type, const std::array<int, D_> &x, const int j, const int i) const {
+    template<int dir>//E>=D
+    inline T get_bndry_term(const int face_type, const std::array<int, E> &x, const int j, const int i) const {
 
       const auto& strides = args.get_strides();	    
 
@@ -227,7 +227,7 @@ class FieldAccessor{
        //
        const auto& offsets = args.get_offsets();
        //
-       std::array<int, D_> x{i};// return it for 1D domain, otherwise use it also as temp.
+       std::array<int, E> x{i};// return it for 1D domain, otherwise use it also as temp.
 
        if constexpr (D > 2) {
          // First, compute higher dim coords:
@@ -246,7 +246,7 @@ class FieldAccessor{
        return x;
      }
      
-     inline int Coord2Indx(const std::array<int, D_> &x) const {
+     inline int Coord2Indx(const std::array<int, E> &x) const {
        //
        const auto& offsets = args.get_offsets();       
        //
