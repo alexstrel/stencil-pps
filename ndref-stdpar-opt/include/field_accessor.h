@@ -230,14 +230,14 @@ class FieldAccessor{
        std::array<int, E> x{i};// return it for 1D domain, otherwise use it also as temp.
 
        if constexpr (D > 2) {
-         // First, compute higher dim coords:
+       // First, compute higher dim coords:
 #pragma unroll
          for (int j = D - 1; j > 1; j--) {
            x[j] = x[0] / offsets[j-1];
            x[0] = (x[0] - x[j]*offsets[j-1]);
          }
        }
-       //
+       // Compute low dim coords:  
        if constexpr (D > 1) {
          x[1] = x[0] / offsets[0];
          x[0] = x[0] - x[1]*offsets[0];
@@ -253,7 +253,7 @@ class FieldAccessor{
        int i = x[0];
 #pragma unroll
        for (int j = 1; j < D; j++) {
-         i += x[j]*offsets[j];
+         i += x[j]*offsets[j-1];
        }
 
        return i;

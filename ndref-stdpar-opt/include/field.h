@@ -28,8 +28,8 @@ consteval decltype(auto) compute_global_offsets() {
   int prev_offset = 1; 
   //
   for (int &m_ : m) { 
-    offests[i]  = prev_offset*m_;//m[0], m[0]*m[1], m[0]*m[1]*m[2]
-    prev_offset = offests[i];
+    offsets[i]  = prev_offset*m_;//m[0], m[0]*m[1], m[0]*m[1]*m[2]
+    prev_offset = offsets[i];
     i += 1;
   }
 

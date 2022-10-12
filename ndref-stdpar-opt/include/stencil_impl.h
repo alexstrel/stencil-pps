@@ -5,30 +5,6 @@
 #include <enums.h>
 #include <field_accessor.h>
 
-template<typename T>
-void debug_7pt_stencil
-(std::vector<T> &out, const std::vector<T> &in, const int Lx, const int Ly, const int Lz, const float C0, const float C1)
-{
-#pragma omp parallel num_threads(4)
-  for (int k = 0; k < Lz; k++){
-#pragma omp for schedule(dynamic)
-    for (int j = 0; j < Ly; j++){
-#pragma omp simd
-      for (int i = 0; i < Lx; i++) {
-        const int s = i + j*Lx + k*Lx*Ly;
-        const T xp1 = i == Lx-1  ? 0.0 : in[s + 1];
-        const T xm1 = i == 0     ? 0.0 : in[s - 1];
-        const T yp1 = j == Ly-1  ? 0.0 : in[s + Lx];
-        const T ym1 = j == 0     ? 0.0 : in[s - Lx];
-        const T zp1 = k == Lz-1  ? 0.0 : in[s + Lx*Ly];
-        const T zm1 = k == 0     ? 0.0 : in[s - Lx*Ly];
-
-        out[s] = C0*in[s]+C1*(xp1+xm1+yp1+ym1+zp1+zm1);
-      }
-    }
-  }
-  return;
-}
 
 template<int dir, int... other_dirs>
 inline constexpr int check_stencil_bndry(const int face_idx, int face_type = 0) {
@@ -79,20 +55,12 @@ class GenericNDStencilArg {
     F in;//stencil source , but not const!
 
     // Stencil params here:
-    const std::array<int, EDims> block_offsets;//only 3d blocking is supported
     const std::array<T, sizeof...(coeffs)> c;
 
     GenericNDStencilArg(std::vector<data_tp> &out_, const std::vector<data_tp> &in_,  const std::array<int, D> dims, const coeffs& ...c_) :
 	accessor_args(dims),    
     	out(out_, accessor_args),
-	in (const_cast<std::vector<data_tp>&>(in_), accessor_args),
-	block_offsets([d=dims]()->decltype(auto) {
-	        std::array<int, 3> b{blockx, blocky, blockz};
-	        std::array<int, EDims> tmp{d[0] / b[0], 1 ,1};//Nx/Bx, NxNy/(BxBy), NxNyNz/(BxByBz), NxNyNzNt/(BxByBz), etc..
-	        //
-                for(int i = 1; i < EDims; i++) {
-		  tmp[i] = tmp[i-1]*( i < 3 ? d[i] / b[i] : d[i]);
-                } return tmp;} ()),	
+	in (const_cast<std::vector<data_tp>&>(in_), accessor_args),	
 	c{c_...} { 
     }   
     //
@@ -108,10 +76,10 @@ class GenericNDStencil {
   static constexpr int D{Args::Dims};//real dimensions,
   static constexpr int E{Args::EDims};//needed for 3D blocking,
   // 
-  static constexpr int BlckX{Args::Bx};
-  static constexpr int BlckY{Args::By};
-  static constexpr int BlckZ{Args::Bz};
-  static constexpr int BlckV{Args::Bx*Args::By*Args::Bz};  
+  static constexpr int BlockX{Args::Bx};
+  static constexpr int BlockY{Args::By};
+  static constexpr int BlockZ{Args::Bz};
+  static constexpr int BlockV{Args::Bx*Args::By*Args::Bz};  
 
   const Args& arg;
   
@@ -172,27 +140,28 @@ class GenericNDStencil {
     return neigh;
   }
 
-  inline typename std::enable_if<D <= 3, void>::type operator()(const int k){
+  inline typename std::enable_if<D <= 3, void>::type operator()(const int l){
     //
-    const int j = k % arg.in.stencil_grid_size;     
+    const int j = l % arg.in.stencil_grid_size;     
     // Compute base coord:
-    const int i0= (k / arg.in.stencil_grid_size) * BlckV; 
+    const int i0= (l / arg.in.stencil_grid_size) * BlockV; 
     //
     auto x = arg.in.Indx2Coord(i0);
     // Keep 3D base point
     const std::array<int, 3> y{x[0], x[1], x[2]}; 
 #pragma unroll 
-    for(int bz = 0; bz < BlckZ; bz++ ) {//perform prefetching if necessary
+    for(int bz = 0; bz < BlockZ; bz++ ) {//perform prefetching if necessary
       x[2] = y[2] + bz;
 #pragma unroll 
-      for(int by = 0; by < BlckY; by++ ) {//perform prefetching if necessary
+      for(int by = 0; by < BlockY; by++ ) {//perform prefetching if necessary
         x[1] = y[1] + by;
 #pragma unroll 
-        for(int bx = 0; bx < BlckX; bx++ ) {//perform prefetching if necessary
+        for(int bx = 0; bx < BlockX; bx++ ) {//perform prefetching if necessary
           //
           x[0] = y[0] + bx;
           
           const auto i  = arg.in.Coord2Indx(x);
+
           int face_type = 0;
           //
           auto res = arg.c[0]*arg.in.template operator()<Shift::NoShift> (i, j) + arg.c[1]*add_neighbors(face_type,x,i,j);
