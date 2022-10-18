@@ -6,7 +6,7 @@
 // Simple arithmetic type
 template <typename T>
 concept ArithmeticTp = requires{
-  std::is_arithmetic_v<T>;
+  std::is_floating_point_v<T>;
 }
 
 // Simple complex type
