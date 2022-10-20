@@ -5,15 +5,18 @@
 
 // Simple arithmetic type
 template <typename T>
-concept ArithmeticTp = requires{
+concept FloatTp = requires{
   std::is_floating_point_v<T>;
-}
+};
 
 // Simple complex type
 template <typename T>
 concept ComplexTp    = requires (T t) {
-  requires ArithmeticTp<decltype(t.real())>;
-  requires ArithmeticTp<decltype(t.imag())>;  
-}
+  requires FloatTp<decltype(t.real())>;
+  requires FloatTp<decltype(t.imag())>;  
+};
 
 
+// Simple genetic arithmetic type
+template <typename T>
+concept ArithmeticTp = FloatTp<T> || ComplexTp<T>;
