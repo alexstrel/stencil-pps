@@ -82,24 +82,25 @@ class FieldAccessor{
     } 
 
     inline static decltype(auto) CellIndx2CellCoord(const int &i) {
+//    inline decltype(auto) CellIndx2CellCoord(const int &i) const {        
       //
-      constexpr auto& offsets = Arg::cell_offsets;
+      constexpr auto& cell_offsets = Arg::cell_offsets;
+      constexpr auto& cell_dim     = Arg::cell_dim;
       //      
-      std::array<int, Arg::cell_dim> y{i};     
-     
-      if constexpr (Arg::cell_dim > 2) {
-        // First, compute higher dim coords:
+      std::array<int, cell_dim> y{i};          
+#if 1 // potential compiler bug here!
 #pragma unroll         
-        for (int j = (Arg::cell_dim-1); j > 1; j--) {                  
-           y[j] = y[0] / offsets[j-1];
-           y[0] = (y[0] - y[j]*offsets[j-1]);
-        }
+      for (int j = (cell_dim-1); j >= 1; j--) {                  
+        y[j] = y[0] / cell_offsets[j-1];
+        y[0] = (y[0] - y[j]*cell_offsets[j-1]);
       }
-      //
-      if constexpr (Arg::cell_dim > 1) {
-        y[1] = y[0] / offsets[0];
-        y[0] = y[0] - y[1]*offsets[0];       
-      } 
+#else // this works perfect!
+      y[2] = y[0] / cell_offsets[1];
+      y[0] = y[0] - y[2]*cell_offsets[1];
+      // 
+      y[1] = y[0] / cell_offsets[0];
+      y[0] = y[0] - y[1] * cell_offsets[0];      
+#endif
        
       return y;     
     }    
@@ -151,52 +152,50 @@ class FieldAccessor{
       return domain_face_idx;
     }
 
-    template<int dir>
+    template<Shift shift>
     inline T get_bndry_term(const int face_type, const std::array<int, D> &x, const int j, const int i) const {
-#if 1
       //
       const auto& strides = args.get_strides();	    
 
       if constexpr (stencil_cell_size > 1){
-        if constexpr (dir == 0) {
+        if constexpr        (shift == Shift::ShiftXp1) {
           if (face_type & 64  ) {
             const int k = j-strides[0];// Nm1[0];
             const int l = i+1;
             return v[k][l]; 
           }
-        } else if constexpr (dir == 1) {
+        } else if constexpr (shift == Shift::ShiftXm1) {
           if (face_type & 128 ) {
             const int k = j+strides[0];
             const int l = i-1;
             return v[k][l]; 
           }
-        } else if constexpr (dir == 2) {
+        } else if constexpr (shift == Shift::ShiftYp1) {
           if (face_type & 256 ) {
             const int k = j-strides[1];//NxNymNx;
             const int l = i+Arg::m[0];
             return v[k][l]; 
           }
-        } else if constexpr (dir == 3) {
+        } else if constexpr (shift == Shift::ShiftYm1) {
           if (face_type & 512 ){
             const int k = j+strides[1];//NxNymNx;
             const int l = i-Arg::m[0];
             return v[k][l]; 
           }
-        } else if constexpr (dir == 4) {
+        } else if constexpr (shift == Shift::ShiftZp1) {
           if (face_type & 1024){
             const int k = j-strides[2];//NxNyNzmNxNy;
             const int l = i+Arg::m[0]*Arg::m[1];
             return v[k][l]; 
           }
-        } else if constexpr (dir == 5) {
+        } else if constexpr (shift == Shift::ShiftZm1) {
           if (face_type & 2048){
             const int k = j+strides[2];//NxNyNzmNxNy;
             const int l = i-Arg::m[0]*Arg::m[1];
             return v[k][l]; 
           }
         }  
-      }
-#endif       
+      }      
       // For "true" boundary:  
       return static_cast<T>(0.0);//Trivial BC
       
@@ -252,22 +251,14 @@ class FieldAccessor{
        //
        const auto& offsets = args.get_offsets();
        //
-       std::array<int, D> x;
+       std::array<int, D> x{i};// return it for 1D domain, otherwise use it also as temp.
 
-       x[0] = i; // return it for 1D domain, otherwise use it also as temp.
-
-       if constexpr (D > 2) {
-         // First, compute higher dim coords:
+       if constexpr (D > 1) {
 #pragma unroll
-         for (int j = D - 1; j > 1; j--) {
+         for (int j = D - 1; j >= 1; j--) {
            x[j] = x[0] / offsets[j-1];
            x[0] = (x[0] - x[j]*offsets[j-1]);
          }
-       }
-       //
-       if constexpr (D > 1) {
-         x[1] = x[0] / offsets[0];
-         x[0] = x[0] - x[1]*offsets[0];
        }
 
        return x;

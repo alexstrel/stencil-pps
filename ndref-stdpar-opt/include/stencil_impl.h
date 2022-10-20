@@ -104,7 +104,7 @@ class GenericNDStencil {
     //
     auto is_curr_dir_bndry =  check_stencil_bndry<init_dir, base_dir, dir>(face_type);
     //
-    auto neigh  = is_curr_dir_bndry == 0 ? arg.in.template operator()<shifts[init_dir], shifts[base_dir], shifts[dir] > (i,j) :  arg.in.get_bndry_term<dir>(face_type,x,i,j);
+    auto neigh  = is_curr_dir_bndry == 0 ? arg.in.template operator()<shifts[init_dir], shifts[base_dir], shifts[dir] > (i,j) :  arg.in.get_bndry_term<shifts[dir]>(face_type,x,i,j);
 
     if constexpr (dir % 2 == 0) {
       return (neigh + add_corner_neighbors<init_dir, base_dir, dir+1>(face_type, x, i, j));
@@ -122,7 +122,7 @@ class GenericNDStencil {
     //
     auto is_curr_dir_bndry =  check_stencil_bndry<base_dir, dir>(face_type);
     //
-    auto neigh  = is_curr_dir_bndry == 0 ? arg.in.template operator()<shifts[base_dir], shifts[dir] > (i,j) : arg.in.get_bndry_term<dir>(face_type,x,i,j);
+    auto neigh  = is_curr_dir_bndry == 0 ? arg.in.template operator()<shifts[base_dir], shifts[dir] > (i,j) : arg.in.get_bndry_term<shifts[dir]>(face_type,x,i,j);
     //
     if        constexpr ( dir % 2 == 0) {
       return (neigh + add_edge_neighbors<base_dir, dir+1>(face_type, x, i, j));
@@ -139,7 +139,7 @@ class GenericNDStencil {
     //
     auto current_face_type = arg.in.check_face_type<dir>(x, j);
     //
-    auto neigh  = current_face_type == 0 ? arg.in.template operator()<shifts[dir]> (i,j) : arg.in.get_bndry_term<dir>(current_face_type,x,i,j);
+    auto neigh  = current_face_type == 0 ? arg.in.template operator()<shifts[dir]> (i,j) : arg.in.get_bndry_term<shifts[dir]>(current_face_type,x,i,j);
     // Update face type information:
     if constexpr (ST == StencilTp::FaceEdgeCentered or ST == StencilTp::FaceEdgeCornerCentered){
       face_type = face_type | current_face_type;
