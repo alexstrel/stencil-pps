@@ -152,12 +152,15 @@ class FieldAccessor{
       return domain_face_idx;
     }
 
+// trivial specialization:
+    template<>
+    inline T get_bndry_term(const int face_type, const std::array<int, D> &x, const int j, const int i) const {
+        return v[j][i];
+    }       
+
     template<Shift shift, Shift other_shifts>
     inline T get_bndry_term(const int face_type, const std::array<int, D> &x, const int j, const int i) const {
       //
-      if constexpr (sizeof...(other_shifts) == 0) {
-        return v[j][i];
-      }       
       const auto& strides = args.get_strides();	    
 
       if constexpr (stencil_cell_size > 1){
