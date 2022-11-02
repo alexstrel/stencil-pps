@@ -99,36 +99,36 @@ class GenericNDStencil {
 
   constexpr GenericNDStencil(const Args &arg) : arg(arg) {}	
   
-  template < int init_dir = 0, int base_dir = 2, int dir = 4 >
+  template < int first_dir = 0, int second_dir = 2, int third_dir = 4 >
   inline Tp add_corner_neighbors(const int face_type, const std::array<int, D> &x, const int i, const int j) {
     //
-    auto is_curr_dir_bndry =  check_stencil_bndry<init_dir, base_dir, dir>(face_type);
+    auto is_curr_dir_bndry =  check_stencil_bndry<first_dir, second_dir, third_dir>(face_type);
     //
-    auto neigh  = is_curr_dir_bndry == 0 ? arg.in.template operator()<shifts[init_dir], shifts[base_dir], shifts[dir] > (i,j) :  arg.in.template get_bndry_term<shifts[dir]>(face_type,x,i,j);
+    auto neigh  = is_curr_dir_bndry == 0 ? arg.in.template operator()<shifts[first_dir], shifts[second_dir], shifts[third_dir] > (i,j) :  arg.in.template get_bndry_term<shifts[first_dir], shifts[second_dir], shifts[third_dir]>(face_type,x,i,j);
 
-    if constexpr (dir % 2 == 0) {
-      return (neigh + add_corner_neighbors<init_dir, base_dir, dir+1>(face_type, x, i, j));
-    } else if constexpr (base_dir % 2 == 0) {
-      return (neigh + add_corner_neighbors<init_dir, base_dir+1>(face_type, x, i, j));
-    } else if constexpr (init_dir % 2 == 0) {
-      return (neigh + add_corner_neighbors<init_dir+1>(face_type, x, i, j));
+    if constexpr (third_dir % 2 == 0) {
+      return (neigh + add_corner_neighbors<first_dir, second_dir, third_dir+1>(face_type, x, i, j));
+    } else if constexpr (second_dir % 2 == 0) {
+      return (neigh + add_corner_neighbors<first_dir, second_dir+1>(face_type, x, i, j));
+    } else if constexpr (first_dir % 2 == 0) {
+      return (neigh + add_corner_neighbors<first_dir+1>(face_type, x, i, j));
     }
     // 
     return neigh;
   }
 
-  template <int base_dir = 0, int dir = 2>
+  template <int first_dir = 0, int second_dir = 2>
   inline Tp add_edge_neighbors(const int face_type, const std::array<int, D> &x, const int i, const int j) {
     //
-    auto is_curr_dir_bndry =  check_stencil_bndry<base_dir, dir>(face_type);
+    auto is_curr_dir_bndry =  check_stencil_bndry<first_dir, second_dir>(face_type);
     //
-    auto neigh  = is_curr_dir_bndry == 0 ? arg.in.template operator()<shifts[base_dir], shifts[dir] > (i,j) : arg.in.template get_bndry_term<shifts[dir]>(face_type,x,i,j);
+    auto neigh  = is_curr_dir_bndry == 0 ? arg.in.template operator()<shifts[first_dir], shifts[second_dir] > (i,j) : arg.in.template get_bndry_term<shifts[first_dir], shifts[second_dir]>(face_type,x,i,j);
     //
-    if        constexpr ( dir % 2 == 0) {
-      return (neigh + add_edge_neighbors<base_dir, dir+1>(face_type, x, i, j));
-    } else if constexpr (base_dir < (2*D-1)) {//
-      constexpr int next_dir      = 2*(((base_dir+1) / 2 + 1) % D);
-      return (neigh + add_edge_neighbors<base_dir+1, next_dir>(face_type, x, i, j));
+    if        constexpr ( second_dir % 2 == 0) {
+      return (neigh + add_edge_neighbors<first_dir, second_dir+1>(face_type, x, i, j));
+    } else if constexpr (first_dir < (2*D-1)) {//
+      constexpr int next_second_dir      = 2*(((first_dir+1) / 2 + 1) % D);
+      return (neigh + add_edge_neighbors<first_dir+1, next_second_dir>(face_type, x, i, j));
     }
     //end recursion
     return neigh;
