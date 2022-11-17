@@ -28,10 +28,10 @@ class GhostArgs{
     static constexpr std::array<int, sizeof...(M)> cell_offsets{compute_cell_offsets<M...>()};    
     static constexpr int cell_dim{sizeof...(M)};    
 
-    const std::pair<std::array<int, D>, std::array<int, D>> params;
+    const std::tuple<std::array<int, D>, std::array<int, D>, std::array<int, D>> params;
 
     GhostArgs(const std::array<int, D> &dims) :
-	params([&d=dims]()->std::pair<std::array<int, D>, std::array<int, D>> {
+	params([&d=dims]()->std::tuple<std::array<int, D>, std::array<int, D>, std::array<int, D>> {
                 std::array<int, D> nm1{d[0]-1};		
                 std::array<int, D> offsets{d[0]};//Nx, NxNy, NxNyNz, ... etc
                 std::array<int, D> strides{d[0]-1};//Nx-1, NxNy-Nx, NxNyNz-NxNy, ... etc
@@ -40,10 +40,11 @@ class GhostArgs{
                   nm1[i]     = d[i] - 1;
                   offsets[i] = offsets[i-1]*d[i];
                   strides[i] = offsets[i] - offsets[i-1];
-                } return std::make_pair(nm1, strides);} ()) {}
+                } return std::tie(nm1, offsets, strides);} ()) {}
 
-    inline decltype(auto) get_rangem1() const { return params.first;}
-    inline decltype(auto) get_strides() const { return params.second;}
+    inline decltype(auto) get_rangem1() const { return std::get<0>(params);}
+    inline decltype(auto) get_offsets() const { return std::get<1>(params);}
+    inline decltype(auto) get_strides() const { return std::get<2>(params);}
     
 };
 
@@ -72,7 +73,7 @@ class GhostAccessor{
       constexpr auto& cell_dim     = Arg::cell_dim;
       //      
       std::array<int, cell_dim> y{i};          
-#if 0 // potential compiler bug here!
+#if 1 // potential compiler bug here!
 #pragma unroll         
       for (int j = (cell_dim-1); j >= 1; j--) {                  
         y[j] = y[0] / cell_offsets[j-1];
@@ -136,68 +137,110 @@ class GhostAccessor{
       return domain_face_idx;
     }
 
-    template<Shift shift, Shift... other_shifts>
+    template<bool first_hop, Shift shift, Shift... other_shifts>
     inline T get_bndry_term(const int face_type, const std::array<int, D> &x, const int j, const int i) const {
-      //
-      const auto& strides = args.get_strides();	    
-
+      //	    
       if constexpr (stencil_cell_size > 1){
+
+        const auto& offsets = args.get_offsets();	      
+        const auto& strides = args.get_strides();
+
         if constexpr        (shift == Shift::ShiftXp1) {
           if (face_type & 64  ) {
             const int k = j-strides[0];// Nm1[0];
-            const int l = i+1;
+            const int l = first_hop ? i+1 : i;
             if constexpr (sizeof...(other_shifts) != 0) {
-	      return get_bndry_term<other_shifts...>(face_type, x, k, l); 
+	      return get_bndry_term<false, other_shifts...>(face_type, x, k, l); 
 	    }
 	    return v.template operator()<Shift::NoShift>(k, l);
           }
         } else if constexpr (shift == Shift::ShiftXm1) {
           if (face_type & 128 ) {
             const int k = j+strides[0];
-            const int l = i-1;
+            const int l = first_hop ? i-1 : i;
 	    if constexpr (sizeof...(other_shifts) != 0) {
-              return get_bndry_term<other_shifts...>(face_type, x, k, l);
+              return get_bndry_term<false, other_shifts...>(face_type, x, k, l);
             }
 	    return v.template operator()<Shift::NoShift>(k, l);
           }
         } else if constexpr (shift == Shift::ShiftYp1) {
           if (face_type & 256 ) {
             const int k = j-strides[1];//NxNymNx;
-            const int l = i+Arg::m[0];
+            const int l = first_hop ? i+Arg::m[0] : i;
             if constexpr (sizeof...(other_shifts) != 0) {
-              return get_bndry_term<other_shifts...>(face_type, x, k, l);
+              return get_bndry_term<false, other_shifts...>(face_type, x, k, l);
             }
 	    return v.template operator()<Shift::NoShift>(k, l);
           }
         } else if constexpr (shift == Shift::ShiftYm1) {
           if (face_type & 512 ){
             const int k = j+strides[1];//NxNymNx;
-            const int l = i-Arg::m[0];
+            const int l = first_hop ? i-Arg::m[0] : i;
             if constexpr (sizeof...(other_shifts) != 0) {
-              return get_bndry_term<other_shifts...>(face_type, x, k, l);
+              return get_bndry_term<false, other_shifts...>(face_type, x, k, l);
             }
 	    return v.template operator()<Shift::NoShift>(k, l);
           }
         } else if constexpr (shift == Shift::ShiftZp1) {
           if (face_type & 1024){
             const int k = j-strides[2];//NxNyNzmNxNy;
-            const int l = i+Arg::m[0]*Arg::m[1];
+            const int l = first_hop ? i+Arg::m[0]*Arg::m[1] : i;
             if constexpr (sizeof...(other_shifts) != 0) {
-              return get_bndry_term<other_shifts...>(face_type, x, k, l);
+              return get_bndry_term<false, other_shifts...>(face_type, x, k, l);
             }
 	    return v.template operator()<Shift::NoShift>(k, l);
           }
         } else if constexpr (shift == Shift::ShiftZm1) {
           if (face_type & 2048){
             const int k = j+strides[2];//NxNyNzmNxNy;
-            const int l = i-Arg::m[0]*Arg::m[1];
+            const int l = first_hop ? i-Arg::m[0]*Arg::m[1] : i;
             if constexpr (sizeof...(other_shifts) != 0) {
-              return get_bndry_term<other_shifts...>(face_type, x, k, l);
+              return get_bndry_term<false, other_shifts...>(face_type, x, k, l);
             }
   	    return v.template operator()<Shift::NoShift>(k, l);
           }
         }  
-      }      
+            
+        if constexpr (not first_hop) {
+          if constexpr        (shift == Shift::ShiftXp1) {
+            const int k = j+1;
+            if constexpr (sizeof...(other_shifts) != 0) {
+              return get_bndry_term<false, other_shifts...>(face_type, x, k, i);
+            }
+            return v.template operator()<Shift::NoShift>(k, i);
+          } else if constexpr (shift == Shift::ShiftXm1) {
+            const int k = j-1;
+            if constexpr (sizeof...(other_shifts) != 0) {
+              return get_bndry_term<false, other_shifts...>(face_type, x, k, i);
+            }
+            return v.template operator()<Shift::NoShift>(k, i);
+          } else if constexpr (shift == Shift::ShiftYp1) {
+            const int k = j+offsets[0];
+            if constexpr (sizeof...(other_shifts) != 0) {
+              return get_bndry_term<false, other_shifts...>(face_type, x, k, i);
+            }
+            return v.template operator()<Shift::NoShift>(k, i);
+          } else if constexpr (shift == Shift::ShiftYm1) {
+            const int k = j-offsets[0];
+            if constexpr (sizeof...(other_shifts) != 0) {
+              return get_bndry_term<false, other_shifts...>(face_type, x, k, i);
+            }
+            return v.template operator()<Shift::NoShift>(k, i);		  
+	  } else if constexpr (shift == Shift::ShiftZp1) {
+            const int k = j+offsets[1];
+            if constexpr (sizeof...(other_shifts) != 0) {
+              return get_bndry_term<false, other_shifts...>(face_type, x, k, i);
+            }
+            return v.template operator()<Shift::NoShift>(k, i);
+	  } else if constexpr (shift == Shift::ShiftZm1) {
+            const int k = j-offsets[1];
+            if constexpr (sizeof...(other_shifts) != 0) {
+              return get_bndry_term<false, other_shifts...>(face_type, x, k, i);
+            }
+            return v.template operator()<Shift::NoShift>(k, i);
+          }
+        }
+      }
       // For "true" boundary:  
       return static_cast<T>(0.0);//Trivial BC
       
