@@ -4,6 +4,9 @@
 #include <type_traits>
 
 template <typename T>
-concept ArithmeticTp = std::is_arithmetic_v<T>;
+concept ArithmeticTp = requires { 
+  std::is_arithmetic_v<T>; 
+};
+
 
 
