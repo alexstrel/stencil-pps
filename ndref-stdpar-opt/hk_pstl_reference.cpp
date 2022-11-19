@@ -12,6 +12,7 @@
 #include <memory>
 #include <numeric>
 #include <limits>
+#include <numbers>
 #include <execution>
 #include <chrono>
 
@@ -68,28 +69,28 @@ int main(){
 
   using StencilArgs = GenericNDStencilArg<impl::StencilGrid<Float, Mx,My,Mz>, dims, Bx, By, Bz, Float, Float, Float, Float>;//NB!
   
-  Float c0, c1, c2, c3;
+  std::array<Float, 4> c; 
 
-  c1 = kappa*dt/(dx*dx);
+  c[1] = kappa*dt/(dx*dx);
 
   if(stencil_type == StencilTp::FaceCentered){
-    c0 = 1.0 - 6.0*c1;
+    c[0] = 1.0 - 6.0*c[1];
   } else if (stencil_type == StencilTp::FaceEdgeCentered) {
-    c0 = 1.0 - 4.0*c1;
-    c1 = c1 / 3.0;//?
+    c[0] = 1.0 - 4.0*c[1];
+    c[1] = c[1] / 3.0;//?
   } else if (stencil_type == StencilTp::FaceEdgeCornerCentered) {
-    c0 = 1.0 - (44.0 / 13.0)*c1;
-    c1 = (3.0*c1) / 13.0;//?
+    c[0] = 1.0 - (44.0 / 13.0)*c[1];
+    c[1] = (3.0*c[1]) / 13.0;//?
   }
   // extra:
-  c2 = c1 * 0.5;
-  c3 = c1 / 3.0;
+  c[2] = c[1] * 0.5;
+  c[3] = c[1] / 3.0;
   
   //set execution policy:
   auto policy = std::execution::par_unseq;
 
-  std::vector<impl::StencilGrid<Float, Mx,My,Mz>> v1(vol);
-  std::vector<impl::StencilGrid<Float, Mx,My,Mz>> v2(vol);
+  std::vector<impl::StencilCell<Float, Mx,My,Mz>> v1(vol);
+  std::vector<impl::StencilCell<Float, Mx,My,Mz>> v2(vol);
   //
     //initialize fields:
   create_field<decltype(policy), Float, false, Mx,My,Mz>(policy, v1, nd, kappa, length, 0.0);
@@ -98,13 +99,13 @@ int main(){
 
   std::cout << "Done initialization :: " << vol << std::endl;
 
-  printf("Running forward Euler iterations for the 3d heat kernel %d times with params [c0=%le , c1=%le, c2=%le, c3=%le] ..\n", nsteps, c0, c1, c2, c3);
+  printf("Running forward Euler iterations for the 3d heat kernel %d times with params [c0=%le , c1=%le, c2=%le, c3=%le] ..\n", nsteps, c[0], c[1], c[2], c[3]);
   fflush(stdout);
 
   struct timeval time_begin, time_end;
   
   //Create stencil functor instances:
-  std::unique_ptr<StencilArgs> args_ptr(new StencilArgs{v2, v1, gd, c0, c1, c2, c3});
+  std::unique_ptr<StencilArgs> args_ptr(new StencilArgs{v2, v1, gd, c});
   
   auto& args = *args_ptr;
   
@@ -112,7 +113,7 @@ int main(){
   //
   auto stencil_kernel = [&stencil = *func_ptr] (const auto i) { stencil(i); };  
   
-  const int exe_domain = (vol * Mx *My *Mz) / inner_loop_range;
+  const int exe_domain = (vol * Mx *My *Mz);
 
   gettimeofday(&time_begin, NULL);
 #ifdef __NVCOMPILER_CUDA__

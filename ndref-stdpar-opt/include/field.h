@@ -6,7 +6,7 @@ namespace impl
 {
 
 template<int... M>
-consteval int get_grid_size() {
+consteval int get_cell_size() {
 
   std::array<int, sizeof... (M)> r{M...};
   int s = 1;
@@ -16,72 +16,25 @@ consteval int get_grid_size() {
   return s;
 }
 
-template<int... M>
-consteval decltype(auto) compute_global_offsets() {
-
-  std::array<int, sizeof... (M)> m{M...};
-  //
-  std::array<int, sizeof... (M)> offsets{M...};
-  //
-  int i = 0;
-  //
-  int prev_offset = 1; 
-  //
-  for (int &m_ : m) { 
-    offsets[i]  = prev_offset*m_;//m[0], m[0]*m[1], m[0]*m[1]*m[2]
-    prev_offset = offsets[i];
-    i += 1;
-  }
-
-  return offsets;
-}	
-
 template <ArithmeticTp T, int... M>
-class StencilGrid {
+class StencilCell {
    public :
      using value_type = T;
 
-     static constexpr std::array<int, sizeof...(M)> m{M...};
-     static constexpr int grid_size{get_grid_size<M...>()};
-     static constexpr std::array<int, sizeof...(M)> offsets{compute_global_offsets<M...>()};     
+     T data[get_cell_size<M...>()];
 
-     T data[grid_size];
-
-     StencilGrid() = default;
-     StencilGrid(const StencilGrid<T, M...> &) = default;
-     StencilGrid(StencilGrid<T, M...> &&)      = default;
+     StencilCell() = default;
+     StencilCell(const StencilCell<T, M...> &) = default;
+     StencilCell(StencilCell<T, M...> &&)      = default;
    
      //basic accessors
      constexpr T &operator[](const int i) { return data[i]; }
      constexpr const T &operator[](const int i) const { return data[i]; }
 
-     constexpr int size() const { return get_grid_size<M...>(); }   
+     constexpr int size() const { return get_cell_size<M...>(); }   
 
-     auto operator=(const StencilGrid&) -> StencilGrid& = default;
-     auto operator=(StencilGrid&&     ) -> StencilGrid& = default;
-     
-   //private:
-     inline static decltype(auto) Indx2Coord(const int &i) {
-       //
-       std::array<int, sizeof...(M)> x{i};// return for 1D domain, otherwise use also as temp.
-           
-       if constexpr (sizeof...(M) > 2) {
-         // First, compute higher dim coords:
-#pragma unroll         
-         for (int j = (sizeof...(M)-1); j > 1; j--) {
-           x[j] = x[0] / offsets[j-1];
-           x[0] = (x[0] - x[j]*offsets[j-1]);
-         }
-       }
-       //
-       if constexpr (sizeof...(M) > 1) {
-         x[1] = x[0] / offsets[0];
-         x[0] = x[0] - x[1]*offsets[0];       
-       } 
-       
-       return x;     
-     }
-   
+     auto operator=(const StencilCell&) -> StencilCell& = default;
+     auto operator=(StencilCell&&     ) -> StencilCell& = default;
 };
 
 }//end namespace impl

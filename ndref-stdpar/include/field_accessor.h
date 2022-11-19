@@ -152,24 +152,16 @@ class FieldAccessor{
        //
        const auto& offsets = args.get_offsets();
        //
-       std::array<int, D> x;
+       std::array<int, D> x{i};// return it for 1D domain, otherwise use it also as temp.
 
-       x[0] = i; // return it for 1D domain, otherwise use it also as temp.
-
-       if constexpr (D > 2) {
-         // First, compute higher dim coords:
+       if constexpr (D > 1) {
 #pragma unroll
-         for (int j = D - 1; j > 1; j--) {
+         for (int j = D - 1; j >= 1; j--) {
            x[j] = x[0] / offsets[j-1];
            x[0] = (x[0] - x[j]*offsets[j-1]);
-         }
+         }      
        }
-       //
-       if constexpr (D > 1) {
-         x[1] = x[0] / offsets[0];
-         x[0] = x[0] - x[1]*offsets[0];
-       }
-
+              
        return x;
     }
 };
