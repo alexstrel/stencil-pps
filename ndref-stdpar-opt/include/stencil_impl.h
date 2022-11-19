@@ -116,7 +116,7 @@ class GenericNDStencil {
     //
     auto is_curr_dir_bndry =  check_stencil_bndry<first_dir, second_dir, third_dir>(face_type);
     //
-    auto neigh  = is_curr_dir_bndry == 0 ? arg.in.template operator()<shifts[first_dir], shifts[second_dir], shifts[third_dir] > (i,j) :  arg.in_ghost.template get_bndry_term<shifts[first_dir], shifts[second_dir], shifts[third_dir]>(face_type,x,i,j);
+    auto neigh  = is_curr_dir_bndry == 0 ? arg.in.template operator()<shifts[first_dir], shifts[second_dir], shifts[third_dir] > (i,j) :  arg.in_ghost.template get_bndry_term<true, shifts[first_dir], shifts[second_dir], shifts[third_dir]>(face_type,x,i,j);
 
     if constexpr (third_dir % 2 == 0) {
       return (neigh + add_corner_neighbors<first_dir, second_dir, third_dir+1>(face_type, x, i, j));
@@ -134,7 +134,7 @@ class GenericNDStencil {
     //
     auto is_curr_dir_bndry =  check_stencil_bndry<first_dir, second_dir>(face_type);
     //
-    auto neigh  = is_curr_dir_bndry == 0 ? arg.in.template operator()<shifts[first_dir], shifts[second_dir] > (i,j) : arg.in_ghost.template get_bndry_term<shifts[first_dir], shifts[second_dir]>(face_type,x,i,j);
+    auto neigh  = is_curr_dir_bndry == 0 ? arg.in.template operator()<shifts[first_dir], shifts[second_dir] > (i,j) : arg.in_ghost.template get_bndry_term<true, shifts[first_dir], shifts[second_dir]>(face_type,x,i,j);
     //
     if        constexpr ( second_dir % 2 == 0) {
       return (neigh + add_edge_neighbors<first_dir, second_dir+1>(face_type, x, i, j));
@@ -151,7 +151,7 @@ class GenericNDStencil {
     //
     auto current_face_type = arg.in_ghost.check_face_type<dir>(x, j);
     //
-    auto neigh  = current_face_type == 0 ? arg.in.template operator()<shifts[dir]> (i,j) : arg.in_ghost.template get_bndry_term<shifts[dir]>(current_face_type,x,i,j);
+    auto neigh  = current_face_type == 0 ? arg.in.template operator()<shifts[dir]> (i,j) : arg.in_ghost.template get_bndry_term<true, shifts[dir]>(current_face_type,x,i,j);
     // Update face type information:
     if constexpr (ST == StencilTp::FaceEdgeCentered or ST == StencilTp::FaceEdgeCornerCentered){
       face_type = face_type | current_face_type;
