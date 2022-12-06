@@ -35,11 +35,7 @@ inline constexpr int check_stencil_bndry(const int face_idx, int face_type = 0) 
   return face_type;
 }
 
-<<<<<<< HEAD
-template <typename data_tp, int D, int blockx, int blocky, int blockz, ArithmeticTp... coeffs>
-=======
 template <typename data_tp, int D, int blockx, int blocky, int blockz, int... M>
->>>>>>> develop
 class GenericNDStencilArg {
   
   public:

@@ -3,7 +3,6 @@
 #include <common.h>
 #include <field.h>
 
-
 template <int D, int... M>
 class FieldArgs{
   public:
@@ -26,7 +25,7 @@ class FieldArgs{
 template <typename StencilCell, typename Arg>
 class FieldAccessor{
   public:
-    using T                = typename StencilCell::value_type; 
+    using T = typename StencilCell::value_type; 
     static constexpr int D{Arg::Dims};
     static constexpr int E{std::max(Arg::Dims, 3)};    
     static constexpr int stencil_cell_size{Arg::cell_size};    

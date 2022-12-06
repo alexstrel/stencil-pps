@@ -23,10 +23,12 @@
 
 using Float = float;
 
+// Register-blocking params 
 constexpr int Mx = 1;
 constexpr int My = 1;
 constexpr int Mz = 1;
 
+//Cache-blocking params
 //#ifdef __NVCOMPILER_CUDA__
 constexpr int Bx = 1;
 constexpr int By = 1;
@@ -40,9 +42,9 @@ constexpr int L     = 1024;
 
 constexpr std::array<int, dims> nd{L, L, L};
 constexpr std::array<int, dims> gd{nd[0]/Mx, nd[1]/My, nd[2]/Mz};
-constexpr int vol = (gd[0]*gd[1]*gd[2]);
+constexpr int vol{gd[0]*gd[1]*gd[2]};
 
-constexpr int inner_loop_range = Bx*By*Bz;//better 2 for double and 4 for floats
+constexpr int inner_loop_range = Bx*By*Bz;
 
 const Float kappa     = 0.1;
 const Float length    = 1000.0;
@@ -67,7 +69,7 @@ void dispatch_stencil_kernel(auto&& site_stencil_kernel, const int len){
 
 int main(){
 
-  using StencilArgs = GenericNDStencilArg<impl::StencilGrid<Float, Mx,My,Mz>, dims, Bx, By, Bz, Float, Float, Float, Float>;//NB!
+  using StencilArgs = GenericNDStencilArg<impl::StencilCell<Float, Mx,My,Mz>, dims, Bx, By, Bz, Mx, My, Mz>;//NB!
   
   std::array<Float, 4> c; 
 
