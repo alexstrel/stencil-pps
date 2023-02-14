@@ -3,13 +3,12 @@
 #include <common.h>
 #include <enums.h>
 
-template<int nDir, int nSpin, int nColor = 1>
+template<int nSpin, int nDir>
 class FieldArgs {
   public: 
-    static constexpr int ndir   = nDir;                    //vector field dim   (2 for U1 gauge)	  
     static constexpr int nspin  = nSpin;                   //number of spin dof (2 for spinor)
-    static constexpr int ncolor = nColor;                    //for all fields 							 
-    const std::array<int, 2> dir;		
+    static constexpr int ndir   = nDir;                    //vector field dim   (2 for U1 gauge) 							 
+    const std::array<int, 2> dims;		
     const FieldSiteSubset    subset;
     //
     const FieldParity        parity;
@@ -22,12 +21,12 @@ class FieldArgs {
 	      const int T, 
 	      const FieldSiteSubset subset   = FieldSiteSubset::FullSiteSubset,  
 	      const FieldParity parity       = FieldParity::InvalidFieldParity) : 
-	      dir{L, T},
+	      dims{L, T},
 	      subset(subset),
 	      parity(parity) {} 
 
     FieldArgs(const FieldArgs &args, const FieldSiteSubset subset,  const FieldParity parity) : 
-	    dir{subset == FieldSiteSubset::ParitySiteSubset && args.subset == FieldSiteSubset::FullSiteSubset ? args.dir[0] / 2 : args.dir[0], args.dir[1]},
+	    dims{subset == FieldSiteSubset::ParitySiteSubset && args.subset == FieldSiteSubset::FullSiteSubset ? args.dims[0] / 2 : args.dims[0], args.dims[1]},
 	    subset(subset),
 	    parity(parity) {}  
 
@@ -35,16 +34,15 @@ class FieldArgs {
     auto operator=(FieldArgs&&     ) -> FieldArgs& = default;
 };
 
-using GaugeFieldArgs  = FieldArgs<2,1>;
-using SpinorFieldArgs = FieldArgs<1,2>;
+using GaugeFieldArgs  = FieldArgs<1,2>;
+using SpinorFieldArgs = FieldArgs<2,1>;
 
 template <GenericContainerTp container_tp, typename Arg>
 class Field{
   public:	
     //
-    static constexpr int nDir    = Arg::ndir;
     static constexpr int nSpin   = Arg::nspin;                    
-    static constexpr int nColor  = Arg::ncolor;                    
+    static constexpr int nDir    = Arg::ndir;                    
 
   private: 
     container_tp v;
@@ -53,7 +51,7 @@ class Field{
 
   public:
     //
-    Field(const Arg &arg) : v(arg.dir[0]*arg.dir[1]*nDir*nSpin*nColor), 
+    Field(const Arg &arg) : v(arg.dims[0]*arg.dims[1]*nSpin*nDir), 
 	                    arg(arg) {}
     Field(const container_tp &src, const Arg &arg) : v(src),
                             arg(arg) {}
@@ -84,20 +82,15 @@ class Field{
 
     auto GetLength()       const { return v.size(); }
     auto GetParityLength() const { return v.size() / (arg.subset == FieldSiteSubset::FullSiteSubset ? 2 : 1); }
-
+#if 0
     //List of accessors:
     auto GaugeAccessor() {
-       static_assert(nSpin == 1, "Gauge accessor method cannot be applied on spinor.\n");
+       using dyn_indx_type = int;
+       using Dyn2DMap = stdex::layout_stride::mapping<stdex::extents<dyn_indx_type, stdex::dynamic_extent>>;
 
-       using data_tp = typename container_tp::value_type; 
-
-       using dyn_indx_type     = int;
-       using Dyn3DMap          = stdex::layout_stride::mapping<stdex::extents<dyn_indx_type, stdex::dynamic_extent, std::dynamic_extent, nDir>>;
-       using StridedDyn3DView  = stdex::mdspan<data_tp, stdex::extents<dyn_indx_type, stdex::dynamic_extent, stdex::dynamic_extent, nDir>, stdex::layout_stride>;
-
-       return StridedDyn3DView(v.data(), Dyn3DMap{stdex::extents<dyn_indx_type, stdex::dynamic_extent, stdex::dynamic_extent, nDir>{arg.dir[0], arg.dir[1], nDir}, 
-                                                                            std::array<dyn_indx_type, 3>{1, arg.dir[0], arg.dir[0]*arg.dir[1]}}) ;	    
+       return nullptr;	    
     }
+#endif
 };
 
 
