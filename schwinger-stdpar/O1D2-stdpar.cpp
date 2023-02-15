@@ -22,9 +22,11 @@ void init_spinor(auto &field){
 }
 
 void fill(auto &field_accessor) {
+  const int mu = field_accessor.extent(2);
   for(int i = 0; i < field_accessor.extent(0); i++){
-    for(int j = 0; j < field_accessor.extent(1); j++){	  
-      for(int k = 0; k < field_accessor.extent(2); k++){
+    for(int j = 0; j < field_accessor.extent(1); j++){	 
+#pragma unroll 
+      for(int k = 0; k < mu; k++){
 	 field_accessor(i,j,k) = std::complex<Float>(1.0, 0.0);     
       }	       
     }
@@ -62,7 +64,7 @@ int main(int argc, char **argv)
   auto even_gauge= gauge.Even();
   print_range(even_gauge, 4); 
 
-  auto even_gauge_acc = even_gauge.GaugeAccessor();
+  auto even_gauge_acc = gauge.Even().Accessor();
 
   std::cout << even_gauge_acc(2,0,0) << std::endl;
   //
