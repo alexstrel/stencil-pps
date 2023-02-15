@@ -2,6 +2,19 @@
 
 #include <common.h>
 #include <enums.h>
+#include <assert.h>
+
+template<int nD, int nS, int nC>
+consteval FieldType get_field_type() {
+
+  if constexpr (nD != invalid_dir and nS == invalid_spin  and nC != invalid_color){
+    return FieldType::VectorFieldType;	  
+  } else if constexpr (nD == invalid_dir and nS != invalid_spin  and nC != invalid_color) {
+    return FieldType::SpinorFieldType;	  
+  }
+
+  return FieldType::InvalidFieldType;
+}
 
 template<int nDir = invalid_dir, int nSpin = invalid_spin, int nColor = invalid_color>
 class FieldArgs {
@@ -10,7 +23,7 @@ class FieldArgs {
     static constexpr int nspin  = nSpin;                   //number of spin dof (2 for spinor)
     static constexpr int ncolor = nColor;                  //for all fields
 
-    static constexpr FieldType  type = nDir > 1 ? FieldType::VectorFieldType : FieldType::SpinorFieldType;
+    static constexpr FieldType  type = get_field_type<ndir, nspin, ncolor>();
 
     const std::array<int, 2> dir;		
     const FieldSiteSubset    subset;
@@ -34,7 +47,7 @@ class FieldArgs {
 	    subset(subset),
 	    parity(parity){}  
 
-    auto GetFieldSize() const {
+    decltype(auto) GetFieldSize() const {
       if  constexpr (type == FieldType::ScalarFieldType) {
         return dir[0]*dir[1];
       } else if constexpr (type == FieldType::VectorFieldType) {
@@ -44,6 +57,15 @@ class FieldArgs {
       }
       //
       return 0;
+    }
+
+    decltype(auto) GetLatticeDims() const {
+      return std::tie(dir[0], dir[1]);	    
+    }
+
+    decltype(auto) GetParityLatticeDims() const {
+      const int xh = subset == FieldSiteSubset::FullSiteSubset ? dir[0] / 2 : dir[0];	    
+      return std::make_tuple(xh, dir[1]);
     }
 
     auto operator=(const FieldArgs&) -> FieldArgs& = default;
@@ -97,13 +119,24 @@ class Field{
       return Field<std::span<data_tp>, decltype(odd_arg)>(std::span{v}.subspan(GetParityLength(), GetParityLength()), odd_arg);
     }
 
+
+    auto EODecompose() {
+      assert(arg.subset == FieldSiteSubset::FullSiteSubset);	    
+
+      return std::make_tuple(this->Even(), this->Odd());
+    }
+
     auto GetLength()       const { return v.size(); }
     auto GetParityLength() const { return v.size() / (arg.subset == FieldSiteSubset::FullSiteSubset ? 2 : 1); }
+    auto GetDims()         const { return arg.GetLatticeDims(); }
+    auto GetCBDims()       const { return arg.GetParityLatticeDims(); }
+   
+    auto GetFieldSubset()  const { return arg.subset; }
 
     //Field accessors (note that ncolor always 1, so no slicing for this dof):
     auto Accessor() {
        //
-       static_assert(nColor == 1, "Currently only O(1) model is supported\n");
+       static_assert(nColor == 1, "Currently only O(1) model is supported.");
 
        using data_tp           = typename container_tp::value_type;
        using dyn_indx_type     = int;

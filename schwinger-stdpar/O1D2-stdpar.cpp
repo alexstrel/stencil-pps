@@ -44,9 +44,13 @@ void print_range(auto &field, const int range){
 //--------------------------------------------------------------------------------
 int main(int argc, char **argv)
 {
+  //
+  const Float mass = 0.05;
+  const Float kappa= 1.0 / (2.0*(mass +2.0));
+
   // allocate and initialize the working lattices, matrices, and vectors
   //
-  const SpinorFieldArgs sf_args{ldim, tdim};
+  const auto sf_args = SpinorFieldArgs{ldim, tdim};
   const auto gf_args = GaugeFieldArgs{ldim, tdim};
   //
   auto src_spinor = Field<std::vector<std::complex<Float>>, decltype(sf_args)>(sf_args);
@@ -71,6 +75,14 @@ int main(int argc, char **argv)
   fill(even_gauge_acc);
   //
   std::cout << even_gauge_acc(2,0,0) << std::endl;
+  //
+  const auto [nxh, nyh] = src_spinor.GetCBDims();
+  std::cout << nxh << " :: CB :: " << nyh << std::endl;  
+
+  auto [even_spinor, odd_spinor] = src_spinor.EODecompose();
+  const auto [nx, ny] = even_spinor.GetDims();
+
+  std::cout << nx << " :: " << ny << std::endl;
 
   // initialize the data
   bool verbose = true;
