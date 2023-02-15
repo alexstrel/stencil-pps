@@ -79,6 +79,8 @@ template <GenericContainerTp container_tp, typename Arg>
 class Field{
   public:	
     //
+    using data_tp = typename container_tp::value_type;    
+
     static constexpr int nDir    = Arg::ndir;
     static constexpr int nSpin   = Arg::nspin;                    
     static constexpr int nColor  = Arg::ncolor;                    
@@ -91,34 +93,27 @@ class Field{
   public:
     //
     Field(const Arg &arg) : v(arg.GetFieldSize()), 
-	                    arg(arg) {}
+	                    arg(arg){}
     Field(const container_tp &src, const Arg &arg) : v(src),
-                            arg(arg) {}
+                            arg(arg){}
 
     auto& Get( ) { return v; }
 
-    auto Even() {
+    decltype(auto) GetParity(const FieldParity parity ) {
       if (arg.subset != FieldSiteSubset::FullSiteSubset) {
         std::cerr << "Cannot get a parity component from a non-full field\n" << std::endl;
       }
-      using data_tp = typename container_tp::value_type;
       //
-      auto even_arg = FieldArgs(this->arg, FieldSiteSubset::ParitySiteSubset, FieldParity::EvenFieldParity);
+      auto parity_arg = FieldArgs(this->arg, FieldSiteSubset::ParitySiteSubset, parity);
       //
-      return Field<std::span<data_tp>, decltype(even_arg)>(std::span{v}.subspan(0, GetParityLength()), even_arg);
+      const auto parity_length = GetParityLength();
+      const auto parity_offset = parity == FieldParity::EvenFieldParity ? 0 : parity_length;
+
+      return Field<std::span<data_tp>, decltype(parity_arg)>(std::span{v}.subspan(parity_offset, parity_length), parity_arg);
     }
 
-    auto Odd() {
-      if (arg.subset != FieldSiteSubset::FullSiteSubset) {
-        std::cerr << "Cannot get a parity component from a non-full field\n" << std::endl;
-      }
-      using data_tp = typename container_tp::value_type;
-      //
-      auto odd_arg = FieldArgs(this->arg, FieldSiteSubset::ParitySiteSubset, FieldParity::OddFieldParity);
-      //
-      return Field<std::span<data_tp>, decltype(odd_arg)>(std::span{v}.subspan(GetParityLength(), GetParityLength()), odd_arg);
-    }
-
+    auto Even() { return GetParity(FieldParity::EvenFieldParity );}
+    auto Odd()  { return GetParity(FieldParity::OddFieldParity  );}
 
     auto EODecompose() {
       assert(arg.subset == FieldSiteSubset::FullSiteSubset);	    
@@ -133,12 +128,11 @@ class Field{
    
     auto GetFieldSubset()  const { return arg.subset; }
 
-    //Field accessors (note that ncolor always 1, so no slicing for this dof):
+    //Direct field accessors (note that ncolor always 1, so no slicing for this dof):
     auto Accessor() {
        //
        static_assert(nColor == 1, "Currently only O(1) model is supported.");
 
-       using data_tp           = typename container_tp::value_type;
        using dyn_indx_type     = int;
 
        constexpr int nDoF = Arg::type == FieldType::VectorFieldType ? nDir*nColor : nSpin*nColor;

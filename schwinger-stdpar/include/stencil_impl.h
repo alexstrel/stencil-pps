@@ -3,19 +3,24 @@
 template<typename SpinorField, typename GaugeField>
 void dispatch_dslash_kernel(SpinorField &out, const GaugeField &gauge, const SpinorField &in) {
   // Take into account only internal points:
-  const auto [Nx, Ny] = in.GetDims(); //Get CB dimensions
+  const auto [Nxh, Ny] = in.GetCBDims(); //Get CB dimensions
 
-  auto xh = std::views::iota(0, in.GetFieldSubset == FieldSubset::FullSiteSubset ? (Nx / 2 - 1) : (Nx   -1));
+  auto xh = std::views::iota(0, Nxh-1);
   auto y  = std::views::iota(0, Ny -1);
 
   auto idx = std::views::cartesian_product(y, xh);//Y is the slowest index, X is the fastest
 						 
-  auto [even_in, odd_in]   = in.EODecompose();
   auto [even_out, odd_out] = out.EODecompose();
 
+  const auto [even_in, odd_in]       = in.EODecompose();
+  const auto [even_gauge, odd_gauge] = in.EODecompose();  
+
+  // Dslash = (I-\kappa \Sum_{mu} [ (I - \sigma_{\mu})U_(x){\mu} \delta_{x+\mu} + (I + \sigma_{\mu})U^*(x-mu)_{\mu}) \delta_{x-mu}]
+  //        = I_{EE}  D_{EO}
+  //          D_{OE}  I_{OO}
 						 
   // Create the kernel:
-  auto stencil_kernel = [out = out.data(), in = in.data(), args](auto cartesian_coords) {
+  auto Deo = [out = out.data(), in = in.data(), args](auto cartesian_coords) {
                           
                           auto idx = [=](auto x, auto y){ 
                                return x + y*args.nx;
