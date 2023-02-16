@@ -14,11 +14,11 @@ std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()s
 std::uniform_real_distribution<Float> dis(0.f, 1.f);
 
 void init_u1(auto &field){
-   for (auto &i : field.Get()) i = std::polar(1.0f,dis(gen));	
+   for (auto &i : field.Data()) i = std::polar(1.0f,dis(gen));	
 }
 
 void init_spinor(auto &field){
-   for (auto &i : field.Get()) i = std::complex<Float>(1.f, 0.f);
+   for (auto &i : field.Data()) i = std::complex<Float>(1.f, 0.f);
 }
 
 void fill(auto &field_accessor) {
@@ -34,11 +34,11 @@ void fill(auto &field_accessor) {
 }
 
 void print_range(auto &field, const int range){
-   std::cout << "Print components for field : " << field.Get().data() << std::endl;
+   std::cout << "Print components for field : " << field.Data().data() << std::endl;
 
    auto print = [](const auto& e) { std::cout << "Element " << e << std::endl; };
 
-   std::for_each(field.Get().begin(), field.Get().begin()+range, print);
+   std::for_each(field.Data().begin(), field.Data().begin()+range, print);
 }
 
 //--------------------------------------------------------------------------------
@@ -83,6 +83,12 @@ int main(int argc, char **argv)
   const auto [nx, ny] = even_spinor->GetDims();
 
   std::cout << nx << " :: " << ny << std::endl;
+
+  auto gauge_smart_pointer = gauge.Get();
+
+  const auto [gnx, gny] = gauge_smart_pointer->GetDims();
+
+  std::cout << gnx << " :: " << gny << std::endl;  
 
   // initialize the data
   bool verbose = true;

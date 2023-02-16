@@ -3,12 +3,15 @@
 template<typename SpinorField, typename GaugeField>
 void dispatch_dslash_kernel(SpinorField &out, const GaugeField &gauge, const SpinorField &in) {
   // Take into account only internal points:
+  using spinor_data_tp = typename SpinorField::data_tp;
+  using gauge_data_tp  = typename GaugeField::data_tp;  
+
   const auto [Nxh, Ny] = in.GetCBDims(); //Get CB dimensions
 
-  auto xh = std::views::iota(0, Nxh-1);
-  auto y  = std::views::iota(0, Ny -1);
+  auto Xh = std::views::iota(1, Nxh-2);
+  auto Y  = std::views::iota(1, Ny -2);
 
-  auto idx = std::views::cartesian_product(y, xh);//Y is the slowest index, X is the fastest
+  auto idx = std::views::cartesian_product(Y, Xh);//Y is the slowest index, X is the fastest
 						 
   auto [even_out, odd_out] = out.EODecompose();
 
@@ -20,29 +23,68 @@ void dispatch_dslash_kernel(SpinorField &out, const GaugeField &gauge, const Spi
   //          D_{OE}  I_{OO}
 						 
   // Create the kernel:
-  auto Dslash = [&o_e      = even_out->Accessor(), 
-                 &o_o      = odd_out->Accessor(), 
-                 &U_e      = even_gauge->Accessor(), 
-                 &U_o      = odd_gauge->Accessor(), 
-                 &i_e      = even_in->Accessor(), 
-                 &i_o      = odd_in->Accessor()](auto cartesian_coords) {
+  auto Dslash = [&oe      = even_out->Accessor(), 
+                 &oo      = odd_out->Accessor(), 
+                 &ue      = even_gauge->Accessor(), 
+                 &uo      = odd_gauge->Accessor(), 
+                 &ie      = even_in->Accessor(), 
+                 &io      = odd_in->Accessor()](auto cartesian_coords) {
                           
-                          auto [y_, xh_] = cartesian_coords;
+                          auto [y, xh] = cartesian_coords;
+			
+                          // Update even sites:
+			  //
+                          auto other_parity_bit = y & 1; //(y+z+t) & 1 => parity index
+			  //
+                          auto forward_hop = other_parity_bit; 							  
+                          auto bckward_hop = 1 - other_parity_bit;                           
                           
-                          const auto other_parity_site_forward_hop = y_ & 1; //(y+z+t) & 1 => parity index
-                          const auto other_parity_site_bckward_hop = other_site_forward_hop - 1;                           
-                          
-                          const auto xhp1  = xh_ + other_site_forward_hop;
-                          const auto xhm1  = xh_ + other_site_bckward_hop; 
+                          auto xhp1 = xh + forward_hop;
+                          auto xhm1 = xh - bckward_hop; 
                           //
-                          const auto yp1   = y_ + 1;
-                          const auto ym1   = y_ - 1; 
-                           
-                          auto site_stencil = (args.C(0)*in[idx(x, y)] + args.C(1) * (in_ym1 + in_yp1 + in_xm1 + in_xp1));
+                          const auto yp1 = y + 1;
+                          const auto ym1 = y - 1; 
 
-                          //store the result
-                          out[idx(x, y)] = site_stencil;
-                          // we may want to return something if we plan to run the reduction-like algorithm
+                          // Update upper spin components::			  
+                          //mu = 0 
+			  auto Deo = ue(xh,y,0)*(io(xhp1,y,0) - io(xhp1,y,1)) + conj(uo(xhm1,y,0))*(io(xhm1,y,0) + io(xhm1,y,1)); 
+
+                          //mu = 1
+			  auto io_yp1   = io(xh,yp1,1);
+			  auto ixio_yp1 = spinor_data_tp(-io_yp1.imag(), io_yp1.real());
+
+			  auto io_ym1   = io(xh,ym1,1);
+			  auto ixio_ym1 = spinor_data_tp(-io_ym1.imag(), io_ym1.real()); 
+
+                          Deo = Deo + ue(xh,y,1)*(io(xh,yp1,0) + ixio_yp1) + conj(uo(xh,ym1,1))*(io(xh,ym1,0) - ixio_ym1);
+                          //                       
+                          oe(xh, y, 0) = ie(xh, y, 0) - kappa*Deo;
+			  
+                          // Update down spin components::			  
+                          //mu = 0 
+                          Deo = ue(xh,y,0)*(io(xhp1,y,1) - io(xhp1,y,0)) + conj(uo(xhm1,y,0))*(io(xhm1,y,1) + io(xhm1,y,0));
+
+                          //mu = 1
+                          io_yp1   = io(xh,yp1,0);
+                          ixio_yp1 = spinor_data_tp(-io_yp1.imag(), io_yp1.real());
+
+                          io_ym1   = io(xh,ym1,0);
+                          ixio_ym1 = spinor_data_tp(-io_ym1.imag(), io_ym1.real());
+
+                          Deo = Deo + ue(xh,y,1)*(io(xh,yp1,1) - ixio_yp1) + conj(uo(xh,ym1,1))*(io(xh,ym1,1) + ixio_ym1);
+			  
+                          oe(xh, y, 1) = ie(xh, y, 1) - kappa*Doe;
+			  
+                          // Update odd sites:
+			  auto other_parity_bit = 1 - other_parity_bit;
+			  //
+                          auto forward_hop = other_parity_bit;                                      
+                          auto bckward_hop = 1 - other_parity_bit;
+
+                          auto xhp1  = xh + forward_hop;       
+                          auto xhm1  = xh - bckward_hop;
+
+                          
                         };
                         
   if constexpr (compute_energy){                          

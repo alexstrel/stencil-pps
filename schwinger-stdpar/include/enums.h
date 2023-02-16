@@ -29,3 +29,10 @@ enum class FieldType {
   InvalidFieldType   =  min_int
 };
 
+enum class FieldOrder {
+  LexFieldOrder     =  1,
+  EOFieldOrder      =  2,
+  InvalidFieldOrder =  min_int
+};
+
+

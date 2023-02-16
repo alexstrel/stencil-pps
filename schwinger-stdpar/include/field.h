@@ -98,9 +98,15 @@ class Field{
     Field(const container_tp &src, const Arg &arg) : v(src),
                             arg(arg){}
 
-    auto& Get( ) { return v; }
+    //Return a reference to the data container (adapter)
+    auto& Data( ) { return v; }
 
-    decltype(auto) GetParity(const FieldParity parity ) {// return a smart pointer to a component
+    //Return a smart pointer to the parent object (data access  via container adapter )
+    decltype(auto) Get() {
+      return std::make_shared<Field<std::span<data_tp>, decltype(arg)>>(std::span{v}, arg);	    
+    }
+
+    decltype(auto) GetParity(const FieldParity parity ) {// return a smart pointer to the parity component
       if (arg.subset != FieldSiteSubset::FullSiteSubset) {
         std::cerr << "Cannot get a parity component from a non-full field\n" << std::endl;
       }
