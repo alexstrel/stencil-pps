@@ -3,6 +3,7 @@
 #include <common.h>
 #include <enums.h>
 #include <assert.h>
+#include <memory>
 
 template<int nD, int nS, int nC>
 consteval FieldType get_field_type() {
@@ -99,7 +100,9 @@ class Field{
 
     auto& Get( ) { return v; }
 
-    decltype(auto) GetParity(const FieldParity parity ) {
+    auto& GetArgs( ) const  { return arg; } 
+
+    decltype(auto) GetParity(const FieldParity parity ) {// return a smart pointer to a component
       if (arg.subset != FieldSiteSubset::FullSiteSubset) {
         std::cerr << "Cannot get a parity component from a non-full field\n" << std::endl;
       }
@@ -109,7 +112,7 @@ class Field{
       const auto parity_length = GetParityLength();
       const auto parity_offset = parity == FieldParity::EvenFieldParity ? 0 : parity_length;
 
-      return Field<std::span<data_tp>, decltype(parity_arg)>(std::span{v}.subspan(parity_offset, parity_length), parity_arg);
+      return std::make_shared<Field<std::span<data_tp>, decltype(parity_arg)>>(std::span{v}.subspan(parity_offset, parity_length), parity_arg);
     }
 
     auto Even() { return GetParity(FieldParity::EvenFieldParity );}
@@ -144,3 +147,19 @@ class Field{
     }
 };
 
+#if 0
+typename<ArithmeticTp T>
+class FieldAccessor{
+
+  private:
+    T* data; //raw ptr, no allocation	  
+
+    const std::size_t data_size;
+
+  public:	
+    FieldAccessor( const Field &field ) : data(field.Get().data()), 
+	                                  data_size(field.Get().size()){}
+
+};
+
+#endif

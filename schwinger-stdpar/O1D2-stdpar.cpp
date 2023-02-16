@@ -63,12 +63,12 @@ int main(int argc, char **argv)
   print_range(gauge, 4);
 
   auto odd_gauge = gauge.Odd();
-  print_range(odd_gauge, 4);
+  print_range(*odd_gauge, 4);
 
   auto even_gauge= gauge.Even();
-  print_range(even_gauge, 4); 
+  print_range(*even_gauge, 4); 
 
-  auto even_gauge_acc = gauge.Even().Accessor();
+  auto even_gauge_acc = gauge.Even()->Accessor();
 
   std::cout << even_gauge_acc(2,0,0) << std::endl;
   //
@@ -80,7 +80,7 @@ int main(int argc, char **argv)
   std::cout << nxh << " :: CB :: " << nyh << std::endl;  
 
   auto [even_spinor, odd_spinor] = src_spinor.EODecompose();
-  const auto [nx, ny] = even_spinor.GetDims();
+  const auto [nx, ny] = even_spinor->GetDims();
 
   std::cout << nx << " :: " << ny << std::endl;
 
