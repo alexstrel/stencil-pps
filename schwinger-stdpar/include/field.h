@@ -100,8 +100,6 @@ class Field{
 
     auto& Get( ) { return v; }
 
-    auto& GetArgs( ) const  { return arg; } 
-
     decltype(auto) GetParity(const FieldParity parity ) {// return a smart pointer to a component
       if (arg.subset != FieldSiteSubset::FullSiteSubset) {
         std::cerr << "Cannot get a parity component from a non-full field\n" << std::endl;
@@ -147,19 +145,3 @@ class Field{
     }
 };
 
-#if 0
-typename<ArithmeticTp T>
-class FieldAccessor{
-
-  private:
-    T* data; //raw ptr, no allocation	  
-
-    const std::size_t data_size;
-
-  public:	
-    FieldAccessor( const Field &field ) : data(field.Get().data()), 
-	                                  data_size(field.Get().size()){}
-
-};
-
-#endif
