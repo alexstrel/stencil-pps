@@ -5,7 +5,7 @@
 #include <assert.h>
 #include <memory>
 
-template<int nD, int nS, int nC>
+template<std::size_t nD, std::size_t nS, std::size_t nC>
 consteval FieldType get_field_type() {
 
   if constexpr (nD != invalid_dir and nS == invalid_spin  and nC != invalid_color){
@@ -17,18 +17,19 @@ consteval FieldType get_field_type() {
   return FieldType::InvalidFieldType;
 }
 
-template<int nDir = invalid_dir, int nSpin = invalid_spin, int nColor = invalid_color>
+template<std::size_t nDir = invalid_dir, std::size_t nSpin = invalid_spin, std::size_t nColor = invalid_color>
 class FieldArgs {
   public: 
-    static constexpr int ndir   = nDir;                    //vector field dim   (2 for U1 gauge)	  
-    static constexpr int nspin  = nSpin;                   //number of spin dof (2 for spinor)
-    static constexpr int ncolor = nColor;                  //for all fields
+    static constexpr std::size_t ndir   = nDir;                    //vector field dim   (2 for U1 gauge)	  
+    static constexpr std::size_t nspin  = nSpin;                   //number of spin dof (2 for spinor)
+    static constexpr std::size_t ncolor = nColor;                  //for all fields
 
     static constexpr FieldType  type = get_field_type<ndir, nspin, ncolor>();
 
-    const std::array<int, 2> dir;		
+    const std::array<int, 2> dir;
+
+    const FieldOrder         order;        		
     const FieldSiteSubset    subset;
-    //
     const FieldParity        parity;
 
     FieldArgs() = default;
@@ -37,14 +38,17 @@ class FieldArgs {
 
     FieldArgs(const int L, 
 	      const int T, 
+	      const FieldOrder order         = FieldOrder::LexFieldOrder,
 	      const FieldSiteSubset subset   = FieldSiteSubset::FullSiteSubset,  
 	      const FieldParity parity       = FieldParity::InvalidFieldParity) : 
 	      dir{L, T},
+	      order(order),
 	      subset(subset),
 	      parity(parity){} 
 
     FieldArgs(const FieldArgs &args, const FieldSiteSubset subset,  const FieldParity parity) : 
 	    dir{subset == FieldSiteSubset::ParitySiteSubset && args.subset == FieldSiteSubset::FullSiteSubset ? args.dir[0] / 2 : args.dir[0], args.dir[1]},
+	    order(args.order),
 	    subset(subset),
 	    parity(parity){}  
 
@@ -57,7 +61,7 @@ class FieldArgs {
 	return dir[0]*dir[1]*nSpin*nColor;
       }
       //
-      return 0;
+      return static_cast<std::size_t>(0);
     }
 
     decltype(auto) GetLatticeDims() const {
@@ -82,9 +86,9 @@ class Field{
     //
     using data_tp = typename container_tp::value_type;    
 
-    static constexpr int nDir    = Arg::ndir;
-    static constexpr int nSpin   = Arg::nspin;                    
-    static constexpr int nColor  = Arg::ncolor;                    
+    static constexpr std::size_t nDir    = Arg::ndir;
+    static constexpr std::size_t nSpin   = Arg::nspin;                    
+    static constexpr std::size_t nColor  = Arg::ncolor;                    
 
   private: 
     container_tp v;
@@ -134,13 +138,14 @@ class Field{
     auto GetCBDims()       const { return arg.GetParityLatticeDims(); }
    
     auto GetFieldSubset()  const { return arg.subset; }
+    auto GetFieldOrder()   const { return arg.order; }    
 
     //Direct field accessors (note that ncolor always 1, so no slicing for this dof):
     auto Accessor() {
        //
        static_assert(nColor == 1, "Currently only O(1) model is supported.");
 
-       using dyn_indx_type     = int;
+       using dyn_indx_type     = std::size_t;
 
        constexpr int nDoF = Arg::type == FieldType::VectorFieldType ? nDir*nColor : nSpin*nColor;
 

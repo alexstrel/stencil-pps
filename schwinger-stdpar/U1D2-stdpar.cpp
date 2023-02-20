@@ -1,5 +1,6 @@
 #include <common.h>
 #include <field.h>
+#include <stencil_impl.h>
 //
 using Float   = float;
 
@@ -41,12 +42,16 @@ void print_range(auto &field, const int range){
    std::for_each(field.Data().begin(), field.Data().begin()+range, print);
 }
 
+struct DslashArgs{
+   const Float kappa;
+};
+
 //--------------------------------------------------------------------------------
 int main(int argc, char **argv)
 {
   //
   const Float mass = 0.05;
-  const Float kappa= 1.0 / (2.0*(mass +2.0));
+  const auto dslash_args = DslashArgs{1.0 / (2.0*(mass +2.0))};
 
   // allocate and initialize the working lattices, matrices, and vectors
   //
@@ -87,6 +92,8 @@ int main(int argc, char **argv)
   auto gauge_smart_pointer = gauge.Get();
 
   const auto [gnx, gny] = gauge_smart_pointer->GetDims();
+  
+  dispatch_dslash_kernel(*dst_spinor.Get(), *gauge.Get(),  *src_spinor.Get(), dslash_args);
 
   std::cout << gnx << " :: " << gny << std::endl;  
 

@@ -3,11 +3,12 @@
 #include <limits>
 
 constexpr int min_int      = std::numeric_limits<int>::min();
+constexpr std::size_t min_sizet      = std::numeric_limits<std::size_t>::min();
 
 //some defs:
-constexpr int invalid_spin  = min_int;
-constexpr int invalid_color = min_int;
-constexpr int invalid_dir   = min_int;
+constexpr std::size_t invalid_spin  = min_sizet;
+constexpr std::size_t invalid_color = min_sizet;
+constexpr std::size_t invalid_dir   = min_sizet;
 
 //using a-la QUDA terminology 
 enum class FieldSiteSubset {
