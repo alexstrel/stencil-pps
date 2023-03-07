@@ -107,7 +107,7 @@ class Field{
 
     //Return a smart pointer to the parent object (data access  via container adapter )
     decltype(auto) Get() {
-      return std::make_shared<Field<std::span<data_tp>, decltype(arg)>>(std::span{v}, arg);	    
+      return Field<std::span<data_tp>, decltype(arg)>(std::span{v}, arg);	    
     }
 
     decltype(auto) GetParity(const FieldParity parity ) {// return a smart pointer to the parity component
@@ -120,7 +120,7 @@ class Field{
       const auto parity_length = GetParityLength();
       const auto parity_offset = parity == FieldParity::EvenFieldParity ? 0 : parity_length;
 
-      return std::make_shared<Field<std::span<data_tp>, decltype(parity_arg)>>(std::span{v}.subspan(parity_offset, parity_length), parity_arg);
+      return Field<std::span<data_tp>, decltype(parity_arg)>(std::span{v}.subspan(parity_offset, parity_length), parity_arg);
     }
 
     auto Even() { return GetParity(FieldParity::EvenFieldParity );}
@@ -141,18 +141,18 @@ class Field{
     auto GetFieldOrder()   const { return arg.order; }    
 
     //Direct field accessors (note that ncolor always 1, so no slicing for this dof):
-    auto Accessor() {
+    auto Accessor() const {
        //
        static_assert(nColor == 1, "Currently only O(1) model is supported.");
 
        using dyn_indx_type     = std::size_t;
 
-       constexpr int nDoF = Arg::type == FieldType::VectorFieldType ? nDir*nColor : nSpin*nColor;
+       constexpr int nDoF = Arg::type == FieldType::VectorFieldType ? nDir*nColor*nColor : nSpin*nColor;
 
        using Dyn3DMap          = stdex::layout_stride::mapping<stdex::extents<dyn_indx_type, stdex::dynamic_extent, std::dynamic_extent, nDoF>>;
        using StridedDyn3DView  = stdex::mdspan<data_tp, stdex::extents<dyn_indx_type, stdex::dynamic_extent, stdex::dynamic_extent, nDoF>, stdex::layout_stride>;
 
-       return StridedDyn3DView(v.data(), Dyn3DMap{stdex::extents<dyn_indx_type, stdex::dynamic_extent, stdex::dynamic_extent, nDir>{arg.dir[0], arg.dir[1], nDoF}, std::array<dyn_indx_type, 3>{1, arg.dir[0], arg.dir[0]*arg.dir[1]}}) ;
+       return StridedDyn3DView(v.data(), Dyn3DMap{stdex::extents<dyn_indx_type, stdex::dynamic_extent, stdex::dynamic_extent, nDoF>{arg.dir[0], arg.dir[1], nDoF}, std::array<dyn_indx_type, 3>{1, arg.dir[0], arg.dir[0]*arg.dir[1]}}) ;
     }
 };
 

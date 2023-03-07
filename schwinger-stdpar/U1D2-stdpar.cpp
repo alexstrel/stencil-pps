@@ -42,16 +42,12 @@ void print_range(auto &field, const int range){
    std::for_each(field.Data().begin(), field.Data().begin()+range, print);
 }
 
-struct DslashArgs{
-   const Float kappa;
-};
-
 //--------------------------------------------------------------------------------
 int main(int argc, char **argv)
 {
   //
   const Float mass = 0.05;
-  const auto dslash_args = DslashArgs{1.0 / (2.0*(mass +2.0))};
+  StencilParam<Float> dslash_param{1.0 / (2.0*(mass +2.0))};
 
   // allocate and initialize the working lattices, matrices, and vectors
   //
@@ -68,12 +64,12 @@ int main(int argc, char **argv)
   print_range(gauge, 4);
 
   auto odd_gauge = gauge.Odd();
-  print_range(*odd_gauge, 4);
+  print_range(odd_gauge, 4);
 
   auto even_gauge= gauge.Even();
-  print_range(*even_gauge, 4); 
+  print_range(even_gauge, 4); 
 
-  auto even_gauge_acc = gauge.Even()->Accessor();
+  auto even_gauge_acc = gauge.Even().Accessor();
 
   std::cout << even_gauge_acc(2,0,0) << std::endl;
   //
@@ -85,15 +81,15 @@ int main(int argc, char **argv)
   std::cout << nxh << " :: CB :: " << nyh << std::endl;  
 
   auto [even_spinor, odd_spinor] = src_spinor.EODecompose();
-  const auto [nx, ny] = even_spinor->GetDims();
+  const auto [nx, ny] = even_spinor.GetDims();
 
   std::cout << nx << " :: " << ny << std::endl;
 
-  auto gauge_smart_pointer = gauge.Get();
+  auto gauge_ref = gauge.Get();
 
-  const auto [gnx, gny] = gauge_smart_pointer->GetDims();
+  const auto [gnx, gny] = gauge_ref.GetDims();
   
-  dispatch_dslash_kernel(*dst_spinor.Get(), *gauge.Get(),  *src_spinor.Get(), dslash_args);
+  dispatch_dslash_kernel(dst_spinor, gauge,  src_spinor, dslash_param);
 
   std::cout << gnx << " :: " << gny << std::endl;  
 
