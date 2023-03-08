@@ -90,7 +90,7 @@ int main(int argc, char **argv)
   const auto [gnx, gny] = gauge_ref.GetDims();
   
   dispatch_dslash_kernel(dst_spinor, gauge,  src_spinor, dslash_param);
-
+  //
   std::cout << gnx << " :: " << gny << std::endl;  
 
   // initialize the data
