@@ -7,8 +7,8 @@ using Float   = float;
 //constexpr int D = 2;
 //constexpr int N = 2;
 
-constexpr int ldim = 16;
-constexpr int tdim = 16;
+constexpr int ldim = 16384;
+constexpr int tdim = 8192;
 
 std::random_device rd;  //Will be used to obtain a seed for the random number engine
 std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()s
@@ -60,38 +60,24 @@ int main(int argc, char **argv)
 
   init_u1(gauge);
   init_spinor(src_spinor);
-
-  print_range(gauge, 4);
-
-  auto odd_gauge = gauge.Odd();
-  print_range(odd_gauge, 4);
-
-  auto even_gauge= gauge.Even();
-  print_range(even_gauge, 4); 
-
-  auto even_gauge_acc = gauge.Even().Accessor();
-
-  std::cout << even_gauge_acc(2,0,0) << std::endl;
-  //
-  fill(even_gauge_acc);
-  //
-  std::cout << even_gauge_acc(2,0,0) << std::endl;
-  //
-  const auto [nxh, nyh] = src_spinor.GetCBDims();
-  std::cout << nxh << " :: CB :: " << nyh << std::endl;  
-
-  auto [even_spinor, odd_spinor] = src_spinor.EODecompose();
-  const auto [nx, ny] = even_spinor.GetDims();
-
-  std::cout << nx << " :: " << ny << std::endl;
-
-  auto gauge_ref = gauge.Get();
-
-  const auto [gnx, gny] = gauge_ref.GetDims();
   
-  dispatch_dslash_kernel(dst_spinor, gauge,  src_spinor, dslash_param);
-  //
-  std::cout << gnx << " :: " << gny << std::endl;  
+  // Setup dslash arguments:
+  auto &&u_ref    = gauge.Get();
+  using gauge_tp  = typename std::remove_cvref_t<decltype(u_ref)>;
+
+  std::unique_ptr<StencilArgs<gauge_tp, decltype(dslash_param)>> stencil_args_ptr(new StencilArgs{u_ref, dslash_param});
+
+  auto &stencil_args = *stencil_args_ptr;
+
+  // Create dslash matrix
+  auto mat = Mat<Stencil<decltype(stencil_args)>, decltype(stencil_args)>{stencil_args};
+
+  const int niter = 1000;
+
+  for(int i = 0; i < niter; i++) {
+    // Apply dslash	  
+    mat(dst_spinor, src_spinor);
+  }
 
   // initialize the data
   bool verbose = true;
