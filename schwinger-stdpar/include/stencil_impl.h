@@ -22,6 +22,31 @@ class StencilArgs{
     StencilArgs( const gauge_tp &gauge, const param_tp &param) : gauge(gauge), param(param) {}
 };
 
+template< ComplexTp T>
+inline decltype(auto) operator*(const T &scalar, const std::array<T,2> &a){
+  std::array<T,2> result;
+#pragma unroll
+  for(int i = 0; i < 2; i++){
+    result[i] = scalar.real() * a[i].real() - scalar.imag() * a[i].imag();
+    result[i] = scalar.real() * a[i].imag() + scalar.imag() * a[i].real();
+  }
+
+  return result;
+}
+
+template< ComplexTp T>
+inline decltype(auto) operator+=(std::array<T,2> &a, const std::array<T,2> &b){
+ 
+#pragma unroll
+  for(int i = 0; i < 2; i++){
+    a[i] = a[i].real() * b[i].real() - a[i].imag() * b[i].imag();
+    a[i] = a[i].real() * b[i].imag() + a[i].imag() * b[i].real();
+  }
+
+  return a;
+}
+
+
 template <typename Arg>
 class Stencil{
   public:
@@ -39,12 +64,49 @@ class Stencil{
       //
 	    
       using DataTp = typename std::remove_cvref_t<Arg>::gauge_data_tp;
+      using Link   = DataTp; 
+      using Spinor = std::array<DataTp, 2>;
+
+      constexpr int spin_0 = 0;
+      constexpr int spin_1 = 1;
 
       auto ix = [=](auto x){ 
         return DataTp(-x.imag(), x.real());
       };
 
       auto [y, x] = cartesian_coords;
+      
+      auto proj = [=](const auto& s, const int dir, const int sign) {
+         Spinor res;
+
+	 switch (dir) {
+	   case 0 :
+	     switch (sign) {
+	       case +1 : 
+	         res[0] = s(x+1,y,spin_0) - s(x+1,y,spin_1);
+		 res[1] = s(x+1,y,spin_1) - s(x+1,y,spin_0);
+                 break;
+               case -1 :
+                 res[0] = s(x-1,y,spin_0) + s(x-1,y,spin_1); 		 
+		 res[1] = s(x-1,y,spin_1) + s(x-1,y,spin_0);
+		 break;
+	     }
+
+           case 1 :
+             switch (sign) {
+               case +1 :
+                 res[0] = s(x,y+1,spin_0) + ix(s(x,y+1,spin_1));
+		 res[1] = s(x,y+1,spin_1) - ix(s(x,y+1,spin_0));
+                 break;
+               case -1 :
+                 res[0] = s(x,y-1,spin_0) - ix(s(x,y-1,spin_1));
+		 res[1] = s(x,y-1,spin_1) + ix(s(x,y-1,spin_0));
+                 break;
+             }              	     
+	 }
+	       
+	 return res;
+      };
  
       auto o       = out.Accessor();
       const auto i = in.Accessor();      
@@ -52,23 +114,21 @@ class Stencil{
       const auto u = args.gauge.Accessor();
 
       const auto kappa = args.param.kappa;
-      // Update upper spin components::                       
-      //mu = 0 
-      auto D = u(x,y,0)*(i(x+1,y,0) - i(x+1,y,1)) + conj(u(x-1,y,0))*(i(x-1,y,0) + i(x-1,y,1)); 
 
-      //mu = 1
-      D = D + u(x,y,1)*(i(x,y+1,0) + ix(i(x,y+1,1))) + conj(u(x,y-1,1))*(i(x,y-1,0) - ix(i(x,y-1,1)));
-      //                       
-      o(x,y,0) = i(x,y,0) - kappa*D;
-                          
-      // Update down spin components::                        
-      //mu = 0 
-      D = u(x,y,0)*(i(x+1,y,1) - i(x+1,y,0)) + conj(u(x-1,y,0))*(i(x-1,y,1) + i(x-1,y,0));
+      std::array<DataTp, 2> s;
 
-      //mu = 1
-      D = D + u(x,y,1)*(i(x,y+1,1) - ix(i(x,y+1,0))) + conj(u(x,y-1,1))*(i(x,y-1,1) + ix(i(x,y-1,0)));
-                          
-      o(x,y,1) = i(x,y,1) - kappa*D;        
+      constexpr int nDir = 2; 
+#pragma unroll
+      for (int d = 0; d < nDir; d++) {
+	// Forward hop:      
+	s += u(x,y,d)*proj(i,d,+1);
+
+	// Backward hop:
+        s += conj(u(x-1,y,d))*proj(i,d,-1);	 
+      }
+
+      o(x,y,spin_0) = i(x,y,spin_0) - kappa*s[spin_0];
+      o(x,y,spin_1) = i(x,y,spin_1) - kappa*s[spin_1];
     }
 };
 
