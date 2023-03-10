@@ -55,7 +55,7 @@ class Stencil{
 
     Stencil(const Arg &args) : args(args) {}     
 
-    void apply(auto &out, const auto &in, const auto cartesian_coords) {
+    void apply(auto &out_spinor, const auto &in_spinor, const auto cartesian_coords) {
 
       // Take into account only internal points:
       // Dslash_nm = (M + 4r) \delta_nm - 0.5 * \sum_\mu  ((r - \gamma_\mu)*U_(x){\mu}*\delta_{m,n+\mu} + (r + \gamma_\mu)U^*(x-mu)_{\mu}\delta_{m,n-\mu})
@@ -67,68 +67,81 @@ class Stencil{
       using Link   = DataTp; 
       using Spinor = std::array<DataTp, 2>;
 
-      constexpr int spin_0 = 0;
-      constexpr int spin_1 = 1;
+      // Define spin components:
+      constexpr int s0 = 0;
+      constexpr int s1 = 1;
 
       auto ix = [=](auto x){ 
         return DataTp(-x.imag(), x.real());
       };
 
       auto [y, x] = cartesian_coords;
-      
-      auto proj = [=](const auto& s, const int dir, const int sign) {
+
+      // Define accessors:
+      auto out      = out_spinor.Accessor();
+      const auto in = in_spinor.Accessor();
+      const auto U  = args.gauge.Accessor();
+
+      auto proj_in_plus = [=](const int dir) {
          Spinor res;
 
 	 switch (dir) {
 	   case 0 :
-	     switch (sign) {
-	       case +1 : 
-	         res[0] = s(x+1,y,spin_0) - s(x+1,y,spin_1);
-		 res[1] = s(x+1,y,spin_1) - s(x+1,y,spin_0);
-                 break;
-               case -1 :
-                 res[0] = s(x-1,y,spin_0) + s(x-1,y,spin_1); 		 
-		 res[1] = s(x-1,y,spin_1) + s(x-1,y,spin_0);
-		 break;
-	     }
+	     res[0] = in(x+1,y,s0) - in(x+1,y,s1);
+             res[1] = in(x+1,y,s1) - in(x+1,y,s0);
+
+	     break;
 
            case 1 :
-             switch (sign) {
-               case +1 :
-                 res[0] = s(x,y+1,spin_0) + ix(s(x,y+1,spin_1));
-		 res[1] = s(x,y+1,spin_1) - ix(s(x,y+1,spin_0));
-                 break;
-               case -1 :
-                 res[0] = s(x,y-1,spin_0) - ix(s(x,y-1,spin_1));
-		 res[1] = s(x,y-1,spin_1) + ix(s(x,y-1,spin_0));
-                 break;
-             }              	     
+             res[0] = in(x,y+1,s0) + ix(in(x,y+1,s1));
+             res[1] = in(x,y+1,s1) - ix(in(x,y+1,s0));
+
+             break;
 	 }
 	       
 	 return res;
       };
  
-      auto o       = out.Accessor();
-      const auto i = in.Accessor();      
+      auto proj_in_minus = [=](const int dir) {
+         Spinor res;
 
-      const auto u = args.gauge.Accessor();
+         switch (dir) {
+           case 0 :
+             res[0] = in(x-1,y,s0) + in(x-1,y,s1);        
+             res[1] = in(x-1,y,s1) + in(x-1,y,s0);
+
+             break;
+
+           case 1 :
+             res[0] = in(x,y-1,s0) - ix(in(x,y-1,s1));
+             res[1] = in(x,y-1,s1) + ix(in(x,y-1,s0));
+
+             break;
+         }
+
+         return res;
+      };
+
+
 
       const auto kappa = args.param.kappa;
 
-      std::array<DataTp, 2> s;
+      std::array<DataTp, 2> tmp;
 
       constexpr int nDir = 2; 
+
 #pragma unroll
       for (int d = 0; d < nDir; d++) {
 	// Forward hop:      
-	s += u(x,y,d)*proj(i,d,+1);
+	tmp += U(x,y,d)*proj_in_plus(d);
 
 	// Backward hop:
-        s += conj(u(x-1,y,d))*proj(i,d,-1);	 
+        tmp += conj(U(x-1,y,d))*proj_in_minus(d);	 
       }
 
-      o(x,y,spin_0) = i(x,y,spin_0) - kappa*s[spin_0];
-      o(x,y,spin_1) = i(x,y,spin_1) - kappa*s[spin_1];
+#pragma unroll
+      for (int s = 0; s < 2; s++)
+        out(x,y,s) = in(x,y,s) - kappa*tmp[s];
     }
 };
 
