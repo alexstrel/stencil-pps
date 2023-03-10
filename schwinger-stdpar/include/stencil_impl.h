@@ -46,6 +46,19 @@ inline decltype(auto) operator+=(std::array<T,2> &a, const std::array<T,2> &b){
   return a;
 }
 
+template< ComplexTp T>
+inline decltype(auto) operator+(const std::array<T,2> &a, const std::array<T,2> &b){
+  std::array<T,2> result;
+#pragma unroll
+  for(int i = 0; i < 2; i++){
+    result[i] = a[i].real() + b[i].real();
+    result[i] = a[i].imag() + b[i].imag();
+  }
+
+  return result;
+}
+
+
 
 template <typename Arg>
 class Stencil{
@@ -64,6 +77,7 @@ class Stencil{
       //
 	    
       using DataTp = typename std::remove_cvref_t<Arg>::gauge_data_tp;
+      //
       using Link   = DataTp; 
       using Spinor = std::array<DataTp, 2>;
 
@@ -71,16 +85,14 @@ class Stencil{
       constexpr int s0 = 0;
       constexpr int s1 = 1;
 
-      auto ix = [=](auto x){ 
-        return DataTp(-x.imag(), x.real());
-      };
-
       auto [y, x] = cartesian_coords;
 
       // Define accessors:
       auto out      = out_spinor.Accessor();
       const auto in = in_spinor.Accessor();
       const auto U  = args.gauge.Accessor();
+
+      auto ic = [](auto c){ return DataTp(-c.imag(), c.real());};
 
       auto proj_in_plus = [=](const int dir) {
          Spinor res;
@@ -93,8 +105,8 @@ class Stencil{
 	     break;
 
            case 1 :
-             res[0] = in(x,y+1,s0) + ix(in(x,y+1,s1));
-             res[1] = in(x,y+1,s1) - ix(in(x,y+1,s0));
+             res[0] = in(x,y+1,s0) + ic(in(x,y+1,s1));
+             res[1] = in(x,y+1,s1) - ic(in(x,y+1,s0));
 
              break;
 	 }
@@ -113,16 +125,14 @@ class Stencil{
              break;
 
            case 1 :
-             res[0] = in(x,y-1,s0) - ix(in(x,y-1,s1));
-             res[1] = in(x,y-1,s1) + ix(in(x,y-1,s0));
+             res[0] = in(x,y-1,s0) - ic(in(x,y-1,s1));
+             res[1] = in(x,y-1,s1) + ic(in(x,y-1,s0));
 
              break;
          }
 
          return res;
       };
-
-
 
       const auto kappa = args.param.kappa;
 
@@ -132,11 +142,8 @@ class Stencil{
 
 #pragma unroll
       for (int d = 0; d < nDir; d++) {
-	// Forward hop:      
-	tmp += U(x,y,d)*proj_in_plus(d);
-
-	// Backward hop:
-        tmp += conj(U(x-1,y,d))*proj_in_minus(d);	 
+	// Fwd+Bwd terms      
+	tmp += (U(x,y,d)*proj_in_plus(d) + conj(U(x-1,y,d))*proj_in_minus(d));	 
       }
 
 #pragma unroll
