@@ -65,7 +65,9 @@ int main(int argc, char **argv)
   auto &&u_ref    = gauge.Get();
   using gauge_tp  = typename std::remove_cvref_t<decltype(u_ref)>;
 
-  std::unique_ptr<StencilArgs<gauge_tp, decltype(dslash_param)>> stencil_args_ptr(new StencilArgs{u_ref, dslash_param});
+  constexpr std::size_t nspin = 2;
+
+  std::unique_ptr<StencilArgs<gauge_tp, decltype(dslash_param), nspin>> stencil_args_ptr(new StencilArgs{u_ref, dslash_param});
 
   auto &stencil_args = *stencil_args_ptr;
 

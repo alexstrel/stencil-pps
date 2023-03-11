@@ -10,10 +10,14 @@ class StencilParam{
     const T kappa;	
 };
 
-template <typename gauge_tp, typename param_tp >
+template <typename gauge_tp, typename param_tp, int nSpin_ = 2>
 class StencilArgs{
   public:
     using gauge_data_tp  = typename gauge_tp::data_tp;	  
+
+    static constexpr std::size_t nDir   = gauge_tp::nDir;
+    static constexpr std::size_t nColor = gauge_tp::nColor;
+    static constexpr std::size_t nSpin  = nSpin_; 
 
     const gauge_tp  gauge;
     
@@ -22,11 +26,11 @@ class StencilArgs{
     StencilArgs( const gauge_tp &gauge, const param_tp &param) : gauge(gauge), param(param) {}
 };
 
-template< ComplexTp T>
-inline decltype(auto) operator*(const T &scalar, const std::array<T,2> &a){
-  std::array<T,2> result;
+template< ComplexTp T, std::size_t nspin>
+inline decltype(auto) operator*(const T &scalar, const std::array<T,nspin> &a){
+  std::array<T,nspin> result;
 #pragma unroll
-  for(int i = 0; i < 2; i++){
+  for(int i = 0; i < nspin; i++){
     result[i] = scalar.real() * a[i].real() - scalar.imag() * a[i].imag();
     result[i] = scalar.real() * a[i].imag() + scalar.imag() * a[i].real();
   }
@@ -34,11 +38,11 @@ inline decltype(auto) operator*(const T &scalar, const std::array<T,2> &a){
   return result;
 }
 
-template< ComplexTp T>
-inline decltype(auto) operator+=(std::array<T,2> &a, const std::array<T,2> &b){
+template< ComplexTp T, std::size_t nspin>
+inline decltype(auto) operator+=(std::array<T,nspin> &a, const std::array<T,nspin> &b){
  
 #pragma unroll
-  for(int i = 0; i < 2; i++){
+  for(int i = 0; i < nspin; i++){
     a[i] = a[i].real() * b[i].real() - a[i].imag() * b[i].imag();
     a[i] = a[i].real() * b[i].imag() + a[i].imag() * b[i].real();
   }
@@ -46,11 +50,11 @@ inline decltype(auto) operator+=(std::array<T,2> &a, const std::array<T,2> &b){
   return a;
 }
 
-template< ComplexTp T>
-inline decltype(auto) operator+(const std::array<T,2> &a, const std::array<T,2> &b){
-  std::array<T,2> result;
+template< ComplexTp T, std::size_t nspin>
+inline decltype(auto) operator+(const std::array<T,nspin> &a, const std::array<T,nspin> &b){
+  std::array<T,nspin> result;
 #pragma unroll
-  for(int i = 0; i < 2; i++){
+  for(int i = 0; i < nspin; i++){
     result[i] = a[i].real() + b[i].real();
     result[i] = a[i].imag() + b[i].imag();
   }
@@ -68,6 +72,49 @@ class Stencil{
 
     Stencil(const Arg &args) : args(args) {}     
 
+    template<int sign>
+    inline decltype(auto) proj(const auto &in, const int dir){
+
+      using Spinor = typename std::remove_cvref_t<decltype(in)>;
+      using DataTp = typename std::remove_cvref_t<Arg>::gauge_data_tp;
+      
+      Spinor res;	    
+
+      auto ic = [](auto c){ return DataTp(-c.imag(), c.real());};
+
+      if constexpr (sign == +1) {
+       switch (dir) {
+          case 0 :
+            res[0] = in[0] - in[1];//x+1
+            res[1] = in[1] - in[0];//x+1
+
+            break;
+
+          case 1 :
+            res[0] = in[0] + ic(in[1]);//y+1
+            res[1] = in[1] - ic(in[0]);//y+1
+
+            break;
+        }
+      } else if constexpr (sign == -1) {	      
+        switch (dir) {
+          case 0 :
+            res[0] = in[0] + in[1];//x-1
+            res[1] = in[1] + in[0];//x-1
+
+            break;
+
+          case 1 :
+            res[0] = in[0] - ic(in[1]);//y-1
+            res[1] = in[1] + ic(in[0]);//y-1
+
+            break;
+        }	      
+      }
+
+      return res;
+    }
+
     void apply(auto &out_spinor, const auto &in_spinor, const auto cartesian_coords) {
 
       // Take into account only internal points:
@@ -78,12 +125,10 @@ class Stencil{
 	    
       using DataTp = typename std::remove_cvref_t<Arg>::gauge_data_tp;
       //
+      constexpr auto nSpin = std::remove_cvref_t<Arg>::nSpin;
+      //
       using Link   = DataTp; 
-      using Spinor = std::array<DataTp, 2>;
-
-      // Define spin components:
-      constexpr int s0 = 0;
-      constexpr int s1 = 1;
+      using Spinor = std::array<DataTp, nSpin>;
 
       auto [y, x] = cartesian_coords;
 
@@ -92,62 +137,56 @@ class Stencil{
       const auto in = in_spinor.Accessor();
       const auto U  = args.gauge.Accessor();
 
-      auto ic = [](auto c){ return DataTp(-c.imag(), c.real());};
-
-      auto proj_in_plus = [=](const int dir) {
-         Spinor res;
-
-	 switch (dir) {
-	   case 0 :
-	     res[0] = in(x+1,y,s0) - in(x+1,y,s1);
-             res[1] = in(x+1,y,s1) - in(x+1,y,s0);
-
-	     break;
-
-           case 1 :
-             res[0] = in(x,y+1,s0) + ic(in(x,y+1,s1));
-             res[1] = in(x,y+1,s1) - ic(in(x,y+1,s0));
-
-             break;
-	 }
-	       
-	 return res;
-      };
- 
-      auto proj_in_minus = [=](const int dir) {
-         Spinor res;
-
-         switch (dir) {
-           case 0 :
-             res[0] = in(x-1,y,s0) + in(x-1,y,s1);        
-             res[1] = in(x-1,y,s1) + in(x-1,y,s0);
-
-             break;
-
-           case 1 :
-             res[0] = in(x,y-1,s0) - ic(in(x,y-1,s1));
-             res[1] = in(x,y-1,s1) + ic(in(x,y-1,s0));
-
-             break;
-         }
-
-         return res;
-      };
-
       const auto kappa = args.param.kappa;
 
-      std::array<DataTp, 2> tmp;
+      std::array<DataTp, nSpin> tmp;
 
-      constexpr int nDir = 2; 
+      constexpr auto nDir = std::remove_cvref_t<Arg>::nDir; 
 
+      constexpr std::array<DataTp, nDir> bndr_factor{DataTp(1.0),DataTp(-1.0)}; 
 #pragma unroll
       for (int d = 0; d < nDir; d++) {
-	// Fwd+Bwd terms      
-	tmp += (U(x,y,d)*proj_in_plus(d) + conj(U(x-1,y,d))*proj_in_minus(d));	 
+
+        std::array<int, nDir> X{x, y};
+
+	// Fwd gather:
+	{   	
+	  if ( X[d] == (in.extent(d)-1) ) {
+	    //	  
+	    X[d] = 0;
+
+	    const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
+
+	    tmp += (bndr_factor[d]*U(x,y,d))*proj<+1>(in_, d);
+	  } else {
+	    X[d] += 1;
+
+            const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
+
+            tmp += U(x,y,d)*proj<+1>(in_, d);		  
+	  }	  
+	}
+	// Bwd neighbour contribution:
+	{
+          if ( X[d] == 0 ) {
+            //    
+	    X[d] = (in.extent(d)-1);
+
+            const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
+
+            tmp += conj(bndr_factor[d]*U(X[0],X[1],d))*proj<-1>(in_, d);
+          } else {  		
+            X[d] -= 1;		  
+
+	    const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
+
+	    tmp += conj(U(X[0],X[1],d))*proj<-1>(in_, d);	 
+	  }
+	}
       }
 
 #pragma unroll
-      for (int s = 0; s < 2; s++)
+      for (int s = 0; s < nSpin; s++)
         out(x,y,s) = in(x,y,s) - kappa*tmp[s];
     }
 };
@@ -167,8 +206,8 @@ class Mat{
       // Take into account only internal points:
       const auto [Nx, Ny] = in.GetCBDims(); //Get CB dimensions
 
-      auto X = std::views::iota(1, Nx-2);
-      auto Y = std::views::iota(1, Ny-2);
+      auto X = std::views::iota(0, Nx-1);
+      auto Y = std::views::iota(0, Ny-1);
 
       auto idx = std::views::cartesian_product(Y, X);//Y is the slowest index, X is the fastest	    
        	    
