@@ -2,16 +2,17 @@
 #include <algorithm>
 #include <execution>
 //
+#include <dslash_helpers.h>
 #include <cartesian_product.hpp>
 
 template<typename T>
-class StencilParam{
+class DslashParam{
   public:
     const T kappa;	
 };
 
 template <typename gauge_tp, typename param_tp, int nSpin_ = 2>
-class StencilArgs{
+class DslashArgs{
   public:
     using gauge_data_tp  = typename gauge_tp::data_tp;	  
 
@@ -23,54 +24,16 @@ class StencilArgs{
     
     const param_tp param;
 
-    StencilArgs( const gauge_tp &gauge, const param_tp &param) : gauge(gauge), param(param) {}
+    DslashArgs( const gauge_tp &gauge, const param_tp &param) : gauge(gauge), param(param) {}
 };
 
-template< ComplexTp T, std::size_t nspin>
-inline decltype(auto) operator*(const T &scalar, const std::array<T,nspin> &a){
-  std::array<T,nspin> result;
-#pragma unroll
-  for(int i = 0; i < nspin; i++){
-    result[i] = scalar.real() * a[i].real() - scalar.imag() * a[i].imag();
-    result[i] = scalar.real() * a[i].imag() + scalar.imag() * a[i].real();
-  }
-
-  return result;
-}
-
-template< ComplexTp T, std::size_t nspin>
-inline decltype(auto) operator+=(std::array<T,nspin> &a, const std::array<T,nspin> &b){
- 
-#pragma unroll
-  for(int i = 0; i < nspin; i++){
-    a[i] = a[i].real() * b[i].real() - a[i].imag() * b[i].imag();
-    a[i] = a[i].real() * b[i].imag() + a[i].imag() * b[i].real();
-  }
-
-  return a;
-}
-
-template< ComplexTp T, std::size_t nspin>
-inline decltype(auto) operator+(const std::array<T,nspin> &a, const std::array<T,nspin> &b){
-  std::array<T,nspin> result;
-#pragma unroll
-  for(int i = 0; i < nspin; i++){
-    result[i] = a[i].real() + b[i].real();
-    result[i] = a[i].imag() + b[i].imag();
-  }
-
-  return result;
-}
-
-
-
 template <typename Arg>
-class Stencil{
+class Dslash{
   public:
 
     const Arg &args;
 
-    Stencil(const Arg &args) : args(args) {}     
+    Dslash(const Arg &args) : args(args) {}     
 
     template<int sign>
     inline decltype(auto) proj(const auto &in, const int dir){
@@ -191,15 +154,15 @@ class Stencil{
     }
 };
 
-
+#if 0
 template<typename Kernel, typename KernelArgs>
 class Mat{
   private:
-    std::unique_ptr<Kernel> stencil_kernel_ptr;	
+    std::unique_ptr<Kernel> dslash_kernel_ptr;	
 
   public:
 
-    Mat(const KernelArgs &args) : stencil_kernel_ptr(new Kernel(args)) {}
+    Mat(const KernelArgs &args) : dslash_kernel_ptr(new Kernel(args)) {}
 
     void operator()(auto &out, auto &in){
       assert(in.GetFieldOrder() == FieldOrder::LexFieldOrder);	    
@@ -211,13 +174,13 @@ class Mat{
 
       auto idx = std::views::cartesian_product(Y, X);//Y is the slowest index, X is the fastest	    
        	    
-      auto StencilKernel = [&stencil_kernel = *stencil_kernel_ptr.get(), out_ = out.Get(), in_ = in.Get()] (const auto i) { stencil_kernel.apply(out_, in_, i); };    
+      auto DslashKernel = [&dslash_kernel = *dslash_kernel_ptr.get(), out_ = out.Get(), in_ = in.Get()] (const auto i) { dslash_kernel.apply(out_, in_, i); };    
       //
       std::for_each(std::execution::par_unseq,
                     idx.begin(),
                     idx.end(),
-                    StencilKernel);       
+                    DslashKernel);       
     }
 };
 
-
+#endif

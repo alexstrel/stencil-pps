@@ -1,6 +1,6 @@
 #include <common.h>
 #include <field.h>
-#include <stencil_impl.h>
+#include <dslash_factory.h>
 //
 using Float   = float;
 
@@ -47,7 +47,7 @@ int main(int argc, char **argv)
 {
   //
   const Float mass = 0.05;
-  StencilParam<Float> dslash_param{1.0 / (2.0*(mass +2.0))};
+  DslashParam<Float> dslash_param{1.0 / (2.0*(mass +2.0))};
 
   // allocate and initialize the working lattices, matrices, and vectors
   //
@@ -67,12 +67,12 @@ int main(int argc, char **argv)
 
   constexpr std::size_t nspin = 2;
 
-  std::unique_ptr<StencilArgs<gauge_tp, decltype(dslash_param), nspin>> stencil_args_ptr(new StencilArgs{u_ref, dslash_param});
+  std::unique_ptr<DslashArgs<gauge_tp, decltype(dslash_param), nspin>> dslash_args_ptr(new DslashArgs{u_ref, dslash_param});
 
-  auto &stencil_args = *stencil_args_ptr;
+  auto &dslash_args = *dslash_args_ptr;
 
   // Create dslash matrix
-  auto mat = Mat<Stencil<decltype(stencil_args)>, decltype(stencil_args)>{stencil_args};
+  auto mat = Mat<Dslash<decltype(dslash_args)>, decltype(dslash_args)>{dslash_args};
 
   const int niter = 1000;
 
