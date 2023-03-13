@@ -11,7 +11,7 @@ class DslashParam{
     const T kappa;	
 };
 
-template <typename gauge_tp, typename param_tp, int nSpin_ = 2>
+template <typename gauge_tp, int nSpin_ = 2>
 class DslashArgs{
   public:
     using gauge_data_tp  = typename gauge_tp::data_tp;	  
@@ -22,9 +22,7 @@ class DslashArgs{
 
     const gauge_tp  gauge;
     
-    const param_tp param;
-
-    DslashArgs( const gauge_tp &gauge, const param_tp &param) : gauge(gauge), param(param) {}
+    DslashArgs( const gauge_tp &gauge) : gauge(gauge) {}
 };
 
 template <typename Arg>
@@ -80,7 +78,6 @@ class Dslash{
 
     template<bool do_transform = true>
     void apply(auto &&transformer, auto &out_spinor, const auto &in_spinor, const auto cartesian_coords) {
-
       // Take into account only internal points:
       // Dslash_nm = (M + 4r) \delta_nm - 0.5 * \sum_\mu  ((r - \gamma_\mu)*U_(x){\mu}*\delta_{m,n+\mu} + (r + \gamma_\mu)U^*(x-mu)_{\mu}\delta_{m,n-\mu})
       //
@@ -101,8 +98,6 @@ class Dslash{
       const auto in = in_spinor.Accessor();
       const auto U  = args.gauge.Accessor();
 
-      const auto kappa = args.param.kappa;
-
       std::array<DataTp, nSpin> tmp;
 
       constexpr auto nDir = std::remove_cvref_t<Arg>::nDir; 
@@ -121,13 +116,17 @@ class Dslash{
 
 	    const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
 
-	    tmp += (bndr_factor[d]*U(x,y,d))*proj<+1>(in_, d);
+	    const Link U_ = U(x,y,d);
+
+	    tmp += (bndr_factor[d]*U_)*proj<+1>(in_, d);
 	  } else {
 	    X[d] += 1;
 
             const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
 
-            tmp += U(x,y,d)*proj<+1>(in_, d);		  
+	    const Link U_ = U(x,y,d);
+
+            tmp += U_*proj<+1>(in_, d);		  
 	  }	  
 	}
 	// Bwd neighbour contribution:
@@ -138,13 +137,18 @@ class Dslash{
 
             const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
 
-            tmp += conj(bndr_factor[d]*U(X[0],X[1],d))*proj<-1>(in_, d);
-          } else {  		
+	    const Link U_ = U(X[0],X[1],d);
+
+            tmp += conj(bndr_factor[d]*U_)*proj<-1>(in_, d);
+          } else {  	
+	    //	  
             X[d] -= 1;		  
 
 	    const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
 
-	    tmp += conj(U(X[0],X[1],d))*proj<-1>(in_, d);	 
+	    const Link U_ = U(X[0],X[1],d);
+
+	    tmp += conj(U_)*proj<-1>(in_, d);	 
 	  }
 	}
       }
@@ -181,7 +185,7 @@ class Dslash{
       const auto in = in_spinor.Accessor();
       const auto U  = args.gauge.ExtAccessor();
 
-      const auto kappa = args.param.kappa;
+      const auto kappa = 1.0;//
       
       const int parity_bit = parity == FieldParity::EvenFieldParity ? (y % 1) : 1 - (y % 1);
       //

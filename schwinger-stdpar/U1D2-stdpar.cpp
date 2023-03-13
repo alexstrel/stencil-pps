@@ -67,12 +67,12 @@ int main(int argc, char **argv)
 
   constexpr std::size_t nspin = 2;
 
-  std::unique_ptr<DslashArgs<gauge_tp, decltype(dslash_param), nspin>> dslash_args_ptr(new DslashArgs{u_ref, dslash_param});
+  std::unique_ptr<DslashArgs<gauge_tp, nspin>> dslash_args_ptr(new DslashArgs{u_ref});
 
   auto &dslash_args = *dslash_args_ptr;
 
   // Create dslash matrix
-  auto mat = Mat<Dslash<decltype(dslash_args)>, decltype(dslash_args)>{dslash_args};
+  auto mat = Mat<Dslash<decltype(dslash_args)>, decltype(dslash_args), decltype(dslash_param)>{dslash_args, dslash_param};
 
   const int niter = 1000;
 
