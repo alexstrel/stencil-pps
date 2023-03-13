@@ -154,5 +154,23 @@ class Field{
 
        return StridedDyn3DView(v.data(), Dyn3DMap{stdex::extents<dyn_indx_type, stdex::dynamic_extent, stdex::dynamic_extent, nDoF>{arg.dir[0], arg.dir[1], nDoF}, std::array<dyn_indx_type, 3>{1, arg.dir[0], arg.dir[0]*arg.dir[1]}}) ;
     }
+    
+    //Direct field accessors (note that ncolor always 1, so no slicing for this dof):
+    auto ExtAccessor() const {
+       //
+       static_assert(nColor == 1, "Currently only O(1) model is supported.");
+
+       using dyn_indx_type     = std::size_t;
+
+       constexpr int nDoF = Arg::type == FieldType::VectorFieldType ? nDir*nColor*nColor : nSpin*nColor;
+
+       constexpr int nparity = 2;
+
+       using Dyn3DMap          = stdex::layout_stride::mapping<stdex::extents<dyn_indx_type, stdex::dynamic_extent, std::dynamic_extent, nDoF, nparity>>;
+       using StridedDyn3DView  = stdex::mdspan<data_tp, stdex::extents<dyn_indx_type, stdex::dynamic_extent, stdex::dynamic_extent, nDoF, nparity>, stdex::layout_stride>;
+
+       return StridedDyn3DView(v.data(), Dyn3DMap{stdex::extents<dyn_indx_type, stdex::dynamic_extent, stdex::dynamic_extent, nDoF, nparity>{arg.dir[0], arg.dir[1], nDoF, npariry}, std::array<dyn_indx_type, 4>{1, arg.dir[0], arg.dir[0]*arg.dir[1], arg.dir[0]*arg.dir[1]*nDof}}) ;
+    }    
+    
 };
 

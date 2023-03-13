@@ -78,7 +78,8 @@ class Dslash{
       return res;
     }
 
-    void apply(auto &out_spinor, const auto &in_spinor, const auto cartesian_coords) {
+    template<bool do_transform = true>
+    void apply(auto &&transformer, auto &out_spinor, const auto &in_spinor, const auto cartesian_coords) {
 
       // Take into account only internal points:
       // Dslash_nm = (M + 4r) \delta_nm - 0.5 * \sum_\mu  ((r - \gamma_\mu)*U_(x){\mu}*\delta_{m,n+\mu} + (r + \gamma_\mu)U^*(x-mu)_{\mu}\delta_{m,n-\mu})
@@ -149,38 +150,100 @@ class Dslash{
       }
 
 #pragma unroll
+      for (int s = 0; s < nSpin; s++){
+        if constexpr (do_transform) {
+          out(x,y,s) = transformer(in(x,y,s), tmp[s]);
+        } else {
+          out(x,y,s) = in(x,y,s);
+        }
+      }
+    }
+    
+    void apply(auto &&transformer, auto &out_spinor, const auto &in_spinor, const auto cartesian_coords, const FieldParity parity) {
+
+      // Take into account only internal points:
+      // Dslash_nm = (M + 4r) \delta_nm - 0.5 * \sum_\mu  ((r - \gamma_\mu)*U_(x){\mu}*\delta_{m,n+\mu} + (r + \gamma_\mu)U^*(x-mu)_{\mu}\delta_{m,n-\mu})
+      //
+      // gamma_{1/2} -> sigma_{1/2}, gamma_{5} -> sigma_{3}
+      //
+	    
+      using DataTp = typename std::remove_cvref_t<Arg>::gauge_data_tp;
+      //
+      constexpr auto nSpin = std::remove_cvref_t<Arg>::nSpin;
+      //
+      using Link   = DataTp; 
+      using Spinor = std::array<DataTp, nSpin>;
+
+      auto [y, x] = cartesian_coords;
+
+      // Define accessors:
+      auto out      = out_spinor.Accessor();
+      const auto in = in_spinor.Accessor();
+      const auto U  = args.gauge.ExtAccessor();
+
+      const auto kappa = args.param.kappa;
+      
+      const int parity_bit = parity == FieldParity::EvenFieldParity ? (y % 1) : 1 - (y % 1);
+      //
+      const int my_parity    = parity == FieldParity::EvenFieldParity ? 0 : 1;
+      const int other_parity = 1 - my_parity;
+
+      std::array<DataTp, nSpin> tmp;
+
+      constexpr auto nDir = std::remove_cvref_t<Arg>::nDir; 
+
+      constexpr std::array<DataTp, nDir> bndr_factor{DataTp(1.0),DataTp(-1.0)}; 
+#pragma unroll
+      for (int d = 0; d < nDir; d++) {
+      
+        const bool fwd_ghost_flag = d != 0 || (d == 0 && parity_bit);      
+        const bool bwd_ghost_flag = d != 0 || (d == 0 && (1-parity_bit));              
+
+        std::array<int, nDir> X{x, y};               
+
+	// Fwd gather:
+	{   	
+	  if ( X[d] == (in.extent(d)-1) && fwd_ghost_flag) {
+	    //	  
+	    X[d] = 0;
+
+	    const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
+
+	    tmp += (bndr_factor[d]*U(x,y,d,my_parity))*proj<+1>(in_, d);
+	  } else {
+	    X[d] += (d == 0 ? parity_bit : 1);
+
+            const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
+
+            tmp += U(x,y,d, my_parity)*proj<+1>(in_, d);		  
+	  }	  
+	}
+	// Bwd neighbour contribution:
+	{
+          if ( X[d] == 0 && bwd_ghost_flag) {
+            //    
+	    X[d] = (in.extent(d)-1);
+
+            const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
+
+            tmp += conj(bndr_factor[d]*U(X[0],X[1],d))*proj<-1>(in_, d);
+          } else {  		
+            X[d] -= (d == 0 ? (1- parity_bit) : 1);		  
+
+	    const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
+
+	    tmp += conj(U(X[0],X[1],d, other_parity))*proj<-1>(in_, d);	 
+	  }
+	}
+      }
+
+#pragma unroll
       for (int s = 0; s < nSpin; s++)
         out(x,y,s) = in(x,y,s) - kappa*tmp[s];
     }
+    
 };
 
-#if 0
-template<typename Kernel, typename KernelArgs>
-class Mat{
-  private:
-    std::unique_ptr<Kernel> dslash_kernel_ptr;	
 
-  public:
 
-    Mat(const KernelArgs &args) : dslash_kernel_ptr(new Kernel(args)) {}
 
-    void operator()(auto &out, auto &in){
-      assert(in.GetFieldOrder() == FieldOrder::LexFieldOrder);	    
-      // Take into account only internal points:
-      const auto [Nx, Ny] = in.GetCBDims(); //Get CB dimensions
-
-      auto X = std::views::iota(0, Nx-1);
-      auto Y = std::views::iota(0, Ny-1);
-
-      auto idx = std::views::cartesian_product(Y, X);//Y is the slowest index, X is the fastest	    
-       	    
-      auto DslashKernel = [&dslash_kernel = *dslash_kernel_ptr.get(), out_ = out.Get(), in_ = in.Get()] (const auto i) { dslash_kernel.apply(out_, in_, i); };    
-      //
-      std::for_each(std::execution::par_unseq,
-                    idx.begin(),
-                    idx.end(),
-                    DslashKernel);       
-    }
-};
-
-#endif
