@@ -8,7 +8,8 @@
 template<typename T>
 class DslashParam{
   public:
-    const T kappa;	
+    const T M;
+    const T r;    
 };
 
 template <typename gauge_tp, int nSpin_ = 2>
@@ -130,6 +131,7 @@ class Dslash{
 	    const Link U_ = U(x,y,d);
 
 	    tmp += (bndr_factor[d]*U_)*proj<+1>(in_, d);
+
 	  } else {
 	    X[d] += 1;
 
@@ -138,6 +140,7 @@ class Dslash{
 	    const Link U_ = U(x,y,d);
 
             tmp += U_*proj<+1>(in_, d);		  
+
 	  }	  
 	}
 	// Bwd neighbour contribution:
@@ -170,7 +173,13 @@ class Dslash{
       }
     }
     
-    void apply(auto &&transformer, auto &out_spinor, const auto &in_spinor, const auto cartesian_coords, const FieldParity parity) {
+    template<bool do_pre_transform = false>
+    void apply(auto &&pre_transformer,
+	       auto &&post_transformer, 
+	       auto &out_spinor, 
+	       const auto &in_spinor, 
+	       const auto cartesian_coords, 
+	       const FieldParity parity) {
 
       // Take into account only internal points:
       // Dslash_nm = (M + 4r) \delta_nm - 0.5 * \sum_\mu  ((r - \gamma_\mu)*U_(x){\mu}*\delta_{m,n+\mu} + (r + \gamma_\mu)U^*(x-mu)_{\mu}\delta_{m,n-\mu})

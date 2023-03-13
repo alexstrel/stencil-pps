@@ -47,7 +47,9 @@ int main(int argc, char **argv)
 {
   //
   const Float mass = 0.05;
-  DslashParam<Float> dslash_param{1.0 / (2.0*(mass +2.0))};
+  const Float r    = 1.0;
+
+  DslashParam<Float> dslash_param{mass, r};
 
   // allocate and initialize the working lattices, matrices, and vectors
   //
