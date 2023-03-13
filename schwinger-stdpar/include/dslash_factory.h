@@ -15,7 +15,9 @@ class Mat{
 
     void operator()(auto &out, auto &in){
       assert(in.GetFieldOrder() == FieldOrder::LexFieldOrder);
-      // Take into account only internal points:
+      //
+      constexpr bool do_pre_transform = false;
+      // Extract dims:
       const auto [Nx, Ny] = in.GetCBDims(); //Get CB dimensions
 
       auto X = std::views::iota(0, Nx-1);
@@ -27,12 +29,16 @@ class Mat{
 
       auto transformer = [=](const auto &x, const auto &y) {return (x-kappa*y);};
 
-      auto DslashKernel = [&dslash_kernel = *dslash_kernel_ptr, 
-	                   transformer_   = transformer, 
-			   out_           = out.Get(), 
-			   in_            = in.Get()           ] (const auto i) { 
+      auto DslashKernel = [&dslash_kernel   = *dslash_kernel_ptr, 
+	                   post_transformer = transformer, 
+			   out_             = out.Get(), 
+			   in_              = in.Get()           ] (const auto coords) { 
                              //
-                             dslash_kernel.apply(transformer_, out_, in_, i); 
+                             dslash_kernel.template apply<do_pre_transform>(0, 
+					                                    post_transformer, 
+									    out_, 
+									    in_, 
+									    coords); 
                            };
       //
       std::for_each(std::execution::par_unseq,

@@ -76,8 +76,12 @@ class Dslash{
       return res;
     }
 
-    template<bool do_transform = true>
-    void apply(auto &&transformer, auto &out_spinor, const auto &in_spinor, const auto cartesian_coords) {
+    template<bool do_pre_transform = false> 
+    void apply(auto &&pre_transformer, 
+	       auto &&post_transformer, 
+	       auto &out_spinor, 
+	       const auto &in_spinor, 
+	       const auto cartesian_coords) {
       // Take into account only internal points:
       // Dslash_nm = (M + 4r) \delta_nm - 0.5 * \sum_\mu  ((r - \gamma_\mu)*U_(x){\mu}*\delta_{m,n+\mu} + (r + \gamma_\mu)U^*(x-mu)_{\mu}\delta_{m,n-\mu})
       //
@@ -99,6 +103,13 @@ class Dslash{
       const auto U  = args.gauge.Accessor();
 
       std::array<DataTp, nSpin> tmp;
+
+      if constexpr (do_pre_transform) {
+#pragma unroll	      
+        for (int s = 0; s < nSpin; s++){
+          tmp[s] = pre_transformer(in(x,y,s));
+        } 
+      }      
 
       constexpr auto nDir = std::remove_cvref_t<Arg>::nDir; 
 
@@ -155,11 +166,7 @@ class Dslash{
 
 #pragma unroll
       for (int s = 0; s < nSpin; s++){
-        if constexpr (do_transform) {
-          out(x,y,s) = transformer(in(x,y,s), tmp[s]);
-        } else {
-          out(x,y,s) = in(x,y,s);
-        }
+        out(x,y,s) = post_transformer(in(x,y,s), tmp[s]);
       }
     }
     
