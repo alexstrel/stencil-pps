@@ -24,9 +24,9 @@ concept FloatTp = requires{
 
 // Simple complex type
 template <typename T>
-concept ComplexTp    = requires (T t) {
-  requires FloatTp<decltype(t.real())>;
-  requires FloatTp<decltype(t.imag())>;  
+concept ComplexTp    = requires {
+  requires std::is_floating_point_v<decltype(std::declval<T>().real())>;
+  requires std::is_floating_point_v<decltype(std::declval<T>().imag())>;  
 };
 
 // Simple genetic arithmetic type
@@ -35,12 +35,18 @@ concept ArithmeticTp = FloatTp<T> || ComplexTp<T>;
 
 
 // Generic container type:
+template <typename, typename = std::void_t<>>
+constexpr bool is_container_type{};
+ 
 template <typename T>
-concept GenericContainerTp  = requires (T t) {
-  t.begin();
-  t.end();
-  t.data();
-  t.size();
+constexpr bool is_container_type< T, std::void_t<decltype(std::declval<T>().begin()), 
+                                                 decltype(std::declval<T>().end()), 
+                                                 decltype(std::declval<T>().data()), 
+                                                 decltype(std::declval<T>().size())> > = true;
+
+template <typename T>
+concept GenericContainerTp  = requires {
+  requires is_container_type<T>;
 };
 
 

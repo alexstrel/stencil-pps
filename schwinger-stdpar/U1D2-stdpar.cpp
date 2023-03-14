@@ -49,7 +49,7 @@ int main(int argc, char **argv)
   const Float mass = 0.05;
   const Float r    = 1.0;
 
-  //DslashParam<Float> dslash_param{mass, r};
+  DslashParam<Float> dslash_param{mass, r};
 
   // allocate and initialize the working lattices, matrices, and vectors
   //
@@ -74,7 +74,7 @@ int main(int argc, char **argv)
   auto &dslash_args = *dslash_args_ptr;
 
   // Create dslash matrix
-  auto mat = Mat<decltype(dslash_args), Dslash>{dslash_args};  
+  auto mat = Mat<decltype(dslash_args), Dslash, decltype(dslash_param)>{dslash_args, dslash_param};  
 
   const int niter = 1000;
   
