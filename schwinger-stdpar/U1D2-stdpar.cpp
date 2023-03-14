@@ -49,7 +49,7 @@ int main(int argc, char **argv)
   const Float mass = 0.05;
   const Float r    = 1.0;
 
-  DslashParam<Float> dslash_param{mass, r};
+  //DslashParam<Float> dslash_param{mass, r};
 
   // allocate and initialize the working lattices, matrices, and vectors
   //
@@ -74,13 +74,18 @@ int main(int argc, char **argv)
   auto &dslash_args = *dslash_args_ptr;
 
   // Create dslash matrix
-  auto mat = Mat<Dslash<decltype(dslash_args)>, decltype(dslash_args), decltype(dslash_param)>{dslash_args, dslash_param};
+  auto mat = Mat<decltype(dslash_args), Dslash>{dslash_args};  
 
   const int niter = 1000;
+  
+  const auto scale1 = mass + static_cast<Float>(4.0)*r;
+  const auto scale2 = static_cast<Float>(0.5);
+
+  auto transformer = [=](const auto &x, const auto &y) {return (scale1*x-scale2*y);};  
 
   for(int i = 0; i < niter; i++) {
     // Apply dslash	  
-    mat(dst_spinor, src_spinor);
+    mat(dst_spinor, src_spinor, transformer);
   }
 
   // initialize the data
