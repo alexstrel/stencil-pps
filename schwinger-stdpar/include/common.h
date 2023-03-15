@@ -35,18 +35,18 @@ concept ArithmeticTp = FloatTp<T> || ComplexTp<T>;
 
 
 // Generic container type:
-template <typename, typename = std::void_t<>>
-constexpr bool is_container_type{};
- 
-template <typename T>
-constexpr bool is_container_type< T, std::void_t<decltype(std::declval<T>().begin()), 
-                                                 decltype(std::declval<T>().end()), 
-                                                 decltype(std::declval<T>().data()), 
-                                                 decltype(std::declval<T>().size())> > = true;
+template <typename T, typename = std::void_t<>> class is_container_type : public std::false_type { };
+
+template <typename T> class is_container_type< T, std::void_t<decltype(std::declval<T>().begin()), 
+                                                              decltype(std::declval<T>().end()), 
+                                                              decltype(std::declval<T>().data()), 
+                                                              decltype(std::declval<T>().size())> > : public std::true_type { };
+                                                              
+template <typename T> constexpr bool is_container_type_v = is_container_type<T>::value;                                                              
 
 template <typename T>
 concept GenericContainerTp  = requires {
-  requires is_container_type<T>;
+  requires is_container_type_v<T>;
 };
 
 
