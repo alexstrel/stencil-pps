@@ -18,9 +18,7 @@ namespace stdex = std::experimental;
 
 // Simple arithmetic type
 template <typename T>
-concept FloatTp = requires{
-  requires std::is_floating_point_v<T>;
-};
+concept FloatTp = std::is_floating_point_v<T>;
 
 // Simple complex type
 template <typename T>
@@ -45,8 +43,6 @@ template <typename T> class is_container_type< T, std::void_t<decltype(std::decl
 template <typename T> constexpr bool is_container_type_v = is_container_type<T>::value;                                                              
 
 template <typename T>
-concept GenericContainerTp  = requires {
-  requires is_container_type_v<T>;
-};
+concept GenericContainerTp = is_container_type_v<T>; 
 
 

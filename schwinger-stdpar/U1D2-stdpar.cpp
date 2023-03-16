@@ -46,6 +46,8 @@ void print_range(auto &field, const int range){
 int main(int argc, char **argv)
 {
   //
+  using vector_tp = std::vector<std::complex<Float>>;
+
   const Float mass = 0.05;
   const Float r    = 1.0;
 
@@ -56,9 +58,9 @@ int main(int argc, char **argv)
   const auto sf_args = SpinorFieldArgs{ldim, tdim};
   const auto gf_args = GaugeFieldArgs{ldim, tdim};
   //
-  auto src_spinor = Field<std::vector<std::complex<Float>>, decltype(sf_args)>(sf_args);
-  auto dst_spinor = Field<std::vector<std::complex<Float>>, decltype(sf_args)>(sf_args);
-  auto gauge      = Field<std::vector<std::complex<Float>>, decltype(gf_args)>(gf_args);
+  auto src_spinor = Field<vector_tp, decltype(sf_args)>{sf_args};
+  auto dst_spinor = Field<vector_tp, decltype(sf_args)>{sf_args};
+  auto gauge      = Field<vector_tp, decltype(gf_args)>{gf_args};
 
   init_u1(gauge);
   init_spinor(src_spinor);

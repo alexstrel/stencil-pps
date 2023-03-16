@@ -86,10 +86,12 @@ class Dslash{
       //
       // gamma_{1/2} -> sigma_{1/2}, gamma_{5} -> sigma_{3}
       //
-	    
-      using DataTp = typename std::remove_cvref_t<Arg>::gauge_data_tp;
+
+      using ArgTp = typename std::remove_cvref_t<Arg>;
+
+      using DataTp = ArgTp::gauge_data_tp;
       //
-      constexpr auto nSpin = std::remove_cvref_t<Arg>::nSpin;
+      constexpr auto nSpin = ArgTp::nSpin;
       //
       using Link   = DataTp; 
       using Spinor = std::array<DataTp, nSpin>;
@@ -103,7 +105,7 @@ class Dslash{
 
       std::array<DataTp, nSpin> tmp;
 
-      constexpr auto nDir = std::remove_cvref_t<Arg>::nDir; 
+      constexpr auto nDir = ArgTp::nDir; 
 
       constexpr std::array<DataTp, nDir> bndr_factor{DataTp(1.0),DataTp(-1.0)}; 
 #pragma unroll
