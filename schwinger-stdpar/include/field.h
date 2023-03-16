@@ -80,6 +80,14 @@ class FieldArgs {
 using GaugeFieldArgs  = FieldArgs<2, invalid_spin, 1>;
 using SpinorFieldArgs = FieldArgs<invalid_dir,  2, 1>;
 
+template<GenericContainerTp Ct, typename Arg>
+class Field; // forward declare to make function definition possible
+ 
+template <AllocatedContainerTp alloc_container_tp, typename Arg>
+decltype(auto) create_field(const Arg &arg) {
+  return Field<alloc_container_tp, Arg>(arg);
+}
+
 template <GenericContainerTp container_tp, typename Arg>
 class Field{
   public:	
@@ -95,24 +103,43 @@ class Field{
 
     const Arg arg;//copy of the arguments
 
-  public:
-    //
-    Field(const Arg &arg) : v(arg.GetFieldSize()), 
-	                    arg(arg){}
-    Field(const container_tp &src, const Arg &arg) : v(src),
+    Field(const Arg &arg) : v(arg.GetFieldSize()),
                             arg(arg){}
+
+    template <AllocatedContainerTp alloc_container_tp, typename ArgTp>
+    friend decltype(auto) create_field(const ArgTp &arg);
+
+  public:
+
+    Field()              = default;
+    Field(const Field &) = default;
+    Field(Field &&)      = default;    
+    // 
+    template <GenericContainerTp T = container_tp, typename std::enable_if_t<!is_allocated_type_v<T>>* = nullptr>
+    Field(const T &src, const Arg &arg) : v(src), arg(arg) {}
 
     //Return a reference to the data container (adapter)
     auto& Data( ) { return v; }
 
-    //Return a smart pointer to the parent object (data access  via container adapter )
-    decltype(auto) Get() {
+    //Return a reference to the object (data access via container adapter )
+    decltype(auto) Reference() {
+      if constexpr (!is_allocated_type_v<container_tp>) {
+         std::cerr << "Cannot reference non-owner field, exiting.." << std::endl;     
+	 exit(-1);
+      }
+
       return Field<std::span<data_tp>, decltype(arg)>(std::span{v}, arg);	    
     }
 
-    decltype(auto) GetParity(const FieldParity parity ) {// return a smart pointer to the parity component
+    decltype(auto) ParityReference(const FieldParity parity ) {// return a reference to the parity component
+      if constexpr (!is_allocated_type_v<container_tp>) {
+         std::cerr << "Cannot reference non-owner field, exiting.." << std::endl;
+         exit(-1);
+      }
+      //
       if (arg.subset != FieldSiteSubset::FullSiteSubset) {
-        std::cerr << "Cannot get a parity component from a non-full field\n" << std::endl;
+        std::cerr << "Cannot get a parity component from a non-full field, exiting...\n" << std::endl;
+	exit(-1);
       }
       //
       auto parity_arg = FieldArgs(this->arg, FieldSiteSubset::ParitySiteSubset, parity);
@@ -123,8 +150,8 @@ class Field{
       return Field<std::span<data_tp>, decltype(parity_arg)>(std::span{v}.subspan(parity_offset, parity_length), parity_arg);
     }
 
-    auto Even() { return GetParity(FieldParity::EvenFieldParity );}
-    auto Odd()  { return GetParity(FieldParity::OddFieldParity  );}
+    auto Even() { return ParityReference(FieldParity::EvenFieldParity );}
+    auto Odd()  { return ParityReference(FieldParity::OddFieldParity  );}
 
     auto EODecompose() {
       assert(arg.subset == FieldSiteSubset::FullSiteSubset);	    
@@ -174,3 +201,12 @@ class Field{
     
 };
 
+/**
+ *  Helper function that creates allocated containers
+ */
+#if 0
+template <AllocatedContainerTp alloc_container_tp, typename Arg>
+decltype(auto) make_field(const Arg &arg) {
+  return Field<alloc_container_tp, Arg>(arg);
+}
+#endif

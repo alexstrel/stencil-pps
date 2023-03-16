@@ -25,8 +25,8 @@ class Mat{
 
       auto DslashKernel = [&dslash_kernel   = *dslash_kernel_ptr, 
 	                   transformer      = transformer, 
-			   out_             = out.Get(), 
-			   in_              = in.Get()           ] (const auto coords) { 
+			   out_             = out.Reference(), 
+			   in_              = in.Reference()     ] (const auto coords) { 
                              //
                              dslash_kernel.apply(transformer, out_, in_, coords); 
                            };
@@ -53,8 +53,8 @@ class Mat{
 
       auto DslashKernel = [&dslash_kernel = *dslash_kernel_ptr, 
 	                   transformer_   = transformer, 
-			   out_           = out.Get(), 
-			   in_            = in.Get()           ] (const auto i) { 
+			   out_           = out.Reference(), 
+			   in_            = in.Reference()     ] (const auto i) { 
                              //
                              dslash_kernel.apply(transformer_, out_, in_, i); 
                            };

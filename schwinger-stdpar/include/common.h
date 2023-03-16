@@ -29,7 +29,7 @@ concept ComplexTp    = requires {
 
 // Simple genetic arithmetic type
 template <typename T>
-concept ArithmeticTp = FloatTp<T> || ComplexTp<T>;
+concept ArithmeticTp = FloatTp<T> or ComplexTp<T>;
 
 
 // Generic container type:
@@ -45,4 +45,14 @@ template <typename T> constexpr bool is_container_type_v = is_container_type<T>:
 template <typename T>
 concept GenericContainerTp = is_container_type_v<T>; 
 
+// More specific container type (memory-owner containers, i.e., excl. container adapters):
+//
+template <typename T, typename = std::void_t<>> class is_allocated_type : public std::false_type { };
+
+template <typename T> class is_allocated_type< T, std::void_t<typename T::allocator_type> > : public std::true_type { };
+
+template <typename T> constexpr bool is_allocated_type_v = is_allocated_type<T>::value;
+
+template <typename T>
+concept AllocatedContainerTp = is_container_type_v<T> and is_allocated_type_v<T>;
 

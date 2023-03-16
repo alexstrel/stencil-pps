@@ -58,15 +58,15 @@ int main(int argc, char **argv)
   const auto sf_args = SpinorFieldArgs{ldim, tdim};
   const auto gf_args = GaugeFieldArgs{ldim, tdim};
   //
-  auto src_spinor = Field<vector_tp, decltype(sf_args)>{sf_args};
-  auto dst_spinor = Field<vector_tp, decltype(sf_args)>{sf_args};
-  auto gauge      = Field<vector_tp, decltype(gf_args)>{gf_args};
+  auto src_spinor = create_field<vector_tp, decltype(sf_args)>(sf_args);
+  auto dst_spinor = create_field<vector_tp, decltype(sf_args)>(sf_args);
+  auto gauge      = create_field<vector_tp, decltype(gf_args)>(gf_args);
 
   init_u1(gauge);
   init_spinor(src_spinor);
   
   // Setup dslash arguments:
-  auto &&u_ref    = gauge.Get();
+  auto &&u_ref    = gauge.Reference();
   using gauge_tp  = typename std::remove_cvref_t<decltype(u_ref)>;
 
   constexpr std::size_t nspin = 2;
