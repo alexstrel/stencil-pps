@@ -123,10 +123,19 @@ class Field{
 
     //Return a reference to the object (data access via container adapter )
     decltype(auto) Reference() {
+      if constexpr (!is_allocated_type_v<container_tp>) {
+         std::cerr << "Cannot reference non-owner field, exiting.." << std::endl;     
+	 exit(-1);
+      }
+
       return Field<std::span<data_tp>, decltype(arg)>(std::span{v}, arg);	    
     }
 
     decltype(auto) ParityReference(const FieldParity parity ) {// return a reference to the parity component
+      if constexpr (!is_allocated_type_v<container_tp>) {
+         std::cerr << "Cannot reference non-owner field, exiting.." << std::endl;
+         exit(-1);
+      }
       //
       if (arg.subset != FieldSiteSubset::FullSiteSubset) {
         std::cerr << "Cannot get a parity component from a non-full field, exiting...\n" << std::endl;
