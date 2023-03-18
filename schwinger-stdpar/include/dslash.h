@@ -103,18 +103,19 @@ class Dslash{
       const auto in = in_spinor.Accessor();
       const auto U  = args.gauge.Accessor();
 
-      std::array<DataTp, nSpin> tmp;
+      Spinor tmp;
 
       constexpr auto nDir = ArgTp::nDir; 
 
       constexpr std::array<DataTp, nDir> bndr_factor{DataTp(1.0),DataTp(-1.0)}; 
+
 #pragma unroll
       for (int d = 0; d < nDir; d++) {
 
-        std::array<int, nDir> X{x, y};
-
 	// Fwd gather:
-	{   	
+	{ 
+          std::array<int, nDir> X{x, y};	  	
+          //
 	  if ( X[d] == (in.extent(d)-1) ) {
 	    //	  
 	    X[d] = 0;
@@ -133,11 +134,12 @@ class Dslash{
 	    const Link U_ = U(x,y,d);
 
             tmp += U_*proj<+1>(in_, d);		  
-
 	  }	  
 	}
 	// Bwd neighbour contribution:
 	{
+          std::array<int, nDir> X{x, y};	  	
+          //	
           if ( X[d] == 0 ) {
             //    
 	    X[d] = (in.extent(d)-1);
@@ -158,8 +160,8 @@ class Dslash{
 	    tmp += conj(U_)*proj<-1>(in_, d);	 
 	  }
 	}
-      }
-
+      }      
+      
 #pragma unroll
       for (int s = 0; s < nSpin; s++){
         out(x,y,s) = transformer(in(x,y,s), tmp[s]);
