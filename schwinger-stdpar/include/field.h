@@ -18,7 +18,7 @@ consteval FieldType get_field_type() {
 }
 
 template<std::size_t nDir = invalid_dir, std::size_t nSpin = invalid_spin, std::size_t nColor = invalid_color>
-class FieldArgs {
+class FieldDescriptor {
   public: 
     static constexpr std::size_t ndir   = nDir;                    //vector field dim   (2 for U1 gauge)	  
     static constexpr std::size_t nspin  = nSpin;                   //number of spin dof (2 for spinor)
@@ -32,11 +32,11 @@ class FieldArgs {
     const FieldSiteSubset    subset;
     const FieldParity        parity;
 
-    FieldArgs() = default;
-    FieldArgs(const FieldArgs& ) = default;
-    FieldArgs(FieldArgs&& )      = default;
+    FieldDescriptor() = default;
+    FieldDescriptor(const FieldDescriptor& ) = default;
+    FieldDescriptor(FieldDescriptor&& )      = default;
 
-    FieldArgs(const int L, 
+    FieldDescriptor(const int L, 
 	      const int T, 
 	      const FieldOrder order         = FieldOrder::LexFieldOrder,
 	      const FieldSiteSubset subset   = FieldSiteSubset::FullSiteSubset,  
@@ -46,7 +46,7 @@ class FieldArgs {
 	      subset(subset),
 	      parity(parity){} 
 
-    FieldArgs(const FieldArgs &args, const FieldSiteSubset subset,  const FieldParity parity) : 
+    FieldDescriptor(const FieldDescriptor &args, const FieldSiteSubset subset,  const FieldParity parity) : 
 	    dir{subset == FieldSiteSubset::ParitySiteSubset && args.subset == FieldSiteSubset::FullSiteSubset ? args.dir[0] / 2 : args.dir[0], args.dir[1]},
 	    order(args.order),
 	    subset(subset),
@@ -73,12 +73,12 @@ class FieldArgs {
       return std::make_tuple(xh, dir[1]);
     }
 
-    auto operator=(const FieldArgs&) -> FieldArgs& = default;
-    auto operator=(FieldArgs&&     ) -> FieldArgs& = default;
+    auto operator=(const FieldDescriptor&) -> FieldDescriptor& = default;
+    auto operator=(FieldDescriptor&&     ) -> FieldDescriptor& = default;
 };
 
-using GaugeFieldArgs  = FieldArgs<2, invalid_spin, 1>;
-using SpinorFieldArgs = FieldArgs<invalid_dir,  2, 1>;
+template<int nDir,  int nColor = 1> using GaugeFieldArgs  = FieldDescriptor<nDir, invalid_spin, nColor>;
+template<int nSpin, int nColor = 1> using SpinorFieldArgs = FieldDescriptor<invalid_dir,  nSpin, nColor>;
 
 template<GenericContainerTp Ct, typename Arg>
 class Field; // forward declare to make function definition possible
@@ -142,7 +142,7 @@ class Field{
 	exit(-1);
       }
       //
-      auto parity_arg = FieldArgs(this->arg, FieldSiteSubset::ParitySiteSubset, parity);
+      auto parity_arg = FieldDescriptor(this->arg, FieldSiteSubset::ParitySiteSubset, parity);
       //
       const auto parity_length = GetParityLength();
       const auto parity_offset = parity == FieldParity::EvenFieldParity ? 0 : parity_length;
@@ -201,12 +201,3 @@ class Field{
     
 };
 
-/**
- *  Helper function that creates allocated containers
- */
-#if 0
-template <AllocatedContainerTp alloc_container_tp, typename Arg>
-decltype(auto) make_field(const Arg &arg) {
-  return Field<alloc_container_tp, Arg>(arg);
-}
-#endif

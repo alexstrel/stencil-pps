@@ -16,10 +16,10 @@ class Mat{
     void operator()(auto &out, auto &in, auto&& transformer){
       assert(in.GetFieldOrder() == FieldOrder::LexFieldOrder);
       // Extract dims:
-      const auto [Nx, Ny] = in.GetCBDims(); //Get CB dimensions
-
-      auto X = std::views::iota(0, Nx-1);
-      auto Y = std::views::iota(0, Ny-1);
+      const auto [Nx, Ny] = in.GetDims();// in.GetCBDims(); //Get CB dimensions?
+      
+      auto X = std::views::iota(0, Nx);
+      auto Y = std::views::iota(0, Ny);
 
       auto idx = std::views::cartesian_product(Y, X);//Y is the slowest index, X is the fastest
 

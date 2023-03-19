@@ -55,11 +55,14 @@ int main(int argc, char **argv)
 
   // allocate and initialize the working lattices, matrices, and vectors
   //
-  const auto sf_args = SpinorFieldArgs{ldim, tdim};
-  const auto gf_args = GaugeFieldArgs{ldim, tdim};
+  const auto sf_args = SpinorFieldArgs<nSpin>{ldim, tdim};
   //
   auto src_spinor = create_field<vector_tp, decltype(sf_args)>(sf_args);
   auto dst_spinor = create_field<vector_tp, decltype(sf_args)>(sf_args);
+  auto chk_spinor = create_field<vector_tp, decltype(sf_args)>(sf_args);
+
+  const auto gf_args = GaugeFieldArgs<nDir>{ldim, tdim};
+  //
   auto gauge      = create_field<vector_tp, decltype(gf_args)>(gf_args);
 
   init_u1(gauge);
