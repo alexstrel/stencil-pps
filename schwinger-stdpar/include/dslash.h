@@ -168,9 +168,7 @@ class Dslash{
       }
     }
     
-    template<bool do_pre_transform = false>
-    void apply(auto &&pre_transformer,
-	       auto &&post_transformer, 
+    void apply(auto &&transformer,
 	       auto &out_spinor, 
 	       const auto &in_spinor, 
 	       const auto cartesian_coords, 
@@ -181,10 +179,11 @@ class Dslash{
       //
       // gamma_{1/2} -> sigma_{1/2}, gamma_{5} -> sigma_{3}
       //
-	    
-      using DataTp = typename std::remove_cvref_t<Arg>::gauge_data_tp;
+      using ArgTp  = typename std::remove_cvref_t<Arg>;
+      	    
+      using DataTp = typename ArgTp::gauge_data_tp;
       //
-      constexpr auto nSpin = std::remove_cvref_t<Arg>::nSpin;
+      constexpr auto nSpin = ArgTp::nSpin;
       //
       using Link   = DataTp; 
       using Spinor = std::array<DataTp, nSpin>;
@@ -195,17 +194,15 @@ class Dslash{
       auto out      = out_spinor.Accessor();
       const auto in = in_spinor.Accessor();
       const auto U  = args.gauge.ExtAccessor();
-
-      const auto kappa = 1.0;//
       
       const int parity_bit = parity == FieldParity::EvenFieldParity ? (y % 1) : 1 - (y % 1);
       //
       const int my_parity    = parity == FieldParity::EvenFieldParity ? 0 : 1;
       const int other_parity = 1 - my_parity;
 
-      std::array<DataTp, nSpin> tmp;
+      Spinor tmp;
 
-      constexpr auto nDir = std::remove_cvref_t<Arg>::nDir; 
+      constexpr auto nDir = ArgTp::nDir; 
 
       constexpr std::array<DataTp, nDir> bndr_factor{DataTp(1.0),DataTp(-1.0)}; 
 #pragma unroll
@@ -214,10 +211,10 @@ class Dslash{
         const bool fwd_ghost_flag = d != 0 || (d == 0 && parity_bit);      
         const bool bwd_ghost_flag = d != 0 || (d == 0 && (1-parity_bit));              
 
-        std::array<int, nDir> X{x, y};               
-
 	// Fwd gather:
-	{   	
+	{  
+          std::array<int, nDir> X{x, y};	 	
+          
 	  if ( X[d] == (in.extent(d)-1) && fwd_ghost_flag) {
 	    //	  
 	    X[d] = 0;
@@ -235,6 +232,8 @@ class Dslash{
 	}
 	// Bwd neighbour contribution:
 	{
+          std::array<int, nDir> X{x, y};	
+          //
           if ( X[d] == 0 && bwd_ghost_flag) {
             //    
 	    X[d] = (in.extent(d)-1);
@@ -254,7 +253,7 @@ class Dslash{
 
 #pragma unroll
       for (int s = 0; s < nSpin; s++)
-        out(x,y,s) = in(x,y,s) - kappa*tmp[s];
+        out(x,y,s) = transformer(in(x,y,s), tmp[s]);
     }
     
 };
