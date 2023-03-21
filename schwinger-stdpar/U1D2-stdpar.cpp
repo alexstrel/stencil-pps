@@ -47,6 +47,9 @@ int main(int argc, char **argv)
 {
   //
   using vector_tp = std::vector<std::complex<Float>>;
+  //
+  constexpr int nDir  = 2;  
+  constexpr int nSpin = 2;  
 
   const Float mass = 0.05;
   const Float r    = 1.0;

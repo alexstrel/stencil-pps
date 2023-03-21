@@ -88,11 +88,12 @@ decltype(auto) create_field(const Arg &arg) {
   return Field<alloc_container_tp, Arg>(arg);
 }
 
-template <GenericContainerTp container_tp, typename Arg>
+template <GenericContainerTp container_tp_, typename Arg>
 class Field{
   public:	
     //
-    using data_tp = typename container_tp::value_type;    
+    using container_tp = container_tp_;        
+    using data_tp      = typename container_tp::value_type;
 
     static constexpr std::size_t nDir    = Arg::ndir;
     static constexpr std::size_t nSpin   = Arg::nspin;                    
