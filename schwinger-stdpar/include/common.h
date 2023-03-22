@@ -56,14 +56,21 @@ template <typename T> constexpr bool is_allocated_type_v = is_allocated_type<T>:
 template <typename T>
 concept AllocatedContainerTp = is_container_type_v<T> and is_allocated_type_v<T>;
 
+template <typename T>
+concept ReferenceContainerTp = not AllocatedContainerTp<T>;
+
 
 // Iterator type
 template <typename T>
 concept IteratorTp = std::random_access_iterator<T>;
 
 
+// Allocated field type
+template <typename T>
+concept AllocatedFieldTp = is_allocated_type_v<typename T::container_tp>;
 
-
-
+// Reference field type
+template <typename T>
+concept ReferenceFieldTp = not AllocatedFieldTp<T>;
 
 

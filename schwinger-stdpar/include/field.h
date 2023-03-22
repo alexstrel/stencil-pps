@@ -116,7 +116,8 @@ class Field{
     Field(const Field &) = default;
     Field(Field &&)      = default;    
     // 
-    template <GenericContainerTp T = container_tp, typename std::enable_if_t<!is_allocated_type_v<T>>* = nullptr>
+    //template <GenericContainerTp T = container_tp, typename std::enable_if_t<!is_allocated_type_v<T>>* = nullptr>
+    template <ReferenceContainerTp T>    
     Field(const T &src, const Arg &arg) : v(src), arg(arg) {}
 
     //Return a reference to the data container (adapter)

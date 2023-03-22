@@ -75,11 +75,12 @@ class Dslash{
       }
 
       return res;
-    }
+    }     
 
+    template<ReferenceFieldTp ref_field>
     void apply(auto &&transformer, 
-	       auto &out_spinor, 
-	       const auto &in_spinor, 
+	       ref_field &out_spinor, 
+	       ref_field &in_spinor, 
 	       const auto cartesian_coords) {
       // Take into account only internal points:
       // Dslash_nm = (M + 2r) \delta_nm - 0.5 * \sum_\mu  ((r - \gamma_\mu)*U_(x){\mu}*\delta_{m,n+\mu} + (r + \gamma_\mu)U^*(x-mu)_{\mu}\delta_{m,n-\mu})
@@ -168,9 +169,10 @@ class Dslash{
       }
     }
     
+    template<ReferenceFieldTp ref_field>    
     void apply(auto &&transformer,
-	       auto &out_spinor, 
-	       const auto &in_spinor, 
+	       ref_field &out_spinor, 
+	       ref_field &in_spinor, 
 	       const auto cartesian_coords, 
 	       const FieldParity parity) {
 

@@ -1,5 +1,6 @@
 #include <common.h>
 #include <field.h>
+//#include <block_field.h>
 #include <dslash_factory.h>
 //
 using Float   = float;
@@ -34,7 +35,8 @@ void fill(auto &field_accessor) {
   }
 }
 
-void print_range(auto &field, const int range){
+template<AllocatedFieldTp field_tp>
+void print_range(field_tp &field, const int range){
    std::cout << "Print components for field : " << field.Data().data() << std::endl;
 
    auto print = [](const auto& e) { std::cout << "Element " << e << std::endl; };
@@ -71,6 +73,8 @@ int main(int argc, char **argv)
   init_u1(gauge);
   init_spinor(src_spinor);
   
+  print_range<decltype(src_spinor)>(src_spinor, 4);  
+  
   // Setup dslash arguments:
   auto &&u_ref    = gauge.Reference();
   using gauge_tp  = typename std::remove_cvref_t<decltype(u_ref)>;
@@ -95,6 +99,15 @@ int main(int argc, char **argv)
     // Apply dslash	  
     mat(dst_spinor, src_spinor, transformer);
   }
+  
+  // Container:
+  std::vector<decltype(src_spinor)> spinor_container;
+  //
+  spinor_container.reserve(4);
+  //
+  for(int i = 0; i < spinor_container.size(); i++) spinor_container.push_back(create_field<vector_tp, decltype(sf_args)>(sf_args));
+  //
+  
 
   // initialize the data
   bool verbose = true;

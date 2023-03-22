@@ -22,13 +22,13 @@ class Mat{
       auto Y = std::views::iota(0, Ny);
 
       auto idx = std::views::cartesian_product(Y, X);//Y is the slowest index, X is the fastest
+      
+      auto &&out_ = out.Reference();
+      auto &&in_  = in.Reference();       
 
-      auto DslashKernel = [&dslash_kernel   = *dslash_kernel_ptr, 
-	                   transformer      = transformer, 
-			   out_             = out.Reference(), 
-			   in_              = in.Reference()     ] (const auto coords) { 
-                             //
-                             dslash_kernel.apply(transformer, out_, in_, coords); 
+      auto DslashKernel = [=, &dslash_kernel   = *dslash_kernel_ptr] (const auto coords) { 
+                                //
+                                dslash_kernel.template apply(transformer, out_, in_, coords); 
                            };
       //
       std::for_each(std::execution::par_unseq,
@@ -52,12 +52,12 @@ class Mat{
 
       auto transformer = [=](const auto &x, const auto &y) {return ((mass+2.0*r)*x-0.5*y);};
 
-      auto DslashKernel = [&dslash_kernel = *dslash_kernel_ptr, 
-	                   transformer_   = transformer, 
-			   out_           = out.Reference(), 
-			   in_            = in.Reference()     ] (const auto i) { 
+      auto &&out_ = out.Reference();
+      auto &&in_  = in.Reference();       
+
+      auto DslashKernel = [=, &dslash_kernel = *dslash_kernel_ptr] (const auto i) { 
                              //
-                             dslash_kernel.apply(transformer_, out_, in_, i); 
+                             dslash_kernel.template apply(transformer, out_, in_, i); 
                            };
       //
       std::for_each(std::execution::par_unseq,
