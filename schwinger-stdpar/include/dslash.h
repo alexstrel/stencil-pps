@@ -100,9 +100,11 @@ class Dslash{
       auto [y, x] = cartesian_coords;
 
       // Define accessors:
+      constexpr bool is_constant = true;      
+      
       auto out      = out_spinor.Accessor();
-      const auto in = in_spinor.Accessor();
-      const auto U  = args.gauge.Accessor();
+      const auto in = in_spinor.template Accessor<is_constant>();
+      const auto U  = args.gauge.template Accessor<is_constant>();
 
       Spinor tmp;
 
@@ -193,9 +195,12 @@ class Dslash{
       auto [y, x] = cartesian_coords;
 
       // Define accessors:
+      constexpr bool is_constant = true;
+      
       auto out      = out_spinor.Accessor();
-      const auto in = in_spinor.Accessor();
-      const auto U  = args.gauge.ExtAccessor();
+      const auto in = in_spinor.template Accessor<is_constant>();
+      //
+      const auto U  = args.gauge.template ExtAccessor<is_constant>();
       
       const int parity_bit = parity == FieldParity::EvenFieldParity ? (y % 1) : 1 - (y % 1);
       //

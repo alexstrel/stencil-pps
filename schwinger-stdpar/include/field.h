@@ -170,6 +170,7 @@ class Field{
     auto GetFieldOrder()   const { return arg.order; }    
 
     //Direct field accessors (note that ncolor always 1, so no slicing for this dof):
+    template<bool is_constant = false>
     auto Accessor() const {
        //
        static_assert(nColor == 1, "Currently only O(1) model is supported.");
@@ -178,13 +179,23 @@ class Field{
 
        constexpr int nDoF = Arg::type == FieldType::VectorFieldType ? nDir*nColor*nColor : nSpin*nColor;
 
-       using Dyn3DMap          = stdex::layout_stride::mapping<stdex::extents<dyn_indx_type, stdex::dynamic_extent, std::dynamic_extent, nDoF>>;
-       using StridedDyn3DView  = stdex::mdspan<data_tp, stdex::extents<dyn_indx_type, stdex::dynamic_extent, stdex::dynamic_extent, nDoF>, stdex::layout_stride>;
+       using Dyn3DMap  = stdex::layout_stride::mapping<stdex::extents<dyn_indx_type, stdex::dynamic_extent, std::dynamic_extent, nDoF>>;
+       using Extents3D = stdex::extents<dyn_indx_type, stdex::dynamic_extent, stdex::dynamic_extent, nDoF>;
+       using Strides3D = std::array<dyn_indx_type, 3>;       
+       
+       if constexpr (is_constant){
+         using StridedDyn3DView  = stdex::mdspan<const data_tp, Extents3D, stdex::layout_stride>;
 
-       return StridedDyn3DView(v.data(), Dyn3DMap{stdex::extents<dyn_indx_type, stdex::dynamic_extent, stdex::dynamic_extent, nDoF>{arg.dir[0], arg.dir[1], nDoF}, std::array<dyn_indx_type, 3>{1, arg.dir[0], arg.dir[0]*arg.dir[1]}}) ;
+         return StridedDyn3DView(v.data(), Dyn3DMap{Extents3D{arg.dir[0], arg.dir[1], nDoF}, Strides3D{1, arg.dir[0], arg.dir[0]*arg.dir[1]}}) ;
+       } else {
+         using StridedDyn3DView  = stdex::mdspan<data_tp, Extents3D, stdex::layout_stride>;
+
+         return StridedDyn3DView(v.data(), Dyn3DMap{Extents3D{arg.dir[0], arg.dir[1], nDoF}, Strides3D{1, arg.dir[0], arg.dir[0]*arg.dir[1]}}) ;
+       }
     }
     
     //Direct field accessors (note that ncolor always 1, so no slicing for this dof):
+    template<bool is_constant = false>    
     auto ExtAccessor() const {
        //
        static_assert(nColor == 1, "Currently only O(1) model is supported.");
@@ -195,10 +206,19 @@ class Field{
 
        constexpr int nparity = 2;
 
-       using Dyn3DMap          = stdex::layout_stride::mapping<stdex::extents<dyn_indx_type, stdex::dynamic_extent, std::dynamic_extent, nDoF, nparity>>;
-       using StridedDyn3DView  = stdex::mdspan<data_tp, stdex::extents<dyn_indx_type, stdex::dynamic_extent, stdex::dynamic_extent, nDoF, nparity>, stdex::layout_stride>;
+       using Dyn4DMap  = stdex::layout_stride::mapping<stdex::extents<dyn_indx_type, stdex::dynamic_extent, std::dynamic_extent, nDoF, nparity>>;
+       using Extents4D = stdex::extents<dyn_indx_type, stdex::dynamic_extent, stdex::dynamic_extent, nDoF, nparity>;
+       using Strides4D = std::array<dyn_indx_type, 4>;       
+       
+       if constexpr (is_constant){
+         using StridedDyn4DView  = stdex::mdspan<const data_tp, Extents4D, stdex::layout_stride>;
 
-       return StridedDyn3DView(v.data(), Dyn3DMap{stdex::extents<dyn_indx_type, stdex::dynamic_extent, stdex::dynamic_extent, nDoF, nparity>{arg.dir[0], arg.dir[1], nDoF, npariry}, std::array<dyn_indx_type, 4>{1, arg.dir[0], arg.dir[0]*arg.dir[1], arg.dir[0]*arg.dir[1]*nDof}}) ;
+         return StridedDyn4DView(v.data(), Dyn3DMap{Extents4D{arg.dir[0], arg.dir[1], nDoF, npariry}, Strides4D{1, arg.dir[0], arg.dir[0]*arg.dir[1], arg.dir[0]*arg.dir[1]*nDof}}) ;
+       } else {
+         using StridedDyn4DView  = stdex::mdspan<data_tp, Extents4D, stdex::layout_stride>;
+
+         return StridedDyn4DView(v.data(), Dyn3DMap{Extents4D{arg.dir[0], arg.dir[1], nDoF, npariry}, Strides4D{1, arg.dir[0], arg.dir[0]*arg.dir[1], arg.dir[0]*arg.dir[1]*nDof}}) ;       
+       }
     }    
     
 };
