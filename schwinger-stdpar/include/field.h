@@ -184,13 +184,11 @@ class Field{
        using Strides3D = std::array<dyn_indx_type, 3>;       
        
        if constexpr (is_constant){
-         using StridedDyn3DView  = stdex::mdspan<const data_tp, Extents3D, stdex::layout_stride>;
-
-         return StridedDyn3DView(v.data(), Dyn3DMap{Extents3D{arg.dir[0], arg.dir[1], nDoF}, Strides3D{1, arg.dir[0], arg.dir[0]*arg.dir[1]}}) ;
+         return stdex::mdspan<const data_tp, Extents3D, stdex::layout_stride>{
+                    v.data(), Dyn3DMap{Extents3D{arg.dir[0], arg.dir[1], nDoF}, Strides3D{1, arg.dir[0], arg.dir[0]*arg.dir[1]}}} ;
        } else {
-         using StridedDyn3DView  = stdex::mdspan<data_tp, Extents3D, stdex::layout_stride>;
-
-         return StridedDyn3DView(v.data(), Dyn3DMap{Extents3D{arg.dir[0], arg.dir[1], nDoF}, Strides3D{1, arg.dir[0], arg.dir[0]*arg.dir[1]}}) ;
+         return stdex::mdspan<data_tp, Extents3D, stdex::layout_stride>{
+                   v.data(), Dyn3DMap{Extents3D{arg.dir[0], arg.dir[1], nDoF}, Strides3D{1, arg.dir[0], arg.dir[0]*arg.dir[1]}}};
        }
     }
     
@@ -211,13 +209,11 @@ class Field{
        using Strides4D = std::array<dyn_indx_type, 4>;       
        
        if constexpr (is_constant){
-         using StridedDyn4DView  = stdex::mdspan<const data_tp, Extents4D, stdex::layout_stride>;
-
-         return StridedDyn4DView(v.data(), Dyn3DMap{Extents4D{arg.dir[0], arg.dir[1], nDoF, npariry}, Strides4D{1, arg.dir[0], arg.dir[0]*arg.dir[1], arg.dir[0]*arg.dir[1]*nDof}}) ;
+         return stdex::mdspan<const data_tp, Extents4D, stdex::layout_stride>{
+                   v.data(), Dyn3DMap{Extents4D{arg.dir[0], arg.dir[1], nDoF, npariry}, Strides4D{1, arg.dir[0], arg.dir[0]*arg.dir[1], arg.dir[0]*arg.dir[1]*nDof}}} ;
        } else {
-         using StridedDyn4DView  = stdex::mdspan<data_tp, Extents4D, stdex::layout_stride>;
-
-         return StridedDyn4DView(v.data(), Dyn3DMap{Extents4D{arg.dir[0], arg.dir[1], nDoF, npariry}, Strides4D{1, arg.dir[0], arg.dir[0]*arg.dir[1], arg.dir[0]*arg.dir[1]*nDof}}) ;       
+         return stdex::mdspan<data_tp, Extents4D, stdex::layout_stride>{
+                   v.data(), Dyn3DMap{Extents4D{arg.dir[0], arg.dir[1], nDoF, npariry}, Strides4D{1, arg.dir[0], arg.dir[0]*arg.dir[1], arg.dir[0]*arg.dir[1]*nDof}}} ;       
        }
     }    
     
