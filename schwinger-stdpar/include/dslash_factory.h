@@ -36,7 +36,7 @@ class Mat{
                     idx.end(),
                     DslashKernel);
     }
-    
+
     void operator()(auto &out, auto &in){
       assert(in.GetFieldOrder() == FieldOrder::LexFieldOrder);
       // Take into account only internal points:
@@ -65,7 +65,6 @@ class Mat{
                     idx.end(),
                     DslashKernel);
     }    
-        
 };
 
 

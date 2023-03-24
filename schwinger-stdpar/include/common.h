@@ -73,4 +73,9 @@ concept AllocatedFieldTp = is_allocated_type_v<typename T::container_tp>;
 template <typename T>
 concept ReferenceFieldTp = not AllocatedFieldTp<T>;
 
+// Block Field
+template <typename T>
+concept ReferenceBlockFieldTp = (ReferenceContainerTp<T> and ReferenceFieldTp<typename T::value_tp>); 
+
+
 

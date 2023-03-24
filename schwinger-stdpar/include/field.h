@@ -119,6 +119,11 @@ class Field{
     //template <GenericContainerTp T = container_tp, typename std::enable_if_t<!is_allocated_type_v<T>>* = nullptr>
     template <ReferenceContainerTp T>    
     Field(const T &src, const Arg &arg) : v(src), arg(arg) {}
+    
+    // Needed for block-la operations
+    inline decltype(auto) operator[](std::size_t i) const { return *this; }
+    
+    constexpr std::size_t size() const { return 1ul; }    
 
     //Return a reference to the data container (adapter)
     auto& Data( ) { return v; }
