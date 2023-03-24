@@ -185,10 +185,10 @@ class Field{
        
        if constexpr (is_constant){
          return stdex::mdspan<const data_tp, Extents3D, stdex::layout_stride>{
-                    v.data(), Dyn3DMap{Extents3D{arg.dir[0], arg.dir[1], nDoF}, Strides3D{1, arg.dir[0], arg.dir[0]*arg.dir[1]}}} ;
+                    v.data(), Dyn3DMap{Extents3D{arg.dir[0], arg.dir[1]}, Strides3D{1, arg.dir[0], arg.dir[0]*arg.dir[1]}}} ;
        } else {
          return stdex::mdspan<data_tp, Extents3D, stdex::layout_stride>{
-                   v.data(), Dyn3DMap{Extents3D{arg.dir[0], arg.dir[1], nDoF}, Strides3D{1, arg.dir[0], arg.dir[0]*arg.dir[1]}}};
+                   v.data(), Dyn3DMap{Extents3D{arg.dir[0], arg.dir[1]}, Strides3D{1, arg.dir[0], arg.dir[0]*arg.dir[1]}}};
        }
     }
     
@@ -210,10 +210,10 @@ class Field{
        
        if constexpr (is_constant){
          return stdex::mdspan<const data_tp, Extents4D, stdex::layout_stride>{
-                   v.data(), Dyn3DMap{Extents4D{arg.dir[0], arg.dir[1], nDoF, npariry}, Strides4D{1, arg.dir[0], arg.dir[0]*arg.dir[1], arg.dir[0]*arg.dir[1]*nDof}}} ;
+                   v.data(), Dyn3DMap{Extents4D{arg.dir[0], arg.dir[1]}, Strides4D{1, arg.dir[0], arg.dir[0]*arg.dir[1], arg.dir[0]*arg.dir[1]*nDof}}} ;
        } else {
          return stdex::mdspan<data_tp, Extents4D, stdex::layout_stride>{
-                   v.data(), Dyn3DMap{Extents4D{arg.dir[0], arg.dir[1], nDoF, npariry}, Strides4D{1, arg.dir[0], arg.dir[0]*arg.dir[1], arg.dir[0]*arg.dir[1]*nDof}}} ;       
+                   v.data(), Dyn3DMap{Extents4D{arg.dir[0], arg.dir[1]}, Strides4D{1, arg.dir[0], arg.dir[0]*arg.dir[1], arg.dir[0]*arg.dir[1]*nDof}}} ;       
        }
     }    
     

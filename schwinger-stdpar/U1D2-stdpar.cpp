@@ -8,8 +8,8 @@ using Float   = float;
 //constexpr int D = 2;
 //constexpr int N = 2;
 
-constexpr int ldim = 16384;
-constexpr int tdim = 8192;
+constexpr int ldim = 1024;
+constexpr int tdim = 1024;
 
 std::random_device rd;  //Will be used to obtain a seed for the random number engine
 std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()s
@@ -37,6 +37,15 @@ void fill(auto &field_accessor) {
 
 template<AllocatedFieldTp field_tp>
 void print_range(field_tp &field, const int range){
+   std::cout << "Print components for field : " << field.Data().data() << std::endl;
+
+   auto print = [](const auto& e) { std::cout << "Element " << e << std::endl; };
+
+   std::for_each(field.Data().begin(), field.Data().begin()+range, print);
+}
+
+template<ReferenceFieldTp field_tp>
+void print_range2(field_tp &field, const int range){
    std::cout << "Print components for field : " << field.Data().data() << std::endl;
 
    auto print = [](const auto& e) { std::cout << "Element " << e << std::endl; };
@@ -76,8 +85,9 @@ int main(int argc, char **argv)
   print_range<decltype(src_spinor)>(src_spinor, 4);  
   
   // Setup dslash arguments:
-  auto &&u_ref    = gauge.Reference();
-  using gauge_tp  = typename std::remove_cvref_t<decltype(u_ref)>;
+  auto &&u_ref        = gauge.Reference();
+  using gauge_tp      = typename std::remove_cvref_t<decltype(u_ref)>;
+  using spinor_ref_tp = typename std::remove_cvref_t<decltype(src_spinor.Reference())>;
 
   constexpr std::size_t nspin = 2;
 
@@ -100,14 +110,25 @@ int main(int argc, char **argv)
     mat(dst_spinor, src_spinor, transformer);
   }
   
-  // Container:
-  std::vector<decltype(src_spinor)> spinor_container;
+  // Block spinors:
+  using spinor_t = decltype(src_spinor); 
+  std::vector<spinor_t> spinor_container;
   //
-  spinor_container.reserve(4);
+  const int block_size = 4;
   //
-  for(int i = 0; i < spinor_container.size(); i++) spinor_container.push_back(create_field<vector_tp, decltype(sf_args)>(sf_args));
+  spinor_container.reserve(block_size);
   //
-  
+  for(int i = 0; i < block_size; i++) {
+    spinor_container.push_back(create_field<vector_tp, decltype(sf_args)>(sf_args));
+  }
+  //
+  print_range<decltype(src_spinor)>(spinor_container[0], 4);
+
+  std::vector<spinor_ref_tp> src_block_spinor;
+  //
+  src_block_spinor.reserve(spinor_container.size());
+  //
+  for(int i = 0; i < spinor_container.size(); i++) src_block_spinor.push_back(spinor_container[i].Reference()); 
 
   // initialize the data
   bool verbose = true;
