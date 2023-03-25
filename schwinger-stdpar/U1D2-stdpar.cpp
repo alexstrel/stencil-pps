@@ -35,7 +35,8 @@ void fill(auto &field_accessor) {
   }
 }
 
-template<AllocatedFieldTp field_tp>
+//template<AllocatedFieldTp field_tp>
+template<GenericSpinorFieldTp field_tp>
 void print_range(field_tp &field, const int range){
    std::cout << "Print components for field : " << field.Data().data() << std::endl;
 
@@ -44,7 +45,7 @@ void print_range(field_tp &field, const int range){
    std::for_each(field.Data().begin(), field.Data().begin()+range, print);
 }
 
-template<int N = 2>
+template<int N, bool to_eo = true>
 void convert_field(auto &dst_field, auto &src_field){
    const auto [Nx, Ny] = src_field.GetDims();
 
@@ -61,12 +62,16 @@ void convert_field(auto &dst_field, auto &src_field){
                  idx.end(), [=](const auto i) {
 		      auto [y, x] = i;
 		      const int parity = (x + y) & 1;
-		      //
+		      // 
 		      auto dstU = dst.ExtAccessor();
-		      const auto srcU = src.template Accessor<true>();
+		      auto srcU = src.template Accessor<to_eo>();
 #pragma unroll
-		      for(int j = 0; j < N; j++){  
-		        dstU(x/2,y,j,parity) = srcU(x,y,j);     
+		      for(int j = 0; j < N; j++){
+		        if constexpr (to_eo) {  
+		          dstU(x/2,y,j,parity) = srcU(x,y,j);
+			} else {
+			  srcU(x,y,j) = dstU(x/2,y,j,parity);
+	                }		
 		      }
 		   });
 
@@ -152,7 +157,7 @@ int main(int argc, char **argv)
     spinor_container.push_back(create_field<vector_tp, decltype(sf_args)>(sf_args));
   }
   //
-  print_range<decltype(src_spinor)>(spinor_container[0], 4);
+  //print_range<decltype(src_spinor)>(spinor_container[0], 4);
 
   std::vector<spinor_ref_tp> src_block_spinor;
   //

@@ -121,8 +121,6 @@ class Field{
     Field(const T &src, const Arg &arg) : v(src), arg(arg) {}
     
     // Needed for block-la operations
-    inline decltype(auto) operator[](std::size_t i) const { return *this; }
-    
     constexpr std::size_t size() const { return 1ul; }    
 
     //Return a reference to the data container (adapter)

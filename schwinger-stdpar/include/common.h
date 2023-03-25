@@ -14,6 +14,16 @@
 
 #include <experimental/mdspan>
 
+#include <limits>
+
+constexpr int min_int                = std::numeric_limits<int>::min();
+constexpr std::size_t min_sizet      = std::numeric_limits<std::size_t>::min();
+
+//some defs:
+constexpr std::size_t invalid_spin  = min_sizet;
+constexpr std::size_t invalid_color = min_sizet;
+constexpr std::size_t invalid_dir   = min_sizet;
+
 namespace stdex = std::experimental;
 
 // Simple arithmetic type
@@ -57,25 +67,59 @@ template <typename T>
 concept AllocatedContainerTp = is_container_type_v<T> and is_allocated_type_v<T>;
 
 template <typename T>
-concept ReferenceContainerTp = not AllocatedContainerTp<T>;
-
+concept ReferenceContainerTp = is_container_type_v<T> and (not is_allocated_type_v<T>);
 
 // Iterator type
 template <typename T>
 concept IteratorTp = std::random_access_iterator<T>;
 
+// Generic Spinor Field type:
+template <typename T>
+concept GenericSpinorFieldTp = requires{
+  requires GenericContainerTp<typename T::container_tp>;
+  requires (T::nSpin  >= 1ul);
+  requires (T::nColor >= 1ul);
+  requires (T::nDir   == invalid_dir); 
+};
+
+// Generic Gauge Field type:
+template <typename T>
+concept GenericGaugeFieldTp = requires{
+  requires GenericContainerTp<typename T::container_tp>;
+  requires (T::nSpin  == invalid_spin);
+  requires (T::nColor >= 1ul);
+  requires (T::nDir   >= 2ul);
+};
+
+// Generic Field type :
+template <typename T>
+concept GenericFieldTp = GenericSpinorFieldTp<T> or GenericGaugeFieldTp<T>;
 
 // Allocated field type
 template <typename T>
-concept AllocatedFieldTp = is_allocated_type_v<typename T::container_tp>;
+concept AllocatedFieldTp = GenericFieldTp<T> and is_allocated_type_v<typename T::container_tp>;
 
 // Reference field type
 template <typename T>
-concept ReferenceFieldTp = not AllocatedFieldTp<T>;
+concept ReferenceFieldTp = GenericFieldTp<T> and (not is_allocated_type_v<typename T::container_tp>);
 
 // Block Field
 template <typename T>
 concept ReferenceBlockFieldTp = (ReferenceContainerTp<T> and ReferenceFieldTp<typename T::value_tp>); 
 
+// Allocated field type
+template <typename T>
+concept AllocatedSpinorFieldTp = GenericSpinorFieldTp<T> and is_allocated_type_v<typename T::container_tp>;
+
+// Allocated field type
+template <typename T>
+concept AllocatedGaugeFieldTp = GenericGaugeFieldTp<T> and is_allocated_type_v<typename T::container_tp>;
+
+// Reference field type
+template <typename T>
+concept ReferenceSpinorFieldTp = GenericSpinorFieldTp<T> and (not is_allocated_type_v<typename T::container_tp>);
+
+template <typename T>
+concept ReferenceGaugeFieldTp = GenericGaugeFieldTp<T> and (not is_allocated_type_v<typename T::container_tp>);
 
 

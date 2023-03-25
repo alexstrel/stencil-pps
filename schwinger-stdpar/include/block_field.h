@@ -1,7 +1,7 @@
 #pragma once
-#if 0
+
 template <ReferenceFieldTp ref_field>
-class BlockField : public std::vector<ref_field> {
+class block_field_ref : public std::vector<field> {
     using block_field  = std::vector<ref_field>;
     //
     using container_tp = typename ref_field::container_tp;
@@ -43,5 +43,5 @@ class BlockField : public std::vector<ref_field> {
 };
 
   template <typename field> using CBlockField = const BlockField<field>;
-#endif
+
 

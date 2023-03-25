@@ -12,7 +12,7 @@ class DslashParam{
     const T r;    
 };
 
-template <typename gauge_tp, int nSpin_ = 2>
+template <ReferenceGaugeFieldTp gauge_tp, int nSpin_ = 2>
 class DslashArgs{
   public:
     using gauge_data_tp  = typename gauge_tp::data_tp;	  
@@ -144,7 +144,7 @@ class Dslash{
       return res;
     }     
 
-    template<ReferenceFieldTp ref_field>
+    template<ReferenceSpinorFieldTp ref_field>
     void apply(auto &&transformer, 
 	       ref_field &out_spinor, 
 	       ref_field &in_spinor, 
@@ -209,7 +209,7 @@ class Dslash{
       }//end of for loop
     }
     
-    template<ReferenceFieldTp ref_field>    
+    template<ReferenceSpinorFieldTp ref_field>    
     void apply(auto &&transformer,
 	       ref_field &out_spinor, 
 	       ref_field &in_spinor, 
