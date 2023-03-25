@@ -259,6 +259,8 @@ class Dslash{
 	// Fwd gather:
 	{  
           std::array<int, nDir> X{x, y};	 	
+
+	  const Link U_ = U(X[0],X[1],d, my_parity);
           
 	  if ( X[d] == (in.extent(d)-1) && fwd_ghost_flag) {
 	    //	  
@@ -266,13 +268,13 @@ class Dslash{
 
 	    const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
 
-	    tmp += (bndr_factor[d]*U(x,y,d,my_parity))*proj<+1>(in_, d);
+	    tmp += (bndr_factor[d]*U_)*proj<+1>(in_, d);
 	  } else {
 	    X[d] += (d == 0 ? parity_bit : 1);
 
             const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
 
-            tmp += U(x,y,d, my_parity)*proj<+1>(in_, d);		  
+            tmp += U_*proj<+1>(in_, d);		  
 	  }	  
 	}
 	// Bwd neighbour contribution:
@@ -285,13 +287,17 @@ class Dslash{
 
             const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
 
-            tmp += conj(bndr_factor[d]*U(X[0],X[1],d))*proj<-1>(in_, d);
+            const Link U_ = U(X[0],X[1],d, other_parity);
+
+            tmp += conj(bndr_factor[d]*U_)*proj<-1>(in_, d);
           } else {  		
             X[d] -= (d == 0 ? (1- parity_bit) : 1);		  
 
 	    const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
 
-	    tmp += conj(U(X[0],X[1],d, other_parity))*proj<-1>(in_, d);	 
+	    const Link U_ = U(X[0],X[1],d, other_parity);
+
+	    tmp += conj(U_)*proj<-1>(in_, d);	 
 	  }
 	}
       }
