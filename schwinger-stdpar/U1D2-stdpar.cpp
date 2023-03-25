@@ -20,7 +20,7 @@ void init_u1(auto &field){
 }
 
 void init_spinor(auto &field){
-   for (auto &i : field.Data()) i = std::complex<Float>(1.f, 0.f);
+   for (auto &i : field.Data()) i = dis(gen); //std::complex<Float>(1.f, 0.f);
 }
 
 void fill(auto &field_accessor) {
@@ -44,13 +44,32 @@ void print_range(field_tp &field, const int range){
    std::for_each(field.Data().begin(), field.Data().begin()+range, print);
 }
 
-template<ReferenceFieldTp field_tp>
-void print_range2(field_tp &field, const int range){
-   std::cout << "Print components for field : " << field.Data().data() << std::endl;
+template<int N = 2>
+void convert_field(auto &dst_field, auto &src_field){
+   const auto [Nx, Ny] = src_field.GetDims();
 
-   auto print = [](const auto& e) { std::cout << "Element " << e << std::endl; };
+   auto X = std::views::iota(0, Nx);
+   auto Y = std::views::iota(0, Ny);
 
-   std::for_each(field.Data().begin(), field.Data().begin()+range, print);
+   auto idx = std::views::cartesian_product(Y, X);//Y is the slowest index, X is the fastest
+
+   auto &&dst = dst_field.Reference();
+   auto &&src = src_field.Reference(); 
+
+   std::for_each(std::execution::par_unseq,
+                 idx.begin(),
+                 idx.end(), [=](const auto i) {
+		      auto [y, x] = i;
+		      const int parity = (x + y) & 1;
+		      //
+		      auto dstU = dst.ExtAccessor();
+		      const auto srcU = src.template Accessor<true>();
+#pragma unroll
+		      for(int j = 0; j < N; j++){  
+		        dstU(x/2,y,j,parity) = srcU(x,y,j);     
+		      }
+		   });
+
 }
 
 //--------------------------------------------------------------------------------
@@ -69,20 +88,31 @@ int main(int argc, char **argv)
 
   // allocate and initialize the working lattices, matrices, and vectors
   //
-  const auto sf_args = SpinorFieldArgs<nSpin>{ldim, tdim};
+  const auto sf_args    = SpinorFieldArgs<nSpin>{ldim, tdim};
+  const auto eo_sf_args = SpinorFieldArgs<nSpin>{ldim/2, tdim, FieldOrder::EOFieldOrder};
   //
   auto src_spinor = create_field<vector_tp, decltype(sf_args)>(sf_args);
   auto dst_spinor = create_field<vector_tp, decltype(sf_args)>(sf_args);
   auto chk_spinor = create_field<vector_tp, decltype(sf_args)>(sf_args);
 
-  const auto gf_args = GaugeFieldArgs<nDir>{ldim, tdim};
+  auto eo_src_spinor = create_field<vector_tp, decltype(eo_sf_args)>(eo_sf_args);
+  auto eo_dst_spinor = create_field<vector_tp, decltype(eo_sf_args)>(eo_sf_args);
+
+  const auto gf_args    = GaugeFieldArgs<nDir>{ldim, tdim};
+  const auto eo_gf_args = GaugeFieldArgs<nDir>{ldim/2, tdim, FieldOrder::EOFieldOrder}; 
   //
   auto gauge      = create_field<vector_tp, decltype(gf_args)>(gf_args);
+  //
+  auto eo_gauge   = create_field<vector_tp, decltype(eo_gf_args)>(eo_gf_args);
 
   init_u1(gauge);
   init_spinor(src_spinor);
-  
-  print_range<decltype(src_spinor)>(src_spinor, 4);  
+ 
+  convert_field<nDir>(eo_gauge, gauge);
+  convert_field<nSpin>(eo_src_spinor, src_spinor);
+
+  print_range<decltype(src_spinor)>(src_spinor, 8);
+  print_range<decltype(eo_src_spinor)>(eo_src_spinor, 16);  
   
   // Setup dslash arguments:
   auto &&u_ref        = gauge.Reference();
