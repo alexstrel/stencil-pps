@@ -1,24 +1,21 @@
 #pragma once
 
-template <ReferenceFieldTp ref_field>
-class block_field_ref : public std::vector<field> {
-    using block_field  = std::vector<ref_field>;
+template <GenericSpinorFieldTp spinor_field>
+class block_spinor_field : public std::vector<spinor_field> {
+    using block_field  = std::vector<spinor_field>;
     //
-    using container_tp = typename ref_field::container_tp;
-    using data_tp      = typename ref_field::data_tp;    
+    using container_tp = typename spinor_field::container_tp;
+    using data_tp      = typename spinor_field::data_tp;    
 
-    template <AllocatedFieldTp alc_field_tp> block_field make_set(std::vector<alc_field_tp> &v) { 
-      using ref_field_tp = decltype(std::declval<alc_field_tp>().Reference());
-          
-      return block_field{v.begin(), v.end()}; }
+    template <SpinorFieldTp field_tp> block_field make_set(std::vector<field_tp> &v)         { return block_field{v.begin(), v.end()}; }
     
-    template <ReferenceFieldTp ref_field_tp> block_field make_set(BlockField<ref_field_tp>  &v) { return block_field{v.begin(), v.end()}; }    
+    template <SpinorFieldTp field_tp> block_field make_set(block_spinor_field<field_tp>  &v) { return block_field{v.begin(), v.end()}; }    
 
   public:
     //
-    BlockField()                   = default;
-    BlockField(const BlockField &) = default;
-    BlockField(BlockField &&)      = default;
+    block_spinor_field()                           = default;
+    block_spinor_field(const block_spinor_field &) = default;
+    block_spinor_field(block_spinor_field &&)      = default;
 
     template <AllocatedFieldTp alloc_field_tp> 
     BlockField(std::vector<alloc_field_tp> &v) {

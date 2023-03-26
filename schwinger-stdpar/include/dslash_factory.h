@@ -23,8 +23,8 @@ class Mat{
 
       auto idx = std::views::cartesian_product(Y, X);//Y is the slowest index, X is the fastest
       
-      auto &&out_ = out.Reference();
-      auto &&in_  = in.Reference();       
+      auto &&out_ = out.View();
+      auto &&in_  = in.View();       
 
       auto DslashKernel = [=, &dslash_kernel   = *dslash_kernel_ptr] (const auto coords) { 
                                 //
@@ -86,8 +86,8 @@ class Mat{
 
       auto transformer = [=](const auto &x, const auto &y) {return ((mass+2.0*r)*x-0.5*y);};
 
-      auto &&out_ = out.Reference();
-      auto &&in_  = in.Reference();       
+      auto &&out_ = out.View();
+      auto &&in_  = in.View();       
 
       auto DslashKernel = [=, &dslash_kernel = *dslash_kernel_ptr] (const auto i) { 
                              //

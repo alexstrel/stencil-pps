@@ -12,7 +12,7 @@ class DslashParam{
     const T r;    
 };
 
-template <ReferenceGaugeFieldTp gauge_tp, int nSpin_ = 2>
+template <GaugeFieldViewTp gauge_tp, int nSpin_ = 2>
 class DslashArgs{
   public:
     using gauge_data_tp  = typename gauge_tp::data_tp;	  
@@ -144,10 +144,10 @@ class Dslash{
       return res;
     }     
 
-    template<ReferenceSpinorFieldTp ref_field>
+    template<SpinorFieldViewTp spinor_field_view>
     void apply(auto &&transformer, 
-	       ref_field &out_spinor, 
-	       ref_field &in_spinor, 
+	       spinor_field_view &out_spinor, 
+	       spinor_field_view &in_spinor, 
 	       const auto cartesian_coords) {
       // Take into account only internal points:
       // Dslash_nm = (M + 2r) \delta_nm - 0.5 * \sum_\mu  ((r - \gamma_\mu)*U_(x){\mu}*\delta_{m,n+\mu} + (r + \gamma_\mu)U^*(x-mu)_{\mu}\delta_{m,n-\mu})
@@ -175,10 +175,10 @@ class Dslash{
       }
     }
 
-    template<ReferenceBlockFieldTp ref_block_field>
+    template<BlockSpinorFieldViewTp block_spinor_field_view>
     void apply(auto &&transformer, 
-	       ref_block_field &out_block_spinor, 
-	       ref_block_field &in_block_spinor, 
+	       block_spinor_field_view &out_block_spinor, 
+	       block_spinor_field_view &in_block_spinor, 
 	       const auto cartesian_coords) {
       // Take into account only internal points:
       // Dslash_nm = (M + 2r) \delta_nm - 0.5 * \sum_\mu  ((r - \gamma_\mu)*U_(x){\mu}*\delta_{m,n+\mu} + (r + \gamma_\mu)U^*(x-mu)_{\mu}\delta_{m,n-\mu})
@@ -209,10 +209,10 @@ class Dslash{
       }//end of for loop
     }
     
-    template<ReferenceSpinorFieldTp ref_field>    
+    template<SpinorFieldViewTp spinor_field_view>    
     void apply(auto &&transformer,
-	       ref_field &out_spinor, 
-	       ref_field &in_spinor, 
+	       spinor_field_view &out_spinor, 
+	       spinor_field_view &in_spinor, 
 	       const auto cartesian_coords, 
 	       const FieldParity parity) {
 

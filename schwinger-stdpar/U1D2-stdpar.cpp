@@ -1,4 +1,3 @@
-#include <common.h>
 #include <field.h>
 //#include <block_field.h>
 #include <dslash_factory.h>
@@ -35,7 +34,7 @@ void fill(auto &field_accessor) {
   }
 }
 
-//template<AllocatedFieldTp field_tp>
+//template<FieldTp field_tp>
 template<GenericSpinorFieldTp field_tp>
 void print_range(field_tp &field, const int range){
    std::cout << "Print components for field : " << field.Data().data() << std::endl;
@@ -54,8 +53,8 @@ void convert_field(auto &dst_field, auto &src_field){
 
    auto idx = std::views::cartesian_product(Y, X);//Y is the slowest index, X is the fastest
 
-   auto &&dst = dst_field.Reference();
-   auto &&src = src_field.Reference(); 
+   auto &&dst = dst_field.View();
+   auto &&src = src_field.View(); 
 
    std::for_each(std::execution::par_unseq,
                  idx.begin(),
@@ -120,9 +119,9 @@ int main(int argc, char **argv)
   print_range<decltype(eo_src_spinor)>(eo_src_spinor, 16);  
   
   // Setup dslash arguments:
-  auto &&u_ref        = gauge.Reference();
-  using gauge_tp      = typename std::remove_cvref_t<decltype(u_ref)>;
-  using spinor_ref_tp = typename std::remove_cvref_t<decltype(src_spinor.Reference())>;
+  auto &&u_ref        = gauge.View();
+  using gauge_tp      = decltype(gauge.View());
+  using spinor_ref_tp = decltype(src_spinor.View());
 
   constexpr std::size_t nspin = 2;
 
@@ -163,7 +162,7 @@ int main(int argc, char **argv)
   //
   src_block_spinor.reserve(spinor_container.size());
   //
-  for(int i = 0; i < spinor_container.size(); i++) src_block_spinor.push_back(spinor_container[i].Reference()); 
+  for(int i = 0; i < spinor_container.size(); i++) src_block_spinor.push_back(spinor_container[i].View()); 
 
   // initialize the data
   bool verbose = true;

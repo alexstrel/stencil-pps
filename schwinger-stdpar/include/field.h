@@ -1,6 +1,6 @@
 #pragma once
 
-#include <common.h>
+#include <field_concepts.h>
 #include <enums.h>
 #include <assert.h>
 #include <memory>
@@ -83,16 +83,16 @@ template<int nSpin, int nColor = 1> using SpinorFieldArgs = FieldDescriptor<inva
 template<GenericContainerTp Ct, typename Arg>
 class Field; // forward declare to make function definition possible
  
-template <AllocatedContainerTp alloc_container_tp, typename Arg>
+template <ContainerTp alloc_container_tp, typename Arg>
 decltype(auto) create_field(const Arg &arg) {
   return Field<alloc_container_tp, Arg>(arg);
 }
 
-template <GenericContainerTp container_tp_, typename Arg>
+template <GenericContainerTp generic_container_tp, typename Arg>
 class Field{
   public:	
     //
-    using container_tp = container_tp_;        
+    using container_tp = generic_container_tp;        
     using data_tp      = typename container_tp::value_type;
 
     static constexpr std::size_t nDir    = Arg::ndir;
@@ -107,7 +107,7 @@ class Field{
     Field(const Arg &arg) : v(arg.GetFieldSize()),
                             arg(arg){}
 
-    template <AllocatedContainerTp alloc_container_tp, typename ArgTp>
+    template <ContainerTp alloc_container_tp, typename ArgTp>
     friend decltype(auto) create_field(const ArgTp &arg);
 
   public:
@@ -117,7 +117,7 @@ class Field{
     Field(Field &&)      = default;    
     // 
     //template <GenericContainerTp T = container_tp, typename std::enable_if_t<!is_allocated_type_v<T>>* = nullptr>
-    template <ReferenceContainerTp T>    
+    template <ContainerViewTp T>    
     Field(const T &src, const Arg &arg) : v(src), arg(arg) {}
     
     // Needed for block-la operations
@@ -127,7 +127,7 @@ class Field{
     auto& Data( ) { return v; }
 
     //Return a reference to the object (data access via container adapter )
-    decltype(auto) Reference() {
+    decltype(auto) View() {
       if constexpr (!is_allocated_type_v<container_tp>) {
          std::cerr << "Cannot reference non-owner field, exiting.." << std::endl;     
 	 exit(-1);
@@ -136,7 +136,7 @@ class Field{
       return Field<std::span<data_tp>, decltype(arg)>(std::span{v}, arg);	    
     }
 
-    decltype(auto) ParityReference(const FieldParity parity ) {// return a reference to the parity component
+    decltype(auto) ParityView(const FieldParity parity ) {// return a reference to the parity component
       if constexpr (!is_allocated_type_v<container_tp>) {
          std::cerr << "Cannot reference non-owner field, exiting.." << std::endl;
          exit(-1);
@@ -155,8 +155,8 @@ class Field{
       return Field<std::span<data_tp>, decltype(parity_arg)>(std::span{v}.subspan(parity_offset, parity_length), parity_arg);
     }
 
-    auto Even() { return ParityReference(FieldParity::EvenFieldParity );}
-    auto Odd()  { return ParityReference(FieldParity::OddFieldParity  );}
+    auto Even() { return ParityView(FieldParity::EvenFieldParity );}
+    auto Odd()  { return ParityView(FieldParity::OddFieldParity  );}
 
     auto EODecompose() {
       assert(arg.subset == FieldSiteSubset::FullSiteSubset);	    
