@@ -33,3 +33,8 @@ inline decltype(auto) operator+(const std::array<T,nspin> &a, const std::array<T
   return result;
 }
 
+template< ComplexTp T, typename Link>
+inline Link operator*(const T &a, const Link &U){
+  return (a*U);
+}
+

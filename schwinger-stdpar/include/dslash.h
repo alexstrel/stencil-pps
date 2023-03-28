@@ -96,21 +96,19 @@ class Dslash{
 	// Fwd gather:
 	{ 
           std::array X{site_coords};	  	
-          
-	  const Link U_ = U(X[0],X[1],d);          
           //
-	  if ( X[d] == (in.extent(d)-1) ) {
+	  const bool ghost = false;
+	  //
+	  if ( ghost ) {
 	    //	  
-	    X[d] = 0;
-
-	    const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
-
-	    res += (bndr_factor[d]*U_)*proj<+1>(in_, d);
-
 	  } else {
-	    X[d] += 1;
+            const bool local_bndr =  X[d] == (in.extent(d)-1);
+
+	    X[d] = local_bndr ? 0 : X[d] + 1;
 
             const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
+	    //
+            const Link U_ = local_bndr ? bndr_factor[d]*U(X[0],X[1],d) : U(X[0],X[1],d);
 
             res += U_*proj<+1>(in_, d);		  
 	  }	  
@@ -118,23 +116,20 @@ class Dslash{
 	// Bwd neighbour contribution:
 	{
           std::array X{site_coords};	  	
+	  //
+	  const bool ghost = false;
           //	
-          if ( X[d] == 0 ) {
+          if ( ghost ) {
             //    
-	    X[d] = (in.extent(d)-1);
-
-            const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
-
-	    const Link U_ = U(X[0],X[1],d);
-
-            res += conj(bndr_factor[d]*U_)*proj<-1>(in_, d);
           } else {  	
-	    //	  
-            X[d] -= 1;		  
+	    //
+	    const bool local_bndr = X[d] == 0;
+
+            X[d] = local_bndr ? (in.extent(d)-1) : X[d] - 1;		  
 
 	    const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
 
-	    const Link U_ = U(X[0],X[1],d);
+	    const Link U_ = local_bndr ? bndr_factor[d]*U(X[0],X[1],d) : U(X[0],X[1],d);
 
 	    res += conj(U_)*proj<-1>(in_, d);	 
 	  }
@@ -175,11 +170,10 @@ class Dslash{
       }
     }
 
-    template<BlockSpinorFieldViewTp block_spinor_field_view>
-    void apply(auto &&transformer, 
-	       block_spinor_field_view &out_block_spinor, 
-	       block_spinor_field_view &in_block_spinor, 
-	       const auto cartesian_coords) {
+    void apply(auto &&transformer,
+               auto &out_block_spinor,
+               auto &in_block_spinor,
+               const auto cartesian_coords) {	    
       // Take into account only internal points:
       // Dslash_nm = (M + 2r) \delta_nm - 0.5 * \sum_\mu  ((r - \gamma_\mu)*U_(x){\mu}*\delta_{m,n+\mu} + (r + \gamma_\mu)U^*(x-mu)_{\mu}\delta_{m,n-\mu})
       //
@@ -197,7 +191,7 @@ class Dslash{
       const auto U  = args.gauge.template Accessor<is_constant>();       
       
 #pragma unroll
-      for ( auto i : std::views::iota(0, out_block_spinor.size())){     
+      for ( int i = 0; i < out_block_spinor.size(); i++ ){  	      
         auto out      = out_block_spinor[i].Accessor();
         const auto in = in_block_spinor[i].template Accessor<is_constant>();
 
@@ -229,6 +223,9 @@ class Dslash{
       //
       using Link   = DataTp; 
       using Spinor = std::array<DataTp, nSpin>;
+      //
+      auto is_local_boundary = [](const auto d, const auto coord, const auto bndry, const auto parity_bit){ 
+	      return ((coord == bndry) && (d != 0 || (d == 0 && parity_bit)));};
 
       auto [y, x] = cartesian_coords;
 
@@ -252,27 +249,23 @@ class Dslash{
       constexpr std::array<DataTp, nDir> bndr_factor{DataTp(1.0),DataTp(-1.0)}; 
 #pragma unroll
       for (int d = 0; d < nDir; d++) {
-      
-        const bool fwd_ghost_flag = d != 0 || (d == 0 && parity_bit);      
-        const bool bwd_ghost_flag = d != 0 || (d == 0 && (1-parity_bit));              
 
 	// Fwd gather:
 	{  
           std::array<int, nDir> X{x, y};	 	
 
-	  const Link U_ = U(X[0],X[1],d, my_parity);
+	  const bool ghost = false;
           
-	  if ( X[d] == (in.extent(d)-1) && fwd_ghost_flag) {
+	  if ( ghost ) {
 	    //	  
-	    X[d] = 0;
-
-	    const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
-
-	    tmp += (bndr_factor[d]*U_)*proj<+1>(in_, d);
 	  } else {
-	    X[d] += (d == 0 ? parity_bit : 1);
+	    const bool local_boundary_flag = is_local_boundary(d, X[d], (in.extent(d)-1), parity_bit); 
+
+	    X[d] = (X[d] + (d == 0 ? parity_bit : 1) + in.extent(d)) % in.extent(d);
 
             const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
+	    //
+            const Link U_ = local_boundary_flag ? (bndr_factor[d]*U(X[0],X[1],d, my_parity)) : U(X[0],X[1],d, my_parity);
 
             tmp += U_*proj<+1>(in_, d);		  
 	  }	  
@@ -281,21 +274,18 @@ class Dslash{
 	{
           std::array<int, nDir> X{x, y};	
           //
-          if ( X[d] == 0 && bwd_ghost_flag) {
+	  const bool ghost = false;
+
+          if ( ghost ) {
             //    
-	    X[d] = (in.extent(d)-1);
-
-            const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
-
-            const Link U_ = U(X[0],X[1],d, other_parity);
-
-            tmp += conj(bndr_factor[d]*U_)*proj<-1>(in_, d);
           } else {  		
-            X[d] -= (d == 0 ? (1- parity_bit) : 1);		  
+            const bool local_boundary_flag = is_local_boundary(d, X[d], 0, (1-parity_bit));
+	    
+	    X[d] = (X[d] - (d == 0 ? (1- parity_bit) : 1) + in.extent(d)) % in.extent(d);	  
 
 	    const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
-
-	    const Link U_ = U(X[0],X[1],d, other_parity);
+            //
+	    const Link U_ = local_boundary_flag ? bndr_factor[d]*U(X[0],X[1],d, other_parity) : U(X[0],X[1],d, other_parity);
 
 	    tmp += conj(U_)*proj<-1>(in_, d);	 
 	  }

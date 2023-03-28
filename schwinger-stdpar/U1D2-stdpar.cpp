@@ -1,5 +1,5 @@
 #include <field.h>
-//#include <block_field.h>
+#include <block_field.h>
 #include <dslash_factory.h>
 //
 using Float   = float;
@@ -145,24 +145,22 @@ int main(int argc, char **argv)
   }
   
   // Block spinors:
-  using spinor_t = decltype(src_spinor); 
-  std::vector<spinor_t> spinor_container;
+  using spinor_t     = decltype(src_spinor);
+  using spinor_ref_t = decltype(std::declval< spinor_t>().View()); 
   //
-  const int block_size = 4;
+  auto src_block_spinor = BlockSpinor< spinor_t, decltype(sf_args) >{sf_args, 2};
   //
-  spinor_container.reserve(block_size);
-  //
-  for(int i = 0; i < block_size; i++) {
-    spinor_container.push_back(create_field<vector_tp, decltype(sf_args)>(sf_args));
-  }
-  //
-  //print_range<decltype(src_spinor)>(spinor_container[0], 4);
+  init_spinor( src_block_spinor.v[0] );
+  init_spinor( src_block_spinor.v[1] );
+  
+  auto dst_block_spinor = BlockSpinor< spinor_t, decltype(sf_args) >{sf_args, 2};
 
-  std::vector<spinor_ref_tp> src_block_spinor;
-  //
-  src_block_spinor.reserve(spinor_container.size());
-  //
-  for(int i = 0; i < spinor_container.size(); i++) src_block_spinor.push_back(spinor_container[i].View()); 
+  mat(dst_block_spinor, src_block_spinor);
+
+  auto src_block_spinor_view = src_block_spinor.View();
+
+  print_range<spinor_ref_t>(src_block_spinor_view[0], 4);
+  print_range<spinor_ref_t>(src_block_spinor_view[1], 4);
 
   // initialize the data
   bool verbose = true;
