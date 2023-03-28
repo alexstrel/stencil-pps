@@ -44,22 +44,6 @@ void print_range(field_tp &field, const int range){
    std::for_each(field.Data().begin(), field.Data().begin()+range, print);
 }
 
-#if 1
-template<BlockSpinorFieldViewTp field_tp>
-void check(field_tp &in){
-  std::cout << "Bingo!" << std::endl;	
-}
-
-template<SpinorFieldViewTp field_tp>
-void check2(field_tp &in){
-  std::cout << "Bingo!" << std::endl;
-}
-
-#else
-void check(auto &in){
-  std::cout << "Bingo!" << std::endl;
-}
-#endif
 template<int N, bool to_eo = true>
 void convert_field(auto &dst_field, auto &src_field){
    const auto [Nx, Ny] = src_field.GetDims();
