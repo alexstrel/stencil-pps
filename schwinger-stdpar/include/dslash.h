@@ -170,9 +170,11 @@ class Dslash{
       }
     }
 
+
+    template<BlockSpinorFieldViewTp  block_spinor_field_view>
     void apply(auto &&transformer,
-               auto &out_block_spinor,
-               auto &in_block_spinor,
+               block_spinor_field_view &out_block_spinor,
+               block_spinor_field_view &in_block_spinor,
                const auto cartesian_coords) {	    
       // Take into account only internal points:
       // Dslash_nm = (M + 2r) \delta_nm - 0.5 * \sum_\mu  ((r - \gamma_\mu)*U_(x){\mu}*\delta_{m,n+\mu} + (r + \gamma_\mu)U^*(x-mu)_{\mu}\delta_{m,n-\mu})

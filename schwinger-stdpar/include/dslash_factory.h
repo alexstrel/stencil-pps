@@ -1,6 +1,7 @@
 #pragma once
 #include <dslash.h>
 #include <optional>
+#include <typeinfo>
 
 template<typename KernelArgs, template <typename Args> class Kernel, typename TransformParams>
 class Mat{
@@ -93,9 +94,11 @@ class Mat{
       auto &&out_ = out.View();
       auto &&in_  = in.View();       
 
-      auto DslashKernel = [=, &dslash_kernel = *dslash_kernel_ptr] (const auto i) { 
+      using spinor_ref_t =  typename std::remove_cvref_t<decltype(out_)>;
+
+      auto DslashKernel = [=, &dslash_kernel = *dslash_kernel_ptr] (const auto i) mutable { 
                              //
-                             dslash_kernel.template apply(transformer, out_, in_, i); 
+                             dslash_kernel.template apply<spinor_ref_t>(transformer, out_, in_, i); 
                            };
       //
       std::for_each(std::execution::par_unseq,

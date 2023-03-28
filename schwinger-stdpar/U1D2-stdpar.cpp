@@ -44,6 +44,22 @@ void print_range(field_tp &field, const int range){
    std::for_each(field.Data().begin(), field.Data().begin()+range, print);
 }
 
+#if 1
+template<BlockSpinorFieldViewTp field_tp>
+void check(field_tp &in){
+  std::cout << "Bingo!" << std::endl;	
+}
+
+template<SpinorFieldViewTp field_tp>
+void check2(field_tp &in){
+  std::cout << "Bingo!" << std::endl;
+}
+
+#else
+void check(auto &in){
+  std::cout << "Bingo!" << std::endl;
+}
+#endif
 template<int N, bool to_eo = true>
 void convert_field(auto &dst_field, auto &src_field){
    const auto [Nx, Ny] = src_field.GetDims();
@@ -146,21 +162,16 @@ int main(int argc, char **argv)
   
   // Block spinors:
   using spinor_t     = decltype(src_spinor);
-  using spinor_ref_t = decltype(std::declval< spinor_t>().View()); 
   //
   auto src_block_spinor = BlockSpinor< spinor_t, decltype(sf_args) >{sf_args, 2};
   //
-  init_spinor( src_block_spinor.v[0] );
-  init_spinor( src_block_spinor.v[1] );
+  for (int i = 0; i < src_block_spinor.Size(); i++) init_spinor( src_block_spinor.v[i] );
   
   auto dst_block_spinor = BlockSpinor< spinor_t, decltype(sf_args) >{sf_args, 2};
 
-  mat(dst_block_spinor, src_block_spinor);
-
-  auto src_block_spinor_view = src_block_spinor.View();
-
-  print_range<spinor_ref_t>(src_block_spinor_view[0], 4);
-  print_range<spinor_ref_t>(src_block_spinor_view[1], 4);
+  for(int i = 0; i < niter; i++) {
+    mat(dst_block_spinor, src_block_spinor);
+  }
 
   // initialize the data
   bool verbose = true;

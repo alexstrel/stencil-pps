@@ -27,6 +27,8 @@ class BlockSpinor{
     auto GetDims() const { return args.GetLatticeDims(); }
 
     auto GetFieldOrder() const { return args.order; }    
+
+    auto Size() const { return v.size(); } 
 };
 
 
