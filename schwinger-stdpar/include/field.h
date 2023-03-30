@@ -5,6 +5,54 @@
 #include <assert.h>
 #include <memory>
 
+template<int... M>
+consteval int get_cell_size() {
+
+  std::array<int, sizeof... (M)> r{M...};
+  int s = 1;
+
+  for (int &i : r)  s = s*i;
+
+  return s;
+}
+
+template <ArithmeticTp T, int... M> 
+class StencilCell {
+   public :
+     using value_type = T;
+     //
+     using lview_type  = stdex::mdspan<T, stdex::extents<int, M...>, stdex::layout_left,  stdex::default_accessor<T>>;
+     using rview_type  = stdex::mdspan<T, stdex::extents<int, M...>, stdex::layout_right, stdex::default_accessor<T>>; 
+
+     static constexpr std::array<int, sizeof...(M)> m{M...}; //we don't really need it?
+
+     std::array<T,get_cell_size<M...>()> v;
+
+     StencilCell() = default;
+     StencilCell(const StencilCell<T, M...> &) = default;
+     StencilCell(StencilCell<T, M...> &&)      = default;
+   
+     //basic accessors
+     constexpr T &operator[](const int i) { return data[i]; }
+     constexpr const T &operator[](const int i) const { return data[i]; }
+
+     constexpr int size() const { return v.size(); }   
+
+     // Cell Views:
+     inline decltype(auto)  LView(){
+       return lview_type(v.data());
+     }
+
+     inline decltype(auto)  RView(){
+       return rview_type(v.data());
+     }    
+
+     auto operator=(const StencilCell&) -> StencilCell& = default;
+     auto operator=(StencilCell&&     ) -> StencilCell& = default;
+        
+};
+
+
 template<std::size_t nD, std::size_t nS, std::size_t nC>
 consteval FieldType get_field_type() {
 
