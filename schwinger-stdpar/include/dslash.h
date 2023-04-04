@@ -139,38 +139,6 @@ class Dslash{
       return res;
     }     
 
-    template<SpinorFieldViewTp spinor_field_view>
-    void apply(auto &&transformer, 
-	       spinor_field_view &out_spinor, 
-	       spinor_field_view &in_spinor, 
-	       const auto cartesian_coords) {
-      // Take into account only internal points:
-      // Dslash_nm = (M + 2r) \delta_nm - 0.5 * \sum_\mu  ((r - \gamma_\mu)*U_(x){\mu}*\delta_{m,n+\mu} + (r + \gamma_\mu)U^*(x-mu)_{\mu}\delta_{m,n-\mu})
-      //
-      // gamma_{1/2} -> sigma_{1/2}, gamma_{5} -> sigma_{3}
-      //
-      using ArgTp  = typename std::remove_cvref_t<Arg>;
-      //
-      constexpr auto nSpin = ArgTp::nSpin;      
-      constexpr auto nDir  = ArgTp::nDir;       
-
-      auto [y, x] = cartesian_coords;
-
-      // Define accessors:
-      constexpr bool is_constant = true;      
-      //      
-      auto out      = out_spinor.Accessor();
-      const auto in = in_spinor.template Accessor<is_constant>();
-      const auto U  = args.gauge.template Accessor<is_constant>();
-
-      auto tmp = compute_site_stencil<nDir, nSpin>(out, in, U, {x,y});
-#pragma unroll
-      for (int s = 0; s < nSpin; s++){
-        out(x,y,s) = transformer(in(x,y,s), tmp[s]);
-      }
-    }
-
-
     template<BlockSpinorFieldViewTp  block_spinor_field_view>
     void apply(auto &&transformer,
                block_spinor_field_view &out_block_spinor,

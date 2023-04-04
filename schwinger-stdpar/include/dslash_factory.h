@@ -13,65 +13,62 @@ class Mat{
   public:
 
     Mat(const KernelArgs &args, const TransformParams &param) : dslash_kernel_ptr(new Kernel<KernelArgs>(args)), param(param) {}
-#if 0  
-    void operator()(auto &out, auto &in, auto&& transformer){
-      assert(in.GetFieldOrder() == FieldOrder::LexFieldOrder);
-      // Extract dims:
-      const auto [Nx, Ny] = in.GetDims();// in.GetCBDims(); //Get CB dimensions?
-      
-      auto X = std::views::iota(0, Nx);
-      auto Y = std::views::iota(0, Ny);
 
-      auto idx = std::views::cartesian_product(Y, X);//Y is the slowest index, X is the fastest
-      
-      auto &&out_ = out.View();
-      auto &&in_  = in.View();       
-
-      auto DslashKernel = [=, &dslash_kernel   = *dslash_kernel_ptr] (const auto coords) { 
-                                //
-                                dslash_kernel.template apply(transformer, out_, in_, coords); 
-                           };
-      //
-      std::for_each(std::execution::par_unseq,
-                    idx.begin(),
-                    idx.end(),
-                    DslashKernel);
-    }
-#else
     template<SpinorFieldTp spinor_tp>
-    void operator()(spinor_tp &out, spinor_tp &in, auto&& transformer){	    
-      assert(in.GetFieldOrder() == FieldOrder::LexFieldOrder);
-      // Extract dims:
-      const auto [Nx, Ny] = in.GetCBDims(); //Get CB dimensions
+    void operator()(spinor_tp &out, spinor_tp &in, auto&& transformer, const FieldOrder order = FieldOrder::EOFieldOrder){	         
+      if ( order == FieldOrder::EOFieldOrder ) {       
+        // Extract dims:
+        const auto [Nx, Ny] = in.GetCBDims(); //Get CB dimensions
       
-      auto X = std::views::iota(0, Nx);
-      auto Y = std::views::iota(0, Ny);
+        auto X = std::views::iota(0, Nx);
+        auto Y = std::views::iota(0, Ny);
 
-      auto idx = std::views::cartesian_product(Y, X);//Y is the slowest index, X is the fastest
+        auto idx = std::views::cartesian_product(Y, X);//Y is the slowest index, X is the fastest
       
-      auto [out_e, out_o] = out.EODecompose();
-      auto [in_e, in_o]   = in.EODecompose();       
+        auto [out_e, out_o] = out.EODecompose();
+        auto [in_e,  in_o ] = in.EODecompose();       
 
-      auto DslashEOKernel = [=, &dslash_kernel   = *dslash_kernel_ptr] (const auto coords) { 
+        auto DslashEOKernel = [=, &dslash_kernel   = *dslash_kernel_ptr] (const auto coords) { 
                                 //
                                 dslash_kernel.template apply(transformer, out_e, in_o, coords, FieldParity::EvenFieldParity); 
-                            };
-      auto DslashOEKernel = [=, &dslash_kernel   = *dslash_kernel_ptr] (const auto coords) {
+                              };
+        auto DslashOEKernel = [=, &dslash_kernel   = *dslash_kernel_ptr] (const auto coords) {
                                 //
                                 dslash_kernel.template apply(transformer, out_o, in_e, coords, FieldParity::OddFieldParity);
-                            };      
-      //
-      std::for_each(std::execution::par_unseq,
-                    idx.begin(),
-                    idx.end(),
-                    DslashEOKernel);
+                              };      
+        //
+        std::for_each(std::execution::par_unseq,
+                      idx.begin(),
+                      idx.end(),
+                      DslashEOKernel);
 
-      std::for_each(std::execution::par_unseq,
-                    idx.begin(),
-                    idx.end(),
-                    DslashOEKernel);
+        std::for_each(std::execution::par_unseq,
+                      idx.begin(),
+                      idx.end(),
+                      DslashOEKernel);
+      } else {
+        // Extract dims:      
+        const auto [Nx, Ny] = in.GetDims();// in.GetCBDims(); //Get CB dimensions?
+      
+        auto X = std::views::iota(0, Nx);
+        auto Y = std::views::iota(0, Ny);
+
+        auto idx = std::views::cartesian_product(Y, X);//Y is the slowest index, X is the fastest
+
+        auto &&out_ = out.View();
+        auto &&in_  = in.View();       
+        
+        auto DslashKernel = [=, &dslash_kernel   = *dslash_kernel_ptr] (const auto coords) { 
+                                //
+                                dslash_kernel.template apply(transformer, out_, in_, coords); 
+                            };
+        //
+        std::for_each(std::execution::par_unseq,
+                      idx.begin(),
+                      idx.end(),
+                      DslashKernel);
+      }
     }
-#endif
 
     void operator()(auto &out, auto &in){    
       assert(in.GetFieldOrder() == FieldOrder::LexFieldOrder);

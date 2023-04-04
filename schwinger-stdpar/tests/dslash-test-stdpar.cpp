@@ -76,6 +76,18 @@ void convert_field(auto &dst_field, auto &src_field){
 
 }
 
+template<int nDir, int nSpin>
+void run_simple_dslash(auto params) {
+  const auto sf_args = SpinorFieldArgs<nSpin>{ldim, tdim};
+  //
+  auto src_spinor = create_field<vector_tp, decltype(sf_args)>(sf_args);
+  auto dst_spinor = create_field<vector_tp, decltype(sf_args)>(sf_args);
+  auto chk_spinor = create_field<vector_tp, decltype(sf_args)>(sf_args);
+  //
+  const auto gf_args    = GaugeFieldArgs<nDir>{ldim, tdim};
+  
+}
+
 //--------------------------------------------------------------------------------
 int main(int argc, char **argv)
 {
@@ -93,6 +105,7 @@ int main(int argc, char **argv)
   // allocate and initialize the working lattices, matrices, and vectors
   //
   const auto sf_args    = SpinorFieldArgs<nSpin>{ldim, tdim};
+  //
   const auto eo_sf_args = SpinorFieldArgs<nSpin>{ldim/2, tdim, FieldOrder::EOFieldOrder};
   //
   auto src_spinor = create_field<vector_tp, decltype(sf_args)>(sf_args);
@@ -103,6 +116,7 @@ int main(int argc, char **argv)
   auto eo_dst_spinor = create_field<vector_tp, decltype(eo_sf_args)>(eo_sf_args);
 
   const auto gf_args    = GaugeFieldArgs<nDir>{ldim, tdim};
+  //
   const auto eo_gf_args = GaugeFieldArgs<nDir>{ldim/2, tdim, FieldOrder::EOFieldOrder}; 
   //
   auto gauge      = create_field<vector_tp, decltype(gf_args)>(gf_args);
@@ -134,15 +148,49 @@ int main(int argc, char **argv)
 
   const int niter = 1000;
   
-  const auto scale1 = mass + static_cast<Float>(4.0)*r;
+  const auto scale1 = mass + static_cast<Float>(2.0)*r;
   const auto scale2 = static_cast<Float>(0.5);
 
   auto transformer = [=](const auto &x, const auto &y) {return (scale1*x-scale2*y);};  
 
   for(int i = 0; i < niter; i++) {
     // Apply dslash	  
-    mat(dst_spinor, src_spinor, transformer);
+    mat(dst_spinor, src_spinor, transformer, FieldOrder::LexFieldOrder);
   }
+  /////////
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  auto &&eo_u_ref        = eo_gauge.View();
+  using eo_gauge_tp      = decltype(eo_gauge.View());
+  
+  
+  std::unique_ptr<DslashArgs<eo_gauge_tp, nspin>> eo_dslash_args_ptr(new DslashArgs{eo_u_ref});
+
+  auto &eo_dslash_args = *eo_dslash_args_ptr;
+
+  // Create dslash matrix
+  auto eo_mat = Mat<decltype(eo_dslash_args), Dslash, decltype(dslash_param)>{eo_dslash_args, dslash_param};  
+
+
+  for(int i = 0; i < niter; i++) {
+    // Apply dslash	  
+    eo_mat(eo_dst_spinor, eo_src_spinor, transformer, FieldOrder::EOFieldOrder);
+  }  
+  
+  
+  
+  
   
   // Block spinors:
   using spinor_t     = decltype(src_spinor);
