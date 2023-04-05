@@ -139,6 +139,74 @@ class Dslash{
       return res;
     }     
 
+    template<int nDir, int nSpin>
+    inline decltype(auto) compute_site_eo_stencil(auto &out, const auto &in, const auto &U, const FieldParity parity, const std::array<int, nDir> site_coords){
+      using ArgTp = typename std::remove_cvref_t<Arg>;
+
+      using DataTp = ArgTp::gauge_data_tp;
+      //
+      using Link   = DataTp; 
+      using Spinor = std::array<DataTp, nSpin>;    
+    
+      auto is_local_boundary = [](const auto d, const auto coord, const auto bndry, const auto parity_bit){ 
+	      return ((coord == bndry) && (d != 0 || (d == 0 && parity_bit)));};
+
+      const int parity_bit = parity == FieldParity::EvenFieldParity ? (site_coords[1] % 1) : 1 - (site_coords[1] % 1);
+      //
+      const int my_parity    = parity == FieldParity::EvenFieldParity ? 0 : 1;
+      const int other_parity = 1 - my_parity;
+
+      Spinor res; 
+
+      constexpr std::array<DataTp, nDir> bndr_factor{DataTp(1.0),DataTp(-1.0)}; 
+#pragma unroll
+      for (int d = 0; d < nDir; d++) {
+
+	// Fwd gather:
+	{  
+          std::array X{site_coords};	 	
+
+	  const bool ghost = false;
+          
+	  if ( ghost ) {
+	    //	  
+	  } else {
+	    const bool local_boundary_flag = is_local_boundary(d, X[d], (in.extent(d)-1), parity_bit); 
+
+	    X[d] = (X[d] + (d == 0 ? parity_bit : 1) + in.extent(d)) % in.extent(d);
+
+            const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
+	    //
+            const Link U_ = local_boundary_flag ? (bndr_factor[d]*U(X[0],X[1],d, my_parity)) : U(X[0],X[1],d, my_parity);
+
+            res += U_*proj<+1>(in_, d);		  
+	  }	  
+	}
+	// Bwd neighbour contribution:
+	{
+          std::array X{site_coords};	
+          //
+	  const bool ghost = false;
+
+          if ( ghost ) {
+            //    
+          } else {  		
+            const bool local_boundary_flag = is_local_boundary(d, X[d], 0, (1-parity_bit));
+	    
+	    X[d] = (X[d] - (d == 0 ? (1- parity_bit) : 1) + in.extent(d)) % in.extent(d);	  
+
+	    const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
+            //
+	    const Link U_ = local_boundary_flag ? bndr_factor[d]*U(X[0],X[1],d, other_parity) : U(X[0],X[1],d, other_parity);
+
+	    res += conj(U_)*proj<-1>(in_, d);	 
+	  }
+	}
+      }
+
+      return res;
+    }     
+
     template<BlockSpinorFieldViewTp  block_spinor_field_view>
     void apply(auto &&transformer,
                block_spinor_field_view &out_block_spinor,
@@ -185,17 +253,10 @@ class Dslash{
       //
       // gamma_{1/2} -> sigma_{1/2}, gamma_{5} -> sigma_{3}
       //
-      using ArgTp  = typename std::remove_cvref_t<Arg>;
-      	    
-      using DataTp = typename ArgTp::gauge_data_tp;
-      //
-      constexpr auto nSpin = ArgTp::nSpin;
-      //
-      using Link   = DataTp; 
-      using Spinor = std::array<DataTp, nSpin>;
-      //
-      auto is_local_boundary = [](const auto d, const auto coord, const auto bndry, const auto parity_bit){ 
-	      return ((coord == bndry) && (d != 0 || (d == 0 && parity_bit)));};
+      using ArgTp = typename std::remove_cvref_t<Arg>;
+
+      constexpr auto nSpin = ArgTp::nSpin;      
+      constexpr auto nDir  = ArgTp::nDir;       
 
       auto [y, x] = cartesian_coords;
 
@@ -207,61 +268,7 @@ class Dslash{
       //
       const auto U  = args.gauge.template ExtAccessor<is_constant>();
       
-      const int parity_bit = parity == FieldParity::EvenFieldParity ? (y % 1) : 1 - (y % 1);
-      //
-      const int my_parity    = parity == FieldParity::EvenFieldParity ? 0 : 1;
-      const int other_parity = 1 - my_parity;
-
-      Spinor tmp;
-
-      constexpr auto nDir = ArgTp::nDir; 
-
-      constexpr std::array<DataTp, nDir> bndr_factor{DataTp(1.0),DataTp(-1.0)}; 
-#pragma unroll
-      for (int d = 0; d < nDir; d++) {
-
-	// Fwd gather:
-	{  
-          std::array<int, nDir> X{x, y};	 	
-
-	  const bool ghost = false;
-          
-	  if ( ghost ) {
-	    //	  
-	  } else {
-	    const bool local_boundary_flag = is_local_boundary(d, X[d], (in.extent(d)-1), parity_bit); 
-
-	    X[d] = (X[d] + (d == 0 ? parity_bit : 1) + in.extent(d)) % in.extent(d);
-
-            const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
-	    //
-            const Link U_ = local_boundary_flag ? (bndr_factor[d]*U(X[0],X[1],d, my_parity)) : U(X[0],X[1],d, my_parity);
-
-            tmp += U_*proj<+1>(in_, d);		  
-	  }	  
-	}
-	// Bwd neighbour contribution:
-	{
-          std::array<int, nDir> X{x, y};	
-          //
-	  const bool ghost = false;
-
-          if ( ghost ) {
-            //    
-          } else {  		
-            const bool local_boundary_flag = is_local_boundary(d, X[d], 0, (1-parity_bit));
-	    
-	    X[d] = (X[d] - (d == 0 ? (1- parity_bit) : 1) + in.extent(d)) % in.extent(d);	  
-
-	    const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
-            //
-	    const Link U_ = local_boundary_flag ? bndr_factor[d]*U(X[0],X[1],d, other_parity) : U(X[0],X[1],d, other_parity);
-
-	    tmp += conj(U_)*proj<-1>(in_, d);	 
-	  }
-	}
-      }
-
+      auto tmp = compute_site_eo_stencil<nDir, nSpin>(out, in, U, parity, {x,y});      
 #pragma unroll
       for (int s = 0; s < nSpin; s++)
         out(x,y,s) = transformer(in(x,y,s), tmp[s]);

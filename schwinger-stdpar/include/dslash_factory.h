@@ -2,6 +2,8 @@
 #include <dslash.h>
 #include <optional>
 #include <typeinfo>
+//
+#include <cartesian_product.hpp>
 
 template<typename KernelArgs, template <typename Args> class Kernel, typename TransformParams>
 class Mat{

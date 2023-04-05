@@ -20,13 +20,18 @@ consteval FieldType get_field_type() {
 template<std::size_t nDir = invalid_dir, std::size_t nSpin = invalid_spin, std::size_t nColor = invalid_color>
 class FieldDescriptor {
   public: 
+    static constexpr std::size_t ndim   = 2;
     static constexpr std::size_t ndir   = nDir;                    //vector field dim   (2 for U1 gauge)	  
     static constexpr std::size_t nspin  = nSpin;                   //number of spin dof (2 for spinor)
     static constexpr std::size_t ncolor = nColor;                  //for all fields
 
     static constexpr FieldType  type = get_field_type<ndir, nspin, ncolor>();
 
-    const std::array<int, 2> dir;
+    static constexpr int nFace       = type == FieldType::VectorFieldType ? 1 : 2; 
+
+    const std::array<int, ndim> dir;
+    //const std::array<int, type == FieldType::VectorFieldType ? nFace*ncolor*ncolor*ndim: nFace*nspin*ndim> comm_dirs;
+    const std::array<int, nFace*ndim> comm_dir;
 
     const FieldOrder         order;        		
     const FieldSiteSubset    subset;
@@ -36,29 +41,44 @@ class FieldDescriptor {
     FieldDescriptor(const FieldDescriptor& ) = default;
     FieldDescriptor(FieldDescriptor&& )      = default;
 
-    FieldDescriptor(const int L, 
-	      const int T, 
-	      const FieldOrder order         = FieldOrder::LexFieldOrder,
-	      const FieldSiteSubset subset   = FieldSiteSubset::FullSiteSubset,  
-	      const FieldParity parity       = FieldParity::InvalidFieldParity) : 
-	      dir{L, T},
-	      order(order),
-	      subset(subset),
-	      parity(parity){} 
+    FieldDescriptor(const std::array<int, ndim> dir, 
+                    const std::array<int, ndim*nFace> comm_dir,
+	            const FieldOrder order         = FieldOrder::LexFieldOrder,
+	            const FieldSiteSubset subset   = FieldSiteSubset::FullSiteSubset,  
+	            const FieldParity parity       = FieldParity::InvalidFieldParity) : 
+	            dir{dir},
+                    comm_dir{comm_dir},
+	            order(order),
+	            subset(subset),
+	            parity(parity){} 
 
     FieldDescriptor(const FieldDescriptor &args, const FieldSiteSubset subset,  const FieldParity parity) : 
 	    dir{subset == FieldSiteSubset::ParitySiteSubset && args.subset == FieldSiteSubset::FullSiteSubset ? args.dir[0] / 2 : args.dir[0], args.dir[1]},
+	    comm_dir{args.dir[1], subset == FieldSiteSubset::ParitySiteSubset && args.subset == FieldSiteSubset::FullSiteSubset ? args.dir[0] / 2 : args.dir[0]},
 	    order(args.order),
 	    subset(subset),
-	    parity(parity){}  
+	    parity(parity){} 
+
 
     decltype(auto) GetFieldSize() const {
       if  constexpr (type == FieldType::ScalarFieldType) {
         return dir[0]*dir[1];
       } else if constexpr (type == FieldType::VectorFieldType) {
-	return dir[0]*dir[1]*nDir*nColor;
+	return dir[0]*dir[1]*nDir*nColor*nColor;
       } else if constexpr (type == FieldType::SpinorFieldType) {
 	return dir[0]*dir[1]*nSpin*nColor;
+      }
+      //
+      return static_cast<std::size_t>(0);
+    } 
+
+    decltype(auto) GetGhostSize(int i) const {
+      if  constexpr (type == FieldType::ScalarFieldType) {
+        return comm_dir[i];
+      } else if constexpr (type == FieldType::VectorFieldType) {
+	return comm_dir[i]*nColor*nColor;
+      } else if constexpr (type == FieldType::SpinorFieldType) {
+	return comm_dir[i]*nSpin*nColor;
       }
       //
       return static_cast<std::size_t>(0);
@@ -101,6 +121,7 @@ class Field{
 
   private: 
     container_tp v;
+    container_tp ghost;
 
     const Arg arg;//copy of the arguments
 
