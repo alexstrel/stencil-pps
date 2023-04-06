@@ -3,7 +3,7 @@
 template<int nDir, int nSpin>
 void run_simple_dslash(auto &&transformer, auto params, const int X, const int T, const int niter) {
   //
-  const auto sf_args = SpinorFieldArgs<nSpin>{{X, T}, {0, 0}};
+  const auto sf_args = SpinorFieldArgs<nSpin>{{X, T}, {0, 0, 0, 0}};
   //
   auto src_spinor = create_field<vector_tp, decltype(sf_args)>(sf_args);
   auto dst_spinor = create_field<vector_tp, decltype(sf_args)>(sf_args);
@@ -17,6 +17,7 @@ void run_simple_dslash(auto &&transformer, auto params, const int X, const int T
   init_spinor(src_spinor);
   // Setup dslash arguments:
   auto &&u_ref        = gauge.View();
+  //u_ref.destroy();
   using gauge_tp      = decltype(gauge.View());
   using spinor_ref_tp = decltype(src_spinor.View());
 
@@ -32,12 +33,16 @@ void run_simple_dslash(auto &&transformer, auto params, const int X, const int T
     mat(dst_spinor, src_spinor, transformer, FieldOrder::LexFieldOrder);
   }
   
+  gauge.destroy();
+  dst_spinor.destroy();
+  src_spinor.destroy();
+
 }
 
 template<int nDir, int nSpin>
 void run_eo_dslash(auto &&transformer, auto params, const int X, const int T, const int niter) {
   //
-  const auto eo_sf_args = SpinorFieldArgs<nSpin>{{X/2, T}, {0, 0}, FieldOrder::EOFieldOrder};
+  const auto eo_sf_args = SpinorFieldArgs<nSpin>{{X/2, T}, {0, 0, 0, 0}, FieldOrder::EOFieldOrder};
   //
   auto eo_src_spinor = create_field<vector_tp, decltype(eo_sf_args)>(eo_sf_args);
   auto eo_dst_spinor = create_field<vector_tp, decltype(eo_sf_args)>(eo_sf_args);
@@ -69,17 +74,14 @@ void run_eo_dslash(auto &&transformer, auto params, const int X, const int T, co
 template<int nDir, int nSpin, int N>
 void run_mrhs_dslash(auto &&transformer, auto params, const int X, const int T, const int niter) {
   //
-  const auto sf_args = SpinorFieldArgs<nSpin>{{X, T}, {0, 0}};
-  //
-  //auto src_spinor = create_field<vector_tp, decltype(sf_args)>(sf_args);
+  const auto sf_args = SpinorFieldArgs<nSpin>{{X, T}, {0, 0, 0, 0}};
   //
   const auto gf_args    = GaugeFieldArgs<nDir>{{X, T}, {0, 0}};
   //
   auto gauge = create_field<vector_tp, decltype(gf_args)>(gf_args);    
   //
   init_u1(gauge);
-  //init_spinor(src_spinor);
-  // Setup dslash arguments:
+  //
   auto &&u_ref        = gauge.View();
   using gauge_tp      = decltype(gauge.View());
 

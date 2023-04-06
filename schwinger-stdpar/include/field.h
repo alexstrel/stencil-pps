@@ -72,13 +72,13 @@ class FieldDescriptor {
       return static_cast<std::size_t>(0);
     } 
 
-    decltype(auto) GetGhostSize(int i) const {
+    decltype(auto) GetGhostSize(int i, int face_idx = 0) const {
       if  constexpr (type == FieldType::ScalarFieldType) {
-        return comm_dir[i];
+        return comm_dir[i*nFace+face_idx];
       } else if constexpr (type == FieldType::VectorFieldType) {
-	return comm_dir[i]*nColor*nColor;
+	return comm_dir[i*nFace+face_idx]*nColor*nColor;
       } else if constexpr (type == FieldType::SpinorFieldType) {
-	return comm_dir[i]*nSpin*nColor;
+	return comm_dir[i*nFace+face_idx]*nSpin*nColor;
       }
       //
       return static_cast<std::size_t>(0);
@@ -150,25 +150,29 @@ class Field{
       //
       return *this; 
     }        
+    //
+    void move() {
+    }
+    //
+    void destroy(){
+      static_assert(is_allocated_type_v<container_tp>, "Cannot resize a non-owner field!");
+
+      v.resize(0ul);
+      ghost.resize(0ul);     
+    }
 
     //Return a reference to the data container (adapter)
     auto& Data( ) { return v; }
 
     //Return a reference to the object (data access via container adapter )
     decltype(auto) View() {
-      if constexpr (!is_allocated_type_v<container_tp>) {
-         std::cerr << "Cannot reference non-owner field, exiting.." << std::endl;     
-	 exit(-1);
-      }
+      static_assert(is_allocated_type_v<container_tp>, "Cannot reference a non-owner field!");
 
       return Field<std::span<data_tp>, decltype(arg)>(std::span{v}, arg);	    
     }
 
     decltype(auto) ParityView(const FieldParity parity ) {// return a reference to the parity component
-      if constexpr (!is_allocated_type_v<container_tp>) {
-         std::cerr << "Cannot reference non-owner field, exiting.." << std::endl;
-         exit(-1);
-      }
+      static_assert(is_allocated_type_v<container_tp>, "Cannot reference a non-owner field!");
       //
       if (arg.subset != FieldSiteSubset::FullSiteSubset) {
         std::cerr << "Cannot get a parity component from a non-full field, exiting...\n" << std::endl;
