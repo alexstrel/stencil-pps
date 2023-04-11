@@ -44,9 +44,10 @@ int main()
   vec1.push_back(1);
   std::cout<<"Vec[0]: "<< vec1[0]<<"\n";
   std::cout<<"Ptr: " << vec1.data() <<"\n";
-    
-  std::vector<float, Allocator<float>> vec2(0, Allocator<float>(reinterpret_cast<float*>(ptr.get()), 4));
-  vec2.push_back(1.f);
+   
+  auto allocf =  Allocator<float>(reinterpret_cast<float*>(ptr.get()), 4);
+  std::vector<float, decltype(allocf)> vec2(0, allocf);
+  vec2.push_back(1.1f);
   std::cout<<"Vec[0]: "<< vec2[0]<<"\n";
   std::cout<<"Ptr: " << vec2.data() <<"\n";
 

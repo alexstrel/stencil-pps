@@ -4,6 +4,7 @@
 #include <enums.h>
 #include <assert.h>
 #include <memory>
+#include <memory_resource>
 
 template<std::size_t nD, std::size_t nS, std::size_t nC>
 consteval FieldType get_field_type() {
@@ -108,6 +109,11 @@ decltype(auto) create_field(const Arg &arg) {
   return Field<alloc_container_tp, Arg>(arg);
 }
 
+template <PMRContainerTp pmr_container_tp, typename Arg>
+decltype(auto) create_field_with_buffer(const pmr_container_tp &pmr_container, const Arg &arg) {
+  return Field<pmr_container_tp, Arg>(pmr_container, arg);
+}
+
 template <GenericContainerTp generic_container_tp, typename Arg>
 class Field{
   public:	
@@ -128,8 +134,14 @@ class Field{
     Field(const Arg &arg) : v(arg.GetFieldSize()),
                             arg(arg){}
 
+    template <PMRContainerTp T>
+    Field(const T &src, const Arg &arg) : v{src}, arg(arg) {}
+
     template <ContainerTp alloc_container_tp, typename ArgTp>
     friend decltype(auto) create_field(const ArgTp &arg);
+
+    template <PMRContainerTp pmr_container_tp, typename ArgTp>
+    friend decltype(auto) create_field_with_buffer(const pmr_container_tp &pmr_container, const ArgTp &arg);
 
   public:
 
@@ -139,7 +151,7 @@ class Field{
     // 
     //template <GenericContainerTp T = container_tp, typename std::enable_if_t<!is_allocated_type_v<T>>* = nullptr>
     template <ContainerViewTp T>    
-    Field(const T &src, const Arg &arg) : v(src), arg(arg) {}
+    Field(const T &src, const Arg &arg) : v{src}, arg(arg) {}
     
     // Needed for block-la operations
     constexpr std::size_t size() const { return 1ul; } 
@@ -197,6 +209,7 @@ class Field{
     }
 
     auto GetLength()       const { return v.size(); }
+    auto GetBytes()        const { return v.size()*sizeof(data_tp); }
     auto GetParityLength() const { return v.size() / (arg.subset == FieldSiteSubset::FullSiteSubset ? 2 : 1); }
     auto GetDims()         const { return arg.GetLatticeDims(); }
     auto GetCBDims()       const { return arg.GetParityLatticeDims(); }

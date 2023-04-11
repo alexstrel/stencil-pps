@@ -68,6 +68,9 @@ template <typename T>
 concept ContainerTp = is_container_type_v<T> and is_allocated_type_v<T>;
 
 template <typename T>
+concept PMRContainerTp = ContainerTp<T> and std::is_same< typename T::allocator_type,  std::pmr::polymorphic_allocator<typename T::value_type> >::value;
+
+template <typename T>
 concept ContainerViewTp = is_container_type_v<T> and (not is_allocated_type_v<T>);
 
 // Iterator type
