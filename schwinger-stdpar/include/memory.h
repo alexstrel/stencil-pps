@@ -26,11 +26,20 @@ inline void allocate_pmr_pool(const std::size_t bytes) {
   if(pool_ptr == nullptr) pool_ptr = std::make_shared<std::byte[]>(pool_bytes);  
 } 
 
+inline decltype(auto) allocate_extern_pmr_pool(const std::size_t bytes) {
+  return std::make_shared<std::byte[]>(bytes);
+}
+        
 inline void release_pmr_pool() {
-  pool_ptr.reset();
+  if(pool_ptr != nullptr) pool_ptr.reset();
 
   pool_ptr  = nullptr;
   pool_bytes= 0ul;   
+}
+
+inline void release_extern_pmr_pool(std::shared_ptr<std::byte[]> &ptr) {
+  if(ptr != nullptr) ptr.reset();
+  ptr  = nullptr;
 }
 
 decltype(auto) get_pmr_pool(const size_t bytes, const std::size_t offset = 0ul) {

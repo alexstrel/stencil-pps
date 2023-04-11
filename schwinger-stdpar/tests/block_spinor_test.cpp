@@ -99,8 +99,8 @@ int main(int argc, char **argv)
   auto pmr_pool = get_pmr_pool(src_spinor.GetBytes());
 
   using pmr_vector_tp = std::pmr::vector<std::complex<Float>>;
-  //pmr_vector_tp pmr_container(src_spinor.GetLength(), &pmr_pool); 
-  auto pmr_src_spinor = create_field_with_buffer<pmr_vector_tp, decltype(sf_args)>(get_pmr_container<pmr_vector_tp>(src_spinor.GetLength()), sf_args);
+  
+  auto pmr_src_spinor = create_field_with_buffer<pmr_vector_tp, decltype(sf_args)>(sf_args, pmr_pool);
 
   release_pmr_pool();
 

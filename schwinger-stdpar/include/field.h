@@ -38,6 +38,8 @@ class FieldDescriptor {
     const FieldSiteSubset    subset;
     const FieldParity        parity;
 
+    std::shared_ptr<std::byte[]> pmr_buffer;//needed only for pmr-used spinor
+
     FieldDescriptor() = default;
     FieldDescriptor(const FieldDescriptor& ) = default;
     FieldDescriptor(FieldDescriptor&& )      = default;
@@ -51,14 +53,16 @@ class FieldDescriptor {
                     comm_dir{comm_dir},
 	            order(order),
 	            subset(subset),
-	            parity(parity){} 
+	            parity(parity), 
+                    pmr_buffer(nullptr) {} 
 
     FieldDescriptor(const FieldDescriptor &args, const FieldSiteSubset subset,  const FieldParity parity) : 
-	    dir{subset == FieldSiteSubset::ParitySiteSubset && args.subset == FieldSiteSubset::FullSiteSubset ? args.dir[0] / 2 : args.dir[0], args.dir[1]},
-	    comm_dir{args.dir[1], subset == FieldSiteSubset::ParitySiteSubset && args.subset == FieldSiteSubset::FullSiteSubset ? args.dir[0] / 2 : args.dir[0]},
-	    order(args.order),
-	    subset(subset),
-	    parity(parity){} 
+	            dir{subset == FieldSiteSubset::ParitySiteSubset && args.subset == FieldSiteSubset::FullSiteSubset ? args.dir[0] / 2 : args.dir[0], args.dir[1]},
+	            comm_dir{args.dir[1], subset == FieldSiteSubset::ParitySiteSubset && args.subset == FieldSiteSubset::FullSiteSubset ? args.dir[0] / 2 : args.dir[0]},
+	            order(args.order),
+	            subset(subset),
+	            parity(parity),
+                    pmr_buffer(nullptr) {} 
 
 
     decltype(auto) GetFieldSize() const {
@@ -94,6 +98,13 @@ class FieldDescriptor {
       return std::make_tuple(xh, dir[1]);
     }
 
+    template<ArithmeticTp T>
+    void AllocatePMRBuffer() {
+      if( pmr_buffer != nullptr) return;//nothing to do
+      const std::size_t bytes = GetFieldSize()*sizeof(T);
+      pmr_buffer = allocate_extern_pmr_pool(bytes);
+    }
+
     auto operator=(const FieldDescriptor&) -> FieldDescriptor& = default;
     auto operator=(FieldDescriptor&&     ) -> FieldDescriptor& = default;
 };
@@ -110,8 +121,8 @@ decltype(auto) create_field(const Arg &arg) {
 }
 
 template <PMRContainerTp pmr_container_tp, typename Arg>
-decltype(auto) create_field_with_buffer(const pmr_container_tp &pmr_container, const Arg &arg) {
-  return Field<pmr_container_tp, Arg>(pmr_container, arg);
+decltype(auto) create_field_with_buffer(const Arg &arg, std::pmr::monotonic_buffer_resource &pmr_pool) {
+  return Field<pmr_container_tp, Arg>(pmr_pool, arg);
 }
 
 template <GenericContainerTp generic_container_tp, typename Arg>
@@ -134,14 +145,8 @@ class Field{
     Field(const Arg &arg) : v(arg.GetFieldSize()),
                             arg(arg){}
 
-    template <PMRContainerTp T>
-    Field(const T &src, const Arg &arg) : v{src}, arg(arg) {}
-
     template <ContainerTp alloc_container_tp, typename ArgTp>
     friend decltype(auto) create_field(const ArgTp &arg);
-
-    template <PMRContainerTp pmr_container_tp, typename ArgTp>
-    friend decltype(auto) create_field_with_buffer(const pmr_container_tp &pmr_container, const ArgTp &arg);
 
   public:
 
@@ -149,7 +154,9 @@ class Field{
     Field(const Field &) = default;
     Field(Field &&)      = default;    
     // 
-    //template <GenericContainerTp T = container_tp, typename std::enable_if_t<!is_allocated_type_v<T>>* = nullptr>
+    template <ContainerTp T = container_tp, typename std::enable_if_t< std::is_same< typename container_tp::allocator_type, std::pmr::polymorphic_allocator<typename T::value_type> >::value >* = nullptr>
+    Field(std::pmr::monotonic_buffer_resource &pmr_pool, const Arg &arg) : v(arg.GetFieldSize(), &pmr_pool), arg(arg) {}
+    //
     template <ContainerViewTp T>    
     Field(const T &src, const Arg &arg) : v{src}, arg(arg) {}
     
@@ -173,10 +180,10 @@ class Field{
       ghost.resize(0ul);     
     }
 
-    //Return a reference to the data container (adapter)
+    //Return a reference to the data container
     auto& Data( ) { return v; }
 
-    //Return a reference to the object (data access via container adapter )
+    //Return a reference to the object (data access via std::span )
     decltype(auto) View() {
       static_assert(is_allocated_type_v<container_tp>, "Cannot reference a non-owner field!");
 
