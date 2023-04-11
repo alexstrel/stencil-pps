@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <memory>
 #include <memory_resource>
+#include <memory.h>
 
 template<std::size_t nD, std::size_t nS, std::size_t nC>
 consteval FieldType get_field_type() {
@@ -102,7 +103,7 @@ class FieldDescriptor {
     void AllocatePMRBuffer() {
       if( pmr_buffer != nullptr) return;//nothing to do
       const std::size_t bytes = GetFieldSize()*sizeof(T);
-      pmr_buffer = allocate_extern_pmr_pool(bytes);
+      pmr_buffer = allocate_extern_pmr_pool(bytes); //
     }
 
     auto operator=(const FieldDescriptor&) -> FieldDescriptor& = default;
@@ -122,7 +123,14 @@ decltype(auto) create_field(const Arg &arg) {
 
 template <PMRContainerTp pmr_container_tp, typename Arg>
 decltype(auto) create_field_with_buffer(const Arg &arg, std::pmr::monotonic_buffer_resource &pmr_pool) {
-  return Field<pmr_container_tp, Arg>(pmr_pool, arg);
+
+  using data_tp = pmr_container_tp::value_type;
+
+  auto arg_ = Arg{arg};
+
+  arg_.template AllocatePMRBuffer<data_tp>();
+
+  return Field<pmr_container_tp, Arg>(pmr_pool, arg_);
 }
 
 template <GenericContainerTp generic_container_tp, typename Arg>
