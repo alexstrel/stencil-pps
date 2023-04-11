@@ -154,7 +154,7 @@ class Field{
     Field(const Field &) = default;
     Field(Field &&)      = default;    
     // 
-    template <ContainerTp T = container_tp, typename std::enable_if_t< std::is_same< typename container_tp::allocator_type, std::pmr::polymorphic_allocator<typename T::value_type> >::value >* = nullptr>
+    template <PMRContainerTp T = container_tp>
     Field(std::pmr::monotonic_buffer_resource &pmr_pool, const Arg &arg) : v(arg.GetFieldSize(), &pmr_pool), arg(arg) {}
     //
     template <ContainerViewTp T>    
