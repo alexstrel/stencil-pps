@@ -35,9 +35,9 @@ void fill(auto &field_accessor) {
 //template<FieldTp field_tp>
 template<GenericSpinorFieldTp field_tp>
 void print_range(field_tp &field, const int range){
-   std::cout << "Print components for field : " << field.Data().data() << std::endl;
+   std::cout << "Print components for field : " << field.Data().data() << " ::: " << std::endl;
 
-   auto print = [](const auto& e) { std::cout << "Element " << e << std::endl; };
+   auto print = [](const auto& e) { std::cout << "Element " << e <<  "\t address " << &e << std::endl; };
 
    std::for_each(field.Data().begin(), field.Data().begin()+range, print);
 }
@@ -98,11 +98,26 @@ int main(int argc, char **argv)
 
   using pmr_vector_tp = std::pmr::vector<std::complex<Float>>;
   
+  std::cout << "Create PMR spinor" << std::endl;
   auto pmr_src_spinor = create_field_with_buffer<pmr_vector_tp, decltype(sf_args)>(sf_args);
+  //
+  init_spinor(pmr_src_spinor);
 
+  print_range(pmr_src_spinor, 4);
+
+  std::cout << "Create PMR Block spinor" << std::endl;
   using pmr_spinor_t  = Field<pmr_vector_tp,  decltype(sf_args)>;
 
-  auto pmr_block_src_spinor = BlockSpinor< pmr_spinor_t, decltype(sf_args) >{sf_args, N};
+  auto pmr_block_src_spinor = create_block_spinor_with_buffer< pmr_spinor_t, decltype(sf_args) >(sf_args, N);
+
+  for(int i = 0; i < N; i++) {
+    init_spinor(pmr_block_src_spinor[i]);
+    print_range(pmr_block_src_spinor[i], 4);
+    //
+    pmr_block_src_spinor[i].move();
+  }
+
+  print_range(pmr_block_src_spinor[0], 4);
 
   // initialize the data
   bool verbose = true;

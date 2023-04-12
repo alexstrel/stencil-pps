@@ -107,10 +107,9 @@ class FieldDescriptor {
 
     template<ArithmeticTp T>
     void AllocatePMRBuffer(const std::size_t n = 1) {
-      if( pmr_buffer != nullptr) return;//block spinors may need to call it multiple times
+      if( pmr_buffer != nullptr) return;//e.g., block spinors may need to call it multiple times
 
       pmr_bytes = GetFieldSize()*sizeof(T)*n;
-
       pmr_buffer = std::make_shared<std::byte[]>(pmr_bytes); 
     }
 
@@ -126,9 +125,14 @@ class FieldDescriptor {
     }
 
     void ReleasePMRBuffer() const {
-      if( pmr_buffer == nullptr) return;
       //
-      release_extern_pmr_pool(pmr_buffer);
+      if(pmr_pool   != nullptr) pmr_pool.reset();
+      pmr_pool = nullptr;
+      //
+      if(pmr_buffer != nullptr) pmr_buffer.reset();
+
+      pmr_buffer = nullptr;
+      pmr_bytes  = 0ul;
     }
     
     auto operator=(const FieldDescriptor&) -> FieldDescriptor& = default;
@@ -147,7 +151,7 @@ decltype(auto) create_field(const Arg &arg) {
 }
 
 template <PMRContainerTp pmr_container_tp, typename Arg>
-decltype(auto) create_field_with_buffer(const Arg &arg, const std::size_t offset = 0 ) {//offset for block spinor
+decltype(auto) create_field_with_buffer( const Arg &arg, const std::size_t offset = 0 ) {//offset for block spinors only
 
   using data_tp = pmr_container_tp::value_type;
 

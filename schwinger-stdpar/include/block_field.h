@@ -1,5 +1,23 @@
 #pragma once
 
+#include <memory_resource>
+
+template<SpinorFieldTp spinor_tp, typename Arg>
+class BlockSpinor; // forward declare to make function definition possible
+
+template <PMRSpinorFieldTp pmr_spinor_tp, typename Arg>
+decltype(auto) create_block_spinor_with_buffer( const Arg &arg, const std::size_t n) {//offset for block spinor
+
+  using data_tp = pmr_spinor_tp::container_tp::value_type;
+
+  auto arg_ = Arg{arg};
+
+  arg_.template AllocatePMRBuffer<data_tp>(n);
+
+  return BlockSpinor<pmr_spinor_tp, Arg>(arg_, n);
+}
+
+
 template<SpinorFieldTp spinor_t, typename SpinorArg>
 class BlockSpinor{
   public:
@@ -11,6 +29,8 @@ class BlockSpinor{
 
     const SpinorArg args;
 
+
+    template<SpinorFieldTp T = spinor_t>
     BlockSpinor(const SpinorArg &args, const std::size_t n) : args(args) {
       v.reserve(n);
       w.reserve(n);
@@ -25,12 +45,8 @@ class BlockSpinor{
     BlockSpinor(const SpinorArg &args_, const std::size_t n) : args(args_) {
       using data_tp = container_tp::value_type;
 
-      if( !std::is_same< typename T::container_tp::allocator_type , std::pmr::polymorphic_allocator<data_tp> >::value ) exit(-1);
-
       v.reserve(n);
       w.reserve(n);
-
-      args.template AllocatePMRBuffer<data_tp>(n);       
 
       for(int i = 0; i < n; i++) {
         const std::size_t offset = i*args.GetFieldSize()*sizeof(data_tp);
@@ -47,6 +63,8 @@ class BlockSpinor{
     auto GetFieldOrder() const { return args.order; }    
 
     auto Size() const { return v.size(); } 
+
+    spinor_t& operator[](const std::size_t i) { return v[i]; }
 };
 
 
