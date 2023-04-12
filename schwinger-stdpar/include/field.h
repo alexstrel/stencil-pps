@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <memory>
 #include <memory_resource>
+//
 #include <memory.h>
 
 template<std::size_t nD, std::size_t nS, std::size_t nC>
@@ -32,14 +33,15 @@ class FieldDescriptor {
     static constexpr int nFace       = type == FieldType::VectorFieldType ? 1 : 2; 
 
     const std::array<int, ndim> dir;
-    //const std::array<int, type == FieldType::VectorFieldType ? nFace*ncolor*ncolor*ndim: nFace*nspin*ndim> comm_dirs;
     const std::array<int, nFace*ndim> comm_dir;
 
     const FieldOrder         order;        		
     const FieldSiteSubset    subset;
     const FieldParity        parity;
 
-    std::shared_ptr<std::byte[]> pmr_buffer;//needed only for pmr-used spinor
+    std::shared_ptr<std::byte[]>                          pmr_buffer;//needed only for pmr-used spinor
+    std::size_t                                           pmr_bytes;
+    std::shared_ptr<std::pmr::monotonic_buffer_resource>  pmr_pool;     
 
     FieldDescriptor() = default;
     FieldDescriptor(const FieldDescriptor& ) = default;
@@ -55,7 +57,9 @@ class FieldDescriptor {
 	            order(order),
 	            subset(subset),
 	            parity(parity), 
-                    pmr_buffer(nullptr) {} 
+                    pmr_buffer(nullptr),
+                    pmr_bytes(0ul), 
+                    pmr_pool(nullptr)  {} 
 
     FieldDescriptor(const FieldDescriptor &args, const FieldSiteSubset subset,  const FieldParity parity) : 
 	            dir{subset == FieldSiteSubset::ParitySiteSubset && args.subset == FieldSiteSubset::FullSiteSubset ? args.dir[0] / 2 : args.dir[0], args.dir[1]},
@@ -63,7 +67,9 @@ class FieldDescriptor {
 	            order(args.order),
 	            subset(subset),
 	            parity(parity),
-                    pmr_buffer(nullptr) {} 
+                    pmr_buffer(nullptr),
+                    pmr_bytes(0ul), 
+                    pmr_pool(nullptr)  {} 
 
 
     decltype(auto) GetFieldSize() const {
@@ -100,12 +106,31 @@ class FieldDescriptor {
     }
 
     template<ArithmeticTp T>
-    void AllocatePMRBuffer() {
-      if( pmr_buffer != nullptr) return;//nothing to do
-      const std::size_t bytes = GetFieldSize()*sizeof(T);
-      pmr_buffer = allocate_extern_pmr_pool(bytes); //
+    void AllocatePMRBuffer(const std::size_t n = 1) {
+      if( pmr_buffer != nullptr) return;//block spinors may need to call it multiple times
+
+      pmr_bytes = GetFieldSize()*sizeof(T)*n;
+
+      pmr_buffer = std::make_shared<std::byte[]>(pmr_bytes); 
     }
 
+    template<ArithmeticTp T>
+    void RegisterPMRBuffer(const std::size_t offset = 0ul) {
+      if( pmr_buffer == nullptr) return;
+
+      const std::size_t bytes = GetFieldSize()*sizeof(T);
+
+      if(offset+bytes > pmr_bytes) return; 
+
+      pmr_pool = std::make_shared< std::pmr::monotonic_buffer_resource >( pmr_buffer.get() + offset, bytes );
+    }
+
+    void ReleasePMRBuffer() const {
+      if( pmr_buffer == nullptr) return;
+      //
+      release_extern_pmr_pool(pmr_buffer);
+    }
+    
     auto operator=(const FieldDescriptor&) -> FieldDescriptor& = default;
     auto operator=(FieldDescriptor&&     ) -> FieldDescriptor& = default;
 };
@@ -122,15 +147,18 @@ decltype(auto) create_field(const Arg &arg) {
 }
 
 template <PMRContainerTp pmr_container_tp, typename Arg>
-decltype(auto) create_field_with_buffer(const Arg &arg, std::pmr::monotonic_buffer_resource &pmr_pool) {
+decltype(auto) create_field_with_buffer(const Arg &arg, const std::size_t offset = 0 ) {//offset for block spinor
 
   using data_tp = pmr_container_tp::value_type;
 
   auto arg_ = Arg{arg};
 
   arg_.template AllocatePMRBuffer<data_tp>();
+  arg_.template RegisterPMRBuffer<data_tp>(offset);
 
-  return Field<pmr_container_tp, Arg>(pmr_pool, arg_);
+  auto& pmr_pool_ = *arg_.pmr_pool;
+
+  return Field<pmr_container_tp, Arg>(pmr_pool_, arg_);
 }
 
 template <GenericContainerTp generic_container_tp, typename Arg>
@@ -163,7 +191,7 @@ class Field{
     Field(Field &&)      = default;    
     // 
     template <PMRContainerTp T = container_tp>
-    Field(std::pmr::monotonic_buffer_resource &pmr_pool, const Arg &arg) : v(arg.GetFieldSize(), &pmr_pool), arg(arg) {}
+    Field(std::pmr::monotonic_buffer_resource &pmr_pool, const Arg &arg) : v(arg.GetFieldSize(), &pmr_pool), arg(arg) { }
     //
     template <ContainerViewTp T>    
     Field(const T &src, const Arg &arg) : v{src}, arg(arg) {}
@@ -179,6 +207,9 @@ class Field{
     }        
     //
     void move() {
+//printf("PTR: %p, %d\n", this->arg.pmr_buffer.get(), this->arg.pmr_buffer.use_count());
+//arg.ReleasePMRBuffer();
+//printf("PTR: %p, %d\n", this->arg.pmr_buffer.get(), this->arg.pmr_buffer.use_count());
     }
     //
     void destroy(){

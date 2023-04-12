@@ -2,6 +2,8 @@
 
 #include <common.h>
 
+#include <memory_resource>
+
 // Generic Spinor Field type:
 template <typename T>
 concept GenericSpinorFieldTp = requires{
@@ -39,6 +41,10 @@ concept SpinorFieldTp     = GenericSpinorFieldTp<T> and is_allocated_type_v<type
 // Reference field type
 template <typename T>
 concept SpinorFieldViewTp = GenericSpinorFieldTp<T> and (not is_allocated_type_v<typename T::container_tp>);
+
+// PMR spinor field type
+template <typename T>
+concept PMRSpinorFieldTp = SpinorFieldTp<T> and (std::is_same_v<typename T::container_tp::allocator_type, std::pmr::polymorphic_allocator< typename T::container_tp::value_type > >);
 
 // Allocated field type
 template <typename T>

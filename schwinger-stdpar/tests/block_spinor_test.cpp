@@ -82,6 +82,7 @@ int main(int argc, char **argv)
   //
   constexpr int nDir  = 2;  
   constexpr int nSpin = 2;  
+  constexpr int N     = 8;
 
   constexpr int X = 1024;
   constexpr int T = 1024;
@@ -94,15 +95,14 @@ int main(int argc, char **argv)
   //
   auto src_spinor = create_field<vector_tp, decltype(sf_args)>(sf_args); 
   
-  allocate_pmr_pool(src_spinor.GetBytes());
-
-  auto pmr_pool = get_pmr_pool(src_spinor.GetBytes());
 
   using pmr_vector_tp = std::pmr::vector<std::complex<Float>>;
   
-  auto pmr_src_spinor = create_field_with_buffer<pmr_vector_tp, decltype(sf_args)>(sf_args, pmr_pool);
+  auto pmr_src_spinor = create_field_with_buffer<pmr_vector_tp, decltype(sf_args)>(sf_args);
 
-  release_pmr_pool();
+  using pmr_spinor_t  = Field<pmr_vector_tp,  decltype(sf_args)>;
+
+  auto pmr_block_src_spinor = BlockSpinor< pmr_spinor_t, decltype(sf_args) >{sf_args, N};
 
   // initialize the data
   bool verbose = true;
