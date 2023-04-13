@@ -106,5 +106,15 @@ int main() {
 
     std::cout << std::is_same<typename  pmr_vector::allocator_type, std::pmr::polymorphic_allocator<typename  pmr_vector::value_type> >::value << std::endl;
 
+    //
+    std::vector<std::complex<float>> vec11(8);
+    //
+    std::cout << "A:: " << vec11.size() << std::endl;
+
+    std::pmr::vector<float> vec12(&dyn_pool);
+
+    vec11.resize(0);
+    std::cout << "B:: " << vec11.size() << std::endl;
+
 }
 

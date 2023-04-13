@@ -6,15 +6,25 @@ template<SpinorFieldTp spinor_tp, typename Arg>
 class BlockSpinor; // forward declare to make function definition possible
 
 template <PMRSpinorFieldTp pmr_spinor_tp, typename Arg>
-decltype(auto) create_block_spinor_with_buffer( const Arg &arg, const std::size_t n) {//offset for block spinor
+decltype(auto) create_block_spinor_with_buffer(const Arg &arg_, const std::size_t n) {//offset for block spinor
 
   using data_tp = pmr_spinor_tp::container_tp::value_type;
 
-  auto arg_ = Arg{arg};
+  const std::size_t new_pmr_bytes = arg_.GetFieldSize()*sizeof(data_tp)*n;
 
-  arg_.template AllocatePMRBuffer<data_tp>(n);
+  auto arg = Arg{arg_};
 
-  return BlockSpinor<pmr_spinor_tp, Arg>(arg_, n);
+  if( arg.CheckPMR(new_pmr_bytes) == false ) {
+printf("Realloc new buffer %d\n", new_pmr_bytes);
+    auto new_pmr_buffer = std::make_shared<std::byte[]>(new_pmr_bytes);
+    arg.ImportPMR(std::tie(new_pmr_buffer, new_pmr_bytes));
+  } 
+
+  //auto arg = Arg{arg_, std::tie(pmr_ptr, pmr_bytes)}; 
+  //auto arg = Arg{arg_};
+  //arg.template AllocatePMRBuffer<data_tp>(n);
+
+  return BlockSpinor<pmr_spinor_tp, Arg>(arg, n);
 }
 
 
@@ -28,7 +38,6 @@ class BlockSpinor{
     std::vector<spinor_view_t> w;
 
     const SpinorArg args;
-
 
     template<SpinorFieldTp T = spinor_t>
     BlockSpinor(const SpinorArg &args, const std::size_t n) : args(args) {
@@ -63,6 +72,8 @@ class BlockSpinor{
     auto GetFieldOrder() const { return args.order; }    
 
     auto Size() const { return v.size(); } 
+
+    
 
     spinor_t& operator[](const std::size_t i) { return v[i]; }
 };

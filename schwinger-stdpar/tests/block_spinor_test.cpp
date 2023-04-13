@@ -35,9 +35,14 @@ void fill(auto &field_accessor) {
 //template<FieldTp field_tp>
 template<GenericSpinorFieldTp field_tp>
 void print_range(field_tp &field, const int range){
-   std::cout << "Print components for field : " << field.Data().data() << " ::: " << std::endl;
+   std::cout << "Print components for field : " << field.Data().data() << " ::: " << field.GetLength() << std::endl;
 
    auto print = [](const auto& e) { std::cout << "Element " << e <<  "\t address " << &e << std::endl; };
+ 
+   if(range > field.GetLength()) {
+     std::cout << "WARNING: print range exceeds field length, nop." << std::endl;
+     return;
+   }
 
    std::for_each(field.Data().begin(), field.Data().begin()+range, print);
 }
@@ -82,7 +87,7 @@ int main(int argc, char **argv)
   //
   constexpr int nDir  = 2;  
   constexpr int nSpin = 2;  
-  constexpr int N     = 8;
+  constexpr int N     = 2;
 
   constexpr int X = 1024;
   constexpr int T = 1024;
@@ -93,31 +98,59 @@ int main(int argc, char **argv)
 
   const auto sf_args = SpinorFieldArgs<nSpin>{{X, T}, {0, 0, 0, 0}};
   //
-  auto src_spinor = create_field<vector_tp, decltype(sf_args)>(sf_args); 
-  
+  auto src_spinor = create_field<vector_tp, decltype(sf_args)>(sf_args);  
 
   using pmr_vector_tp = std::pmr::vector<std::complex<Float>>;
   
   std::cout << "Create PMR spinor" << std::endl;
   auto pmr_src_spinor = create_field_with_buffer<pmr_vector_tp, decltype(sf_args)>(sf_args);
   //
+  pmr_src_spinor.show();
+  //
   init_spinor(pmr_src_spinor);
+  //
+  print_range(pmr_src_spinor, 4);
+
+  auto pmr_sf_args =  SpinorFieldArgs<nSpin>{sf_args, pmr_src_spinor.ExportPMR()}; 
+#if 0
+  auto next_pmr_spinor = create_field_with_buffer<pmr_vector_tp, decltype(pmr_sf_args)>(pmr_sf_args);  
+  next_pmr_spinor.show();
+
+  print_range(next_pmr_spinor, 4);
+#else
+  auto next_pmr_spinor = export_pmr_field<pmr_vector_tp, decltype(pmr_src_spinor)>(pmr_src_spinor);  
+  next_pmr_spinor.show();
+
+  print_range(next_pmr_spinor, 4);
+#endif
+  std::cout << "NOW they share same buffer!" << std::endl;
 
   print_range(pmr_src_spinor, 4);
 
+  //pmr_src_spinor.destroy();
+  //
+  pmr_src_spinor.show();
+  //
+  print_range(pmr_src_spinor, 4);
+
   std::cout << "Create PMR Block spinor" << std::endl;
-  using pmr_spinor_t  = Field<pmr_vector_tp,  decltype(sf_args)>;
+  using pmr_spinor_t = Field<pmr_vector_tp,  decltype(sf_args)>;
 
   auto pmr_block_src_spinor = create_block_spinor_with_buffer< pmr_spinor_t, decltype(sf_args) >(sf_args, N);
+  pmr_block_src_spinor[0].show();
 
   for(int i = 0; i < N; i++) {
     init_spinor(pmr_block_src_spinor[i]);
     print_range(pmr_block_src_spinor[i], 4);
     //
-    pmr_block_src_spinor[i].move();
+    pmr_block_src_spinor[i].show();
   }
 
   print_range(pmr_block_src_spinor[0], 4);
+
+//  auto new_pmr_block_spinor = create_block_spinor_with_buffer< pmr_spinor_t, decltype(pmr_sf_args) >(pmr_sf_args, N);
+
+//  new_pmr_block_spinor[0].show();
 
   // initialize the data
   bool verbose = true;

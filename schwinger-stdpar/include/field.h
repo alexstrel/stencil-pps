@@ -1,146 +1,5 @@
 #pragma once
-
-#include <field_concepts.h>
-#include <enums.h>
-#include <assert.h>
-#include <memory>
-#include <memory_resource>
-//
-#include <memory.h>
-
-template<std::size_t nD, std::size_t nS, std::size_t nC>
-consteval FieldType get_field_type() {
-
-  if constexpr (nD != invalid_dir and nS == invalid_spin  and nC != invalid_color){
-    return FieldType::VectorFieldType;	  
-  } else if constexpr (nD == invalid_dir and nS != invalid_spin  and nC != invalid_color) {
-    return FieldType::SpinorFieldType;	  
-  }
-
-  return FieldType::InvalidFieldType;
-}
-
-template<std::size_t nDir = invalid_dir, std::size_t nSpin = invalid_spin, std::size_t nColor = invalid_color>
-class FieldDescriptor {
-  public: 
-    static constexpr std::size_t ndim   = 2;
-    static constexpr std::size_t ndir   = nDir;                    //vector field dim   (2 for U1 gauge)	  
-    static constexpr std::size_t nspin  = nSpin;                   //number of spin dof (2 for spinor)
-    static constexpr std::size_t ncolor = nColor;                  //for all fields
-
-    static constexpr FieldType  type = get_field_type<ndir, nspin, ncolor>();
-
-    static constexpr int nFace       = type == FieldType::VectorFieldType ? 1 : 2; 
-
-    const std::array<int, ndim> dir;
-    const std::array<int, nFace*ndim> comm_dir;
-
-    const FieldOrder         order;        		
-    const FieldSiteSubset    subset;
-    const FieldParity        parity;
-
-    std::shared_ptr<std::byte[]>                          pmr_buffer;//needed only for pmr-used spinor
-    std::size_t                                           pmr_bytes;
-    std::shared_ptr<std::pmr::monotonic_buffer_resource>  pmr_pool;     
-
-    FieldDescriptor() = default;
-    FieldDescriptor(const FieldDescriptor& ) = default;
-    FieldDescriptor(FieldDescriptor&& )      = default;
-
-    FieldDescriptor(const std::array<int, ndim> dir, 
-                    const std::array<int, ndim*nFace> comm_dir,
-	            const FieldOrder order         = FieldOrder::LexFieldOrder,
-	            const FieldSiteSubset subset   = FieldSiteSubset::FullSiteSubset,  
-	            const FieldParity parity       = FieldParity::InvalidFieldParity) : 
-	            dir{dir},
-                    comm_dir{comm_dir},
-	            order(order),
-	            subset(subset),
-	            parity(parity), 
-                    pmr_buffer(nullptr),
-                    pmr_bytes(0ul), 
-                    pmr_pool(nullptr)  {} 
-
-    FieldDescriptor(const FieldDescriptor &args, const FieldSiteSubset subset,  const FieldParity parity) : 
-	            dir{subset == FieldSiteSubset::ParitySiteSubset && args.subset == FieldSiteSubset::FullSiteSubset ? args.dir[0] / 2 : args.dir[0], args.dir[1]},
-	            comm_dir{args.dir[1], subset == FieldSiteSubset::ParitySiteSubset && args.subset == FieldSiteSubset::FullSiteSubset ? args.dir[0] / 2 : args.dir[0]},
-	            order(args.order),
-	            subset(subset),
-	            parity(parity),
-                    pmr_buffer(nullptr),
-                    pmr_bytes(0ul), 
-                    pmr_pool(nullptr)  {} 
-
-
-    decltype(auto) GetFieldSize() const {
-      if  constexpr (type == FieldType::ScalarFieldType) {
-        return dir[0]*dir[1];
-      } else if constexpr (type == FieldType::VectorFieldType) {
-	return dir[0]*dir[1]*nDir*nColor*nColor;
-      } else if constexpr (type == FieldType::SpinorFieldType) {
-	return dir[0]*dir[1]*nSpin*nColor;
-      }
-      //
-      return static_cast<std::size_t>(0);
-    } 
-
-    decltype(auto) GetGhostSize(int i, int face_idx = 0) const {
-      if  constexpr (type == FieldType::ScalarFieldType) {
-        return comm_dir[i*nFace+face_idx];
-      } else if constexpr (type == FieldType::VectorFieldType) {
-	return comm_dir[i*nFace+face_idx]*nColor*nColor;
-      } else if constexpr (type == FieldType::SpinorFieldType) {
-	return comm_dir[i*nFace+face_idx]*nSpin*nColor;
-      }
-      //
-      return static_cast<std::size_t>(0);
-    }
-
-    decltype(auto) GetLatticeDims() const {
-      return std::tie(dir[0], dir[1]);	    
-    }
-
-    decltype(auto) GetParityLatticeDims() const {
-      const int xh = subset == FieldSiteSubset::FullSiteSubset ? dir[0] / 2 : dir[0];	    
-      return std::make_tuple(xh, dir[1]);
-    }
-
-    template<ArithmeticTp T>
-    void AllocatePMRBuffer(const std::size_t n = 1) {
-      if( pmr_buffer != nullptr) return;//e.g., block spinors may need to call it multiple times
-
-      pmr_bytes = GetFieldSize()*sizeof(T)*n;
-      pmr_buffer = std::make_shared<std::byte[]>(pmr_bytes); 
-    }
-
-    template<ArithmeticTp T>
-    void RegisterPMRBuffer(const std::size_t offset = 0ul) {
-      if( pmr_buffer == nullptr) return;
-
-      const std::size_t bytes = GetFieldSize()*sizeof(T);
-
-      if(offset+bytes > pmr_bytes) return; 
-
-      pmr_pool = std::make_shared< std::pmr::monotonic_buffer_resource >( pmr_buffer.get() + offset, bytes );
-    }
-
-    void ReleasePMRBuffer() const {
-      //
-      if(pmr_pool   != nullptr) pmr_pool.reset();
-      pmr_pool = nullptr;
-      //
-      if(pmr_buffer != nullptr) pmr_buffer.reset();
-
-      pmr_buffer = nullptr;
-      pmr_bytes  = 0ul;
-    }
-    
-    auto operator=(const FieldDescriptor&) -> FieldDescriptor& = default;
-    auto operator=(FieldDescriptor&&     ) -> FieldDescriptor& = default;
-};
-
-template<int nDir,  int nColor = 1> using GaugeFieldArgs  = FieldDescriptor<nDir, invalid_spin, nColor>;
-template<int nSpin, int nColor = 1> using SpinorFieldArgs = FieldDescriptor<invalid_dir,  nSpin, nColor>;
+#include <field_descriptor.h>
 
 template<GenericContainerTp Ct, typename Arg>
 class Field; // forward declare to make function definition possible
@@ -151,26 +10,43 @@ decltype(auto) create_field(const Arg &arg) {
 }
 
 template <PMRContainerTp pmr_container_tp, typename Arg>
-decltype(auto) create_field_with_buffer( const Arg &arg, const std::size_t offset = 0 ) {//offset for block spinors only
+decltype(auto) create_field_with_buffer(const Arg &arg_, const std::size_t offset = 0 ) {//offset for block spinors only
 
   using data_tp = pmr_container_tp::value_type;
 
-  auto arg_ = Arg{arg};
+  auto arg = Arg{arg_};
 
-  arg_.template AllocatePMRBuffer<data_tp>();
-  arg_.template RegisterPMRBuffer<data_tp>(offset);
+  arg.template AllocatePMRBuffer<data_tp>();
+  arg.template RegisterPMRPool<data_tp>(offset);
 
-  auto& pmr_pool_ = *arg_.pmr_pool;
+  auto& pmr_pool_handle = *arg.pmr_pool;
 
-  return Field<pmr_container_tp, Arg>(pmr_pool_, arg_);
+  return Field<pmr_container_tp, Arg>(pmr_pool_handle, arg);
+}
+
+template <PMRContainerTp pmr_container_tp, PMRSpinorFieldTp pmr_spinor_t>
+decltype(auto) export_pmr_field(pmr_spinor_t& src_pmr_spinor) {//
+
+  using data_tp = pmr_container_tp::value_type;
+  using Arg     = pmr_spinor_t::descriptor_tp; 
+ 
+  auto arg  = Arg{src_pmr_spinor.ExportArg()};
+
+  arg.template AllocatePMRBuffer<data_tp>();
+  arg.template RegisterPMRPool<data_tp>();
+
+  auto& pmr_pool_handle = *arg.pmr_pool;
+
+  return Field<pmr_container_tp, decltype(arg)>(pmr_pool_handle, arg);
 }
 
 template <GenericContainerTp generic_container_tp, typename Arg>
 class Field{
   public:	
     //
-    using container_tp = generic_container_tp;        
-    using data_tp      = typename container_tp::value_type;
+    using container_tp  = generic_container_tp;        
+    using data_tp       = typename container_tp::value_type;
+    using descriptor_tp = Arg;
 
     static constexpr std::size_t nDir    = Arg::ndir;
     static constexpr std::size_t nSpin   = Arg::nspin;                    
@@ -210,18 +86,28 @@ class Field{
       return *this; 
     }        
     //
-    void move() {
-//printf("PTR: %p, %d\n", this->arg.pmr_buffer.get(), this->arg.pmr_buffer.use_count());
-//arg.ReleasePMRBuffer();
-//printf("PTR: %p, %d\n", this->arg.pmr_buffer.get(), this->arg.pmr_buffer.use_count());
+    void show() {
+      printf("PTR: %p, %d\n", this->arg.pmr_buffer.get(), this->arg.pmr_buffer.use_count());
     }
-    //
-    void destroy(){
+    
+    void destroy() {
       static_assert(is_allocated_type_v<container_tp>, "Cannot resize a non-owner field!");
 
       v.resize(0ul);
       ghost.resize(0ul);     
     }
+
+    template<PMRContainerTp T = container_tp>
+    decltype(auto) ExportPMR(const bool erase = true) {
+      if (erase) {
+        v.resize(0ul);
+        ghost.resize(0ul);
+      }
+      //
+      return arg.ExportPMR(); 
+    }
+
+    decltype(auto) ExportArg() { return arg; }
 
     //Return a reference to the data container
     auto& Data( ) { return v; }
