@@ -24,7 +24,8 @@ decltype(auto) create_field_with_buffer(const Arg &arg_, const std::size_t offse
   return Field<pmr_container_tp, Arg>(pmr_pool_handle, arg);
 }
 
-template <PMRContainerTp pmr_container_tp, PMRSpinorFieldTp pmr_spinor_t>
+//template <PMRContainerTp pmr_container_tp, PMRSpinorFieldTp pmr_spinor_t>
+template <PMRSpinorFieldTp pmr_spinor_t, PMRContainerTp pmr_container_tp = pmr_spinor_t::container_tp>
 decltype(auto) export_pmr_field(pmr_spinor_t& src_pmr_spinor) {//
 
   using data_tp = pmr_container_tp::value_type;

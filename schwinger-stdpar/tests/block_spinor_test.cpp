@@ -118,7 +118,7 @@ int main(int argc, char **argv)
 
   print_range(next_pmr_spinor, 4);
 #else
-  auto next_pmr_spinor = export_pmr_field<pmr_vector_tp, decltype(pmr_src_spinor)>(pmr_src_spinor);  
+  auto next_pmr_spinor = export_pmr_field<decltype(pmr_src_spinor)>(pmr_src_spinor);  
   next_pmr_spinor.show();
 
   print_range(next_pmr_spinor, 4);
