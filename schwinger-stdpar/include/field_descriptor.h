@@ -171,7 +171,7 @@ class FieldDescriptor {
       is_imported = true;
     }
 
-    bool CheckPMR(const std::size_t bytes) const {
+    bool CheckPMRAllocation(const std::size_t bytes) const {
       return (pmr_buffer != nullptr and pmr_bytes >= bytes);
     }    
 

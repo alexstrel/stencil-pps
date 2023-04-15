@@ -60,5 +60,7 @@ concept BlockSpinorFieldTp     = SpinorFieldTp<T> or (ContainerTp<T> and SpinorF
 template <typename T>
 concept BlockSpinorFieldViewTp = SpinorFieldViewTp<T> or (ContainerViewTp<T> and SpinorFieldViewTp< typename std::remove_pointer< decltype( std::declval<T>().data() ) >::type >); 
 
+template <typename T>
+concept PMRBlockSpinorFieldTp  = ContainerTp<T> and PMRSpinorFieldTp< typename std::remove_pointer< decltype( std::declval<T>().data() ) >::type >;
 
 

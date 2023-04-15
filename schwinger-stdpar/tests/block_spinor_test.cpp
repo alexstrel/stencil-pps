@@ -4,7 +4,7 @@
 
 //#include <dslash_test.h>
 //
-using Float   = float;
+using Float   = double;
 //
 //using vector_tp = std::vector<std::complex<Float>>;
 
@@ -96,36 +96,34 @@ int main(int argc, char **argv)
 
   using vector_tp = std::vector<std::complex<Float>>;
 
-  const auto sf_args = SpinorFieldArgs<nSpin>{{X, T}, {0, 0, 0, 0}};
+  const auto sargs = SpinorFieldArgs<nSpin>{{X, T}, {0, 0, 0, 0}};
   //
-  auto src_spinor = create_field<vector_tp, decltype(sf_args)>(sf_args);  
+  auto src_spinor = create_field<vector_tp, decltype(sargs)>(sargs);  
 
   using pmr_vector_tp = std::pmr::vector<std::complex<Float>>;
   
   std::cout << "Create PMR spinor" << std::endl;
-  auto pmr_src_spinor = create_field_with_buffer<pmr_vector_tp, decltype(sf_args)>(sf_args);
+  //
+  auto pmr_src_spinor = create_field_with_buffer<pmr_vector_tp, decltype(sargs)>(sargs);
   //
   pmr_src_spinor.show();
   //
   init_spinor(pmr_src_spinor);
   //
   print_range(pmr_src_spinor, 4);
+  //
+  using pmr_vector_lp_tp = std::pmr::vector<std::complex<float>>;
 
-  auto pmr_sf_args =  SpinorFieldArgs<nSpin>{sf_args, pmr_src_spinor.ExportPMR()}; 
-#if 0
-  auto next_pmr_spinor = create_field_with_buffer<pmr_vector_tp, decltype(pmr_sf_args)>(pmr_sf_args);  
+  std::cout << "Allocated reduced container..." << std::endl;
+
+  constexpr bool destroy_src = false;
+
+  auto next_pmr_spinor = export_pmr_field<decltype(pmr_src_spinor), pmr_vector_lp_tp>(pmr_src_spinor, destroy_src);  
   next_pmr_spinor.show();
 
   print_range(next_pmr_spinor, 4);
-#else
-  auto next_pmr_spinor = export_pmr_field<decltype(pmr_src_spinor)>(pmr_src_spinor);  
-  next_pmr_spinor.show();
 
-  print_range(next_pmr_spinor, 4);
-#endif
   std::cout << "NOW they share same buffer!" << std::endl;
-
-  print_range(pmr_src_spinor, 4);
 
   //pmr_src_spinor.destroy();
   //
@@ -134,9 +132,11 @@ int main(int argc, char **argv)
   print_range(pmr_src_spinor, 4);
 
   std::cout << "Create PMR Block spinor" << std::endl;
-  using pmr_spinor_t = Field<pmr_vector_tp,  decltype(sf_args)>;
+  //
+  using pmr_spinor_t = Field<pmr_vector_tp,  decltype(sargs)>;
 
-  auto pmr_block_src_spinor = create_block_spinor_with_buffer< pmr_spinor_t, decltype(sf_args) >(sf_args, N);
+  auto pmr_block_src_spinor = create_pmr_block_spinor< pmr_spinor_t, decltype(sargs) >(sargs, N);
+  //
   pmr_block_src_spinor[0].show();
 
   for(int i = 0; i < N; i++) {
@@ -148,7 +148,11 @@ int main(int argc, char **argv)
 
   print_range(pmr_block_src_spinor[0], 4);
 
-//  auto new_pmr_block_spinor = create_block_spinor_with_buffer< pmr_spinor_t, decltype(pmr_sf_args) >(pmr_sf_args, N);
+  using arg_tp = decltype(pmr_block_src_spinor.ExportArg());
+
+//  auto next_pmr_block_src_spinor = export_pmr_block_spinor< pmr_src_spinor, arg_tp >(pmr_block_src_spinor, N);
+
+//  auto new_pmr_block_spinor = create_block_spinor_with_buffer< pmr_spinor_t, decltype(pmr_sargs) >(pmr_sargs, N);
 
 //  new_pmr_block_spinor[0].show();
 
