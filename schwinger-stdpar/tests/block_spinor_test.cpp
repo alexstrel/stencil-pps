@@ -139,7 +139,7 @@ int main(int argc, char **argv)
   //
   pmr_block_src_spinor[0].show();
 
-  for(int i = 0; i < N; i++) {
+  for(int i = 0; i < pmr_block_src_spinor.Size(); i++) {
     init_spinor(pmr_block_src_spinor[i]);
     print_range(pmr_block_src_spinor[i], 4);
     //
@@ -148,13 +148,31 @@ int main(int argc, char **argv)
 
   print_range(pmr_block_src_spinor[0], 4);
 
-  using arg_tp = decltype(pmr_block_src_spinor.ExportArg());
+  using arg_tp = typename std::remove_cvref_t<decltype(pmr_block_src_spinor.ExportArg())>;
 
-//  auto next_pmr_block_src_spinor = export_pmr_block_spinor< pmr_src_spinor, arg_tp >(pmr_block_src_spinor, N);
+  auto next_pmr_block_src_spinor = export_pmr_block_spinor< decltype(pmr_block_src_spinor) >(pmr_block_src_spinor, N);
 
 //  auto new_pmr_block_spinor = create_block_spinor_with_buffer< pmr_spinor_t, decltype(pmr_sargs) >(pmr_sargs, N);
 
-//  new_pmr_block_spinor[0].show();
+  std::cout << "NEW block field data:: " << std::endl;
+  next_pmr_block_src_spinor[0].show();
+
+  for(int i = 0; i < next_pmr_block_src_spinor.Size(); i++) {
+    print_range(next_pmr_block_src_spinor[i], 4);
+    //
+    next_pmr_block_src_spinor[i].show();
+  }
+  //
+  pmr_block_src_spinor[0].show();
+
+  std::cout << "Now check block field data:: " << std::endl;
+  for(int i = 0; i < pmr_block_src_spinor.Size(); i++) {
+    init_spinor(pmr_block_src_spinor[i]);
+    print_range(pmr_block_src_spinor[i], 4);
+    //
+    pmr_block_src_spinor[i].show();
+  }
+    //
 
   // initialize the data
   bool verbose = true;
