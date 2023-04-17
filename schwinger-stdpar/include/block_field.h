@@ -10,13 +10,15 @@ decltype(auto) create_block_spinor(const Arg &arg_, const std::size_t n) {//offs
 
   using data_tp = spinor_tp::container_tp::value_type;
 
-  const std::size_t bytes = arg_.GetFieldSize()*sizeof(data_tp)*n;
-
   auto arg = Arg{arg_};
 
-  if( is_pmr and (arg.CheckPMRAllocation(bytes) == false) ) {//just in case if the buffer is not allocated (or does not have an appropriate size)
-    auto pmr_buffer = std::make_shared<std::byte[]>(bytes);
-    arg.ImportPMR(std::tie(pmr_buffer, bytes));
+  if constexpr ( is_pmr ) {
+    const std::size_t pmr_bytes = arg_.GetFieldSize()*sizeof(data_tp)*n;
+
+    if (arg.CheckPMRAllocation(pmr_bytes) == false) {//just in case if the buffer is not allocated (or does not have an appropriate size)
+      auto pmr_buffer = std::make_shared<std::byte[]>(pmr_bytes);
+      arg.ImportPMR(std::tie(pmr_buffer, pmr_bytes));
+    }
   } 
 
   return BlockSpinor<spinor_tp, Arg>(arg, n);
