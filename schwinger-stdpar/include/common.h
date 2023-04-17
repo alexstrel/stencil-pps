@@ -37,7 +37,7 @@ concept ComplexTp    = requires {
   requires std::is_floating_point_v<decltype(std::declval<T>().imag())>;  
 };
 
-// Simple genetic arithmetic type
+// Simple generic arithmetic type
 template <typename T>
 concept ArithmeticTp = FloatTp<T> or ComplexTp<T>;
 
@@ -59,19 +59,19 @@ concept GenericContainerTp = is_container_type_v<T>;
 //
 template <typename T, typename = std::void_t<>> class is_allocated_type : public std::false_type { };
 
-template <typename T> class is_allocated_type< T, std::void_t<typename T::allocator_type, decltype(std::declval<T>().resize(0ul))>> : public std::true_type { };
+template <typename T> class is_allocated_type< T, std::void_t<typename T::allocator_type>> : public std::true_type { };
 
 template <typename T> constexpr bool is_allocated_type_v = is_allocated_type<T>::value;
 
 // Dynamic container type:
 template <typename T>
-concept ContainerTp = is_container_type_v<T> and is_allocated_type_v<T>;
+concept ContainerTp = GenericContainerTp<T> and is_allocated_type_v<T>;
 
 template <typename T>
 concept PMRContainerTp = ContainerTp<T> and std::is_same< typename T::allocator_type,  std::pmr::polymorphic_allocator<typename T::value_type> >::value;
 
 template <typename T>
-concept ContainerViewTp = is_container_type_v<T> and (not is_allocated_type_v<T>);
+concept ContainerViewTp = GenericContainerTp<T> and (not is_allocated_type_v<T>);
 
 // Iterator type
 template <typename T>
