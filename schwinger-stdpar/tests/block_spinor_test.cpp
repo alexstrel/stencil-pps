@@ -114,7 +114,7 @@ int main(int argc, char **argv)
   //
   using pmr_vector_lp_tp = std::pmr::vector<std::complex<float>>;
 
-  std::cout << "Allocated reduced container..." << std::endl;
+  std::cout << "Exported PMR spinor..." << std::endl;
 
   constexpr bool destroy_src = false;
 
@@ -131,11 +131,26 @@ int main(int argc, char **argv)
   //
   print_range(pmr_src_spinor, 4);
 
+  std::cout << "Create Regular Block spinor" << std::endl;
+  //
+  using spinor_t = Field<vector_tp,  decltype(sargs)>;
+  //
+  auto block_src_spinor = create_block_spinor< spinor_t, decltype(sargs)>(sargs, N);
+  //
+  block_src_spinor[0].show();
+  //
+  for(int i = 0; i < block_src_spinor.Size(); i++) {
+    init_spinor(block_src_spinor[i]);
+    print_range(block_src_spinor[i], 4);
+    //
+    block_src_spinor[i].show();
+  }
+
   std::cout << "Create PMR Block spinor" << std::endl;
   //
   using pmr_spinor_t = Field<pmr_vector_tp,  decltype(sargs)>;
 
-  auto pmr_block_src_spinor = create_pmr_block_spinor< pmr_spinor_t, decltype(sargs) >(sargs, N);
+  auto pmr_block_src_spinor = create_block_spinor< pmr_spinor_t, decltype(sargs), true>(sargs, N);
   //
   pmr_block_src_spinor[0].show();
 
@@ -153,7 +168,7 @@ int main(int argc, char **argv)
   auto next_pmr_block_src_spinor = export_pmr_block_spinor< decltype(pmr_block_src_spinor) >(pmr_block_src_spinor, N);
 
 //  auto new_pmr_block_spinor = create_block_spinor_with_buffer< pmr_spinor_t, decltype(pmr_sargs) >(pmr_sargs, N);
-
+{
   std::cout << "NEW block field data:: " << std::endl;
   next_pmr_block_src_spinor[0].show();
 
@@ -162,12 +177,12 @@ int main(int argc, char **argv)
     //
     next_pmr_block_src_spinor[i].show();
   }
+}
   //
   pmr_block_src_spinor[0].show();
 
   std::cout << "Now check block field data:: " << std::endl;
   for(int i = 0; i < pmr_block_src_spinor.Size(); i++) {
-    init_spinor(pmr_block_src_spinor[i]);
     print_range(pmr_block_src_spinor[i], 4);
     //
     pmr_block_src_spinor[i].show();

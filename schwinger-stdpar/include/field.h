@@ -89,7 +89,7 @@ class Field{
     }        
     //
     void show() {
-      printf("PTR: %p, %d\n", this->arg.pmr_buffer.get(), this->arg.pmr_buffer.use_count());
+      printf("PMR buffer pointer: %p, PMR buffer use count %d\n", this->arg.pmr_buffer.get(), this->arg.pmr_buffer.use_count());
     }
     
     void destroy() {

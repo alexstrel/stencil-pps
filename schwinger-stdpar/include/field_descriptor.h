@@ -40,6 +40,7 @@ class FieldDescriptor {
     std::shared_ptr<std::byte[]>                          pmr_buffer;//needed only for pmr-used spinor
     std::size_t                                           pmr_bytes;
     std::shared_ptr<std::pmr::monotonic_buffer_resource>  pmr_pool; 
+    //
     bool is_imported;    
 
     FieldDescriptor() = default;

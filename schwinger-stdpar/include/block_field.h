@@ -5,42 +5,22 @@
 template<SpinorFieldTp spinor_tp, typename Arg>
 class BlockSpinor; // forward declare to make function definition possible
 
-template <PMRSpinorFieldTp pmr_spinor_tp, typename Arg>
-decltype(auto) create_pmr_block_spinor(const Arg &arg_, const std::size_t n) {//offset for block spinor
+template <SpinorFieldTp spinor_tp, typename Arg, bool is_pmr = false>
+decltype(auto) create_block_spinor(const Arg &arg_, const std::size_t n) {//offset for block spinor
 
-  using data_tp = pmr_spinor_tp::container_tp::value_type;
+  using data_tp = spinor_tp::container_tp::value_type;
 
-  const std::size_t pmr_bytes = arg_.GetFieldSize()*sizeof(data_tp)*n;
+  const std::size_t bytes = arg_.GetFieldSize()*sizeof(data_tp)*n;
 
   auto arg = Arg{arg_};
 
-  if( arg.CheckPMRAllocation(pmr_bytes) == false ) {//just in case if the buffer is not allocated (or does not have an appropriate size)
-    auto pmr_buffer = std::make_shared<std::byte[]>(pmr_bytes);
-    arg.ImportPMR(std::tie(pmr_buffer, pmr_bytes));
+  if( is_pmr and (arg.CheckPMRAllocation(bytes) == false) ) {//just in case if the buffer is not allocated (or does not have an appropriate size)
+    auto pmr_buffer = std::make_shared<std::byte[]>(bytes);
+    arg.ImportPMR(std::tie(pmr_buffer, bytes));
   } 
 
-  return BlockSpinor<pmr_spinor_tp, Arg>(arg, n);
+  return BlockSpinor<spinor_tp, Arg>(arg, n);
 }
-/*
-template <PMRSpinorFieldTp pmr_spinor_t, typename Arg, PMRContainerTp pmr_container_tp = pmr_spinor_t::container_tp>
-decltype(auto) export_pmr_block_spinor(BlockSpinor<pmr_spinor_t, Arg>& src_pmr_block_spinor, const std::size_t n, const bool reset_src = true) {//
-
-  using data_tp = pmr_container_tp::value_type;
-  //
-  auto arg = Arg{src_pmr_block_spinor.ExportArg()};
-
-  const std::size_t pmr_bytes = arg.GetFieldSize()*sizeof(data_tp)*n;
-  
-  if( arg.CheckPMRAllocation(pmr_bytes) == false ) {//just in case if the buffer is not allocated (or does not have an appropriate size)
-    auto pmr_buffer = std::make_shared<std::byte[]>(pmr_bytes);
-    arg.ImportPMR(std::tie(pmr_buffer, pmr_bytes));
-  }  
-
-  using new_pmr_spinor_tp = Field<pmr_container_tp, decltype(arg)>; 
-
-  return BlockSpinor<new_pmr_spinor_tp, decltype(arg)>(arg, n); 
-}
-*/
 
 template <typename pmr_block_spinor_t, PMRContainerTp pmr_container_tp = pmr_block_spinor_t::container_tp>
 decltype(auto) export_pmr_block_spinor(pmr_block_spinor_t& src_pmr_block_spinor, const std::size_t n, const bool reset_src = true) {//
