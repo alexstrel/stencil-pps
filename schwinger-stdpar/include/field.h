@@ -9,6 +9,26 @@ decltype(auto) create_field(const Arg &arg) {
   return Field<alloc_container_tp, Arg>(arg);
 }
 
+template <GenericFieldTp field_tp, ContainerTp container_tp = field_tp::container_tp, bool do_copy = false>
+decltype(auto) create_field(const field_tp &src) {
+  //
+  using src_container_tp = field_tp::container_tp;
+  using Arg              = field_tp::descriptor_tp;  
+  //
+  auto arg  = Arg{src.ExportArg()};
+  //
+  auto dst = Field<container_tp, Arg>{arg};
+  
+  if constexpr (do_copy){
+    if constexpr (std::is_same_v< src_container_tp, container_tp >) {
+      std::copy( std::execution::par_unseq, dst.Data().begin(), dst.Data().end(), src.begin());
+    } else {
+      //
+    }
+  }
+  return new_field;
+}
+
 template <PMRContainerTp pmr_container_tp, typename Arg>
 decltype(auto) create_field_with_buffer(const Arg &arg_, const std::size_t offset = 0 ) {//offset for block spinors only
 

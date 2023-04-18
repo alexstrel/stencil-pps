@@ -3,8 +3,8 @@
 using vector_tp     = std::vector<std::complex<Float>>;
 using pmr_vector_tp = std::pmr::vector<std::complex<Float>>;
 
-template<typename Float, typename D>
-void DslashRef(auto &out_spinor, const auto &in_spinor, const auto &gauge_field, const Float mass, const Float r, const std::array<int, D> n) {//const int nx, const int ny
+template<typename Float>
+void DslashRef(auto &out_spinor, const auto &in_spinor, const auto &gauge_field, const Float mass, const Float r, const std::array<int, 2> n) {//const int nx, const int ny
   
   const Float constant = (mass + 2.0*r);
   
@@ -129,7 +129,7 @@ void run_mrhs_dslash(auto &&transformer, auto params, const int X, const int T, 
   //
   const auto gf_args = GaugeFieldArgs<nDir>{{X, T}, {0, 0}};
   //
-  auto gauge = create_field_with_buffer<pmr_vector_tp, decltype(gf_args)>(gf_args);    
+  auto gauge = create_field<vector_tp, decltype(gf_args)>(gf_args);    
   //
   init_u1(gauge);
   //
