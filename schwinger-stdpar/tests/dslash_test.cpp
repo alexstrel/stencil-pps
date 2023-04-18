@@ -2,18 +2,15 @@
 #include <block_field.h>
 #include <dslash_factory.h>
 
-//#include <dslash_test.h>
 //
-using Float   = float;
+using Float   = double;
 //
-using vector_tp = std::vector<std::complex<Float>>;
-
 std::random_device rd;  //Will be used to obtain a seed for the random number engine
 std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()s
 std::uniform_real_distribution<Float> dis(0.f, 1.f);
 
 void init_u1(auto &field){
-   for (auto &i : field.Data()) i = std::polar(1.0f,dis(gen));	
+   for (auto &i : field.Data()) i = std::polar(static_cast<Float>(1.f),dis(gen));	
 }
 
 void init_spinor(auto &field){
@@ -102,7 +99,12 @@ int main(int argc, char **argv)
   //
   run_eo_dslash<nDir, nSpin>(transformer, dslash_param, X, T, niter);
   //
-  run_mrhs_dslash<nDir, nSpin, 8>(transformer, dslash_param, X, T, niter);
+  //
+  constexpr int  N = 8;
+  
+  constexpr bool use_pmr_buffer = true;
+  //
+  run_mrhs_dslash<nDir, nSpin, N, use_pmr_buffer>(transformer, dslash_param, X, T, niter);
 
   // initialize the data
   bool verbose = true;

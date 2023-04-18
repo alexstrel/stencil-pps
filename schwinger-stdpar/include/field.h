@@ -13,6 +13,11 @@ template <PMRContainerTp pmr_container_tp, typename Arg>
 decltype(auto) create_field_with_buffer(const Arg &arg_, const std::size_t offset = 0 ) {//offset for block spinors only
 
   using data_tp = pmr_container_tp::value_type;
+  
+  if (Arg::type != FieldType::SpinorFieldType and offset != 0 ) {
+    std::cerr << "Cannot use offset for non-spinor field types.\n" << std::endl;
+    exit(-1); 
+  }
 
   auto arg = Arg{arg_};
 
