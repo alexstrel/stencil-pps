@@ -3,6 +3,54 @@
 using vector_tp     = std::vector<std::complex<Float>>;
 using pmr_vector_tp = std::pmr::vector<std::complex<Float>>;
 
+template<typename Float, typename D>
+void DslashRef(auto &out_spinor, const auto &in_spinor, const auto &gauge_field, const Float mass, const Float r, const std::array<int, D> n) {//const int nx, const int ny
+  
+  const Float constant = (mass + 2.0*r);
+  
+  const int Nx = n[0];
+  const int Ny = n[1];
+  //  
+  std::complex<Float> tmp = std::complex<Float>(0.);
+  
+  auto I = [](auto x){ return Float(-x.imag(), x.real());};  
+  
+  auto out          = out_spinor.Accessor();
+  const auto in     = in_spinor.Accessor();
+  const auto gauge  = gauge_field.Accessor();  
+  
+  for(int x = 0; x < nx; x++) {
+    const int xp1 = (x+1) == nx ? 0    : (x+1);
+    const int xm1 = (x-1) == -1 ? nx-1 : (x-1);
+    
+    for(int y = 0; y < ny; y++) {
+      const int yp1 = (y+1) == ny ? 0    : (y+1);
+      const int ym1 = (y-1) == -1 ? ny-1 : (y-1);
+
+      const Float fwd_bc = yp1 == 0 ? -1.0 : 1.0;
+      const Float bwd_bc = y   == 0 ? -1.0 : 1.0;  
+
+      //
+      tmp = constant * in(x,y,0)
+
+	- 0.5*(gauge(x,y,0) * (in(xp1,y,0) - in(xp1,y,1)) + conj(gauge(xm1,y,0)) * (in(xm1,y,0) + in(xm1,y,1)))
+	
+	- 0.5*(gauge(x,y,1) * fwd_bc*(in(x,yp1,0) + I(in(x,yp1,1))) + conj(gauge(x,ym1,1)) * bwd_bc*(in(x,ym1,0) - I(in(x,ym1,1))));
+      
+      out(x,y,0) = tmp;
+      
+      //
+      tmp = constant * in(x,y,1) 
+
+	- 0.5*(gauge(x,y,0) * (in(xp1,y,1) - in(xp1,y,0)) + conj(gauge(xm1,y,0)) * (in(xm1,y,1) + in(xm1,y,0)))
+	
+	- 0.5*(gauge(x,y,1) * fwd_bc*(in(x,yp1,1) - I(in(x,yp1,0))) + conj(gauge(x,ym1,1)) * bwd_bc*(in(x,ym1,1) + I(in(x,ym1,0))));
+      
+      out(x,y,1) = tmp;
+    }
+  }
+}
+
 template<int nDir, int nSpin>
 void run_simple_dslash(auto &&transformer, auto params, const int X, const int T, const int niter) {
   //
