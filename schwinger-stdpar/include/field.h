@@ -9,24 +9,31 @@ decltype(auto) create_field(const Arg &arg) {
   return Field<alloc_container_tp, Arg>(arg);
 }
 
-template <GenericFieldTp field_tp, ContainerTp container_tp = field_tp::container_tp, bool do_copy = false>
-decltype(auto) create_field(const field_tp &src) {
+template <FieldTp field_tp, ContainerTp container_tp = field_tp::container_tp, bool do_copy = false>
+decltype(auto) create_field(field_tp &src) {
   //
   using src_container_tp = field_tp::container_tp;
+  
+  using src_data_tp      = field_tp::data_tp;  
+  using dst_data_tp      = container_tp::value_type;    
+  
   using Arg              = field_tp::descriptor_tp;  
   //
   auto arg  = Arg{src.ExportArg()};
   //
-  auto dst = Field<container_tp, Arg>{arg};
+  auto dst = Field<container_tp, Arg>(arg);
   
   if constexpr (do_copy){
+    auto &&dst_view = dst.View();
+    auto &&src_view = src.View();
+        
     if constexpr (std::is_same_v< src_container_tp, container_tp >) {
-      std::copy( std::execution::par_unseq, dst.Data().begin(), dst.Data().end(), src.begin());
+      std::copy( std::execution::par_unseq, dst_view.Data().begin(), dst_view.Data().end(), src_view.Data().begin());
     } else {
-      //
+      //std::transform(std::execution::par_unseq, src_view.Data().begin(), src_view.Data().end(), dst_view.Data().begin(), [=](auto &in) { return static_cast<dst_data_tp>(in); } );
     }
   }
-  return new_field;
+  return dst;
 }
 
 template <PMRContainerTp pmr_container_tp, typename Arg>
@@ -86,10 +93,15 @@ class Field{
     const Arg arg;//copy of the arguments
 
     Field(const Arg &arg) : v(arg.GetFieldSize()),
-                            arg(arg){}
+                            arg(arg){
+      if( arg.IsPMRAllocated() )  std::cout << "Warning: argument has pmr buffer.\n" << std::endl;                          
+    }
 
     template <ContainerTp alloc_container_tp, typename ArgTp>
-    friend decltype(auto) create_field(const ArgTp &arg);
+    friend decltype(auto) create_field(const ArgTp &arg);    
+    //    
+    template <FieldTp field_tp, ContainerTp container_tp, bool do_copy>
+    friend decltype(auto) create_field(field_tp &src);
 
   public:
 

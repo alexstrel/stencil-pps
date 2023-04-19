@@ -102,9 +102,9 @@ int main(int argc, char **argv)
   //
   constexpr int  N = 8;
   
-  constexpr bool use_pmr_buffer = true;
+  //constexpr bool use_pmr_buffer = false;
   //
-  run_mrhs_dslash<nDir, nSpin, N, use_pmr_buffer>(transformer, dslash_param, X, T, niter);
+  run_mrhs_dslash<nDir, nSpin, N>(transformer, dslash_param, X, T, niter);
 
   // initialize the data
   bool verbose = true;

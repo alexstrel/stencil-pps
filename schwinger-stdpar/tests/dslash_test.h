@@ -1,7 +1,9 @@
 #pragma once
 
 using vector_tp     = std::vector<std::complex<Float>>;
-using pmr_vector_tp = std::pmr::vector<std::complex<Float>>;
+
+//using sloppy_pmr_vector_tp  = std::pmr::vector<std::complex<float>>;
+//using pmr_vector_tp         = std::pmr::vector<std::complex<Float>>;
 
 template<typename Float>
 void DslashRef(auto &out_spinor, const auto &in_spinor, const auto &gauge_field, const Float mass, const Float r, const std::array<int, 2> n) {//const int nx, const int ny
@@ -62,7 +64,7 @@ void run_simple_dslash(auto &&transformer, auto params, const int X, const int T
   //
   const auto gf_args    = GaugeFieldArgs<nDir>{{X, T}, {0, 0}};
   //
-  auto gauge      = create_field<vector_tp, decltype(gf_args)>(gf_args);  
+  auto gauge            = create_field<vector_tp, decltype(gf_args)>(gf_args);  
   //
   init_u1(gauge);
   init_spinor(src_spinor);
@@ -85,6 +87,7 @@ void run_simple_dslash(auto &&transformer, auto params, const int X, const int T
   }
   
   gauge.destroy();
+  
   dst_spinor.destroy();
   src_spinor.destroy();
 
@@ -130,7 +133,7 @@ void run_mrhs_dslash(auto &&transformer, auto params, const int X, const int T, 
   const auto gf_args = GaugeFieldArgs<nDir>{{X, T}, {0, 0}};
   //
   auto gauge = create_field<vector_tp, decltype(gf_args)>(gf_args);    
-  //
+  //  
   init_u1(gauge);
   //
   auto &&u_ref        = gauge.View();
@@ -145,31 +148,15 @@ void run_mrhs_dslash(auto &&transformer, auto params, const int X, const int T, 
   //
   using spinor_t  = Field<vector_tp, decltype(sf_args)>;//
   //
-  auto src_block_spinor = create_block_spinor< spinor_t, decltype(sf_args)>(sf_args, N); 
+  auto src_block_spinor = create_block_spinor< spinor_t, decltype(sf_args), use_pmr_buffer>(sf_args, N); 
   //
   for (int i = 0; i < src_block_spinor.Size(); i++) init_spinor( src_block_spinor.v[i] );
   
-  auto dst_block_spinor = create_block_spinor< spinor_t, decltype(sf_args)>(sf_args, N); 
-
+  auto dst_block_spinor = create_block_spinor< spinor_t, decltype(sf_args), use_pmr_buffer>(sf_args, N); 
+ 
   for(int i = 0; i < niter; i++) {
     mat(dst_block_spinor, src_block_spinor);
   } 
-  
-  //using low precision dslash:
-#if 0  
-  DslashParam<float> lp_params{params.M, params.r};
-  //
-  const auto scale1 = static_cast<float>(lp_params.M) + 2.f*static_cast<float>(lp_params.r);
-  const auto scale2 = 0.5f;
 
-  auto lp_transformer = [=](const auto &x, const auto &y) {return (scale1*x-scale2*y);};  
-  
-  using lp_vector_tp  = std::complex<float>;
-
-  auto src_lp_block_spinor = export_block_spinor< spinor_t, decltype(sf_args), lp_vector_tp >(sf_args, N); 
-  
-  auto dst_lp_block_spinor = export_block_spinor< spinor_t, decltype(sf_args), lp_vector_tp >(sf_args, N); 
-#endif
-  
 }
 

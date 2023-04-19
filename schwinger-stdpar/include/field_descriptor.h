@@ -3,6 +3,8 @@
 #include <field_concepts.h>
 #include <enums.h>
 #include <assert.h>
+#include <algorithm>
+#include <execution>
 #include <memory>
 #include <memory_resource>
 
@@ -174,7 +176,9 @@ class FieldDescriptor {
 
     bool CheckPMRAllocation(const std::size_t bytes) const {
       return (pmr_buffer != nullptr and pmr_bytes >= bytes);
-    }    
+    } 
+    
+    inline bool IsPMRAllocated() const { return (pmr_buffer != nullptr and pmr_bytes > 0ul); }        
 
     auto operator=(const FieldDescriptor&) -> FieldDescriptor& = default;
     auto operator=(FieldDescriptor&&     ) -> FieldDescriptor& = default;
