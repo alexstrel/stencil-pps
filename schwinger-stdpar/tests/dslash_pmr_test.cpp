@@ -71,7 +71,7 @@ void convert_field(auto &dst_field, auto &src_field){
 
 }
 
-#include <dslash_test.h>
+#include <dslash_pmr_test.h>
 
 //--------------------------------------------------------------------------------
 int main(int argc, char **argv)
@@ -95,16 +95,11 @@ int main(int argc, char **argv)
 
   auto transformer = [=](const auto &x, const auto &y) {return (scale1*x-scale2*y);};  
 
-  run_simple_dslash<nDir, nSpin>(transformer, dslash_param, X, T, niter);
+  run_simple_pmr_dslash<nDir, nSpin>(transformer, dslash_param, X, T, niter);
   //
-  run_eo_dslash<nDir, nSpin>(transformer, dslash_param, X, T, niter);
+  constexpr int  N = 8;  
   //
-  //
-  constexpr int  N = 8;
-  
-  //constexpr bool use_pmr_buffer = false;
-  //
-  run_mrhs_dslash<nDir, nSpin, N>(transformer, dslash_param, X, T, niter);
+  run_mrhs_pmr_dslash<nDir, nSpin, N>(transformer, dslash_param, X, T, niter);
 
   // initialize the data
   bool verbose = true;
