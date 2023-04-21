@@ -9,45 +9,32 @@ decltype(auto) create_field(const Arg &arg) {
   return Field<alloc_container_tp, Arg>(arg);
 }
 
-template <FieldTp field_tp, ContainerTp container_tp = field_tp::container_tp, bool do_copy = false>
+template <FieldTp field_tp, ContainerTp dst_container_tp = field_tp::container_tp, bool do_copy = false>
 decltype(auto) create_field(field_tp &src) {
   //
   using src_container_tp = field_tp::container_tp;
   
   using src_data_tp      = field_tp::data_tp;  
-  using dst_data_tp      = container_tp::value_type;    
+  using dst_data_tp      = dst_container_tp::value_type;    
   
   using Arg              = field_tp::descriptor_tp;  
   //
   auto arg  = Arg{src.ExportArg()};
   //
-  auto dst = Field<container_tp, Arg>(arg);//??container_tp -> src_container_tp
+  auto dst = Field<dst_container_tp, Arg>(arg);
   
   if constexpr (do_copy){
     //
     auto &&dst_view = dst.View();
     auto &&src_view = src.View();
     //    
-    if constexpr (std::is_same_v< src_container_tp, container_tp >) {
+    if constexpr (std::is_same_v< src_container_tp, dst_container_tp >) {
       std::copy( std::execution::par_unseq, dst_view.Data().begin(), dst_view.Data().end(), src_view.Data().begin());
     } else {
-      //std::transform(std::execution::par_unseq, src_view.Data().begin(), src_view.Data().end(), dst_view.Data().begin(), [=](auto &in) { return static_cast<dst_data_tp>(in); } );
-      auto exe_range = std::ranges::views::iota(0, static_cast<int>(src.GetLength()));
-      //
-      auto ConvertKernel = [=] (const auto i) { 
-        // 
-        auto dst_acc       = dst_view.FlatAccessor(); 
-        const auto src_acc = src_view.template FlatAccessor<true>();
-        //        
-        dst_acc(i) = static_cast<dst_data_tp>(src_acc(i));  
-      };      
-
-      std::for_each(std::execution::par_unseq,
-                    std::ranges::begin(exe_range),
-                    std::ranges::end(exe_range),
-                    ConvertKernel);
+      std::transform(std::execution::par_unseq, src_view.Data().begin(), src_view.Data().end(), dst_view.Data().begin(), [=](const auto &in) { return static_cast<dst_data_tp>(in); } );
     }
   }
+  //
   return dst;
 }
 
@@ -109,8 +96,11 @@ class Field{
 
     Field(const Arg &arg) : v(arg.GetFieldSize()),
                             arg(arg){
-      if( arg.IsPMRAllocated() )  std::cout << "Warning: argument has pmr buffer.\n" << std::endl;                          
+      if( arg.IsPMRAllocated() )  std::cout << "Warning: argument structure contains non-trivial pmr buffer, which will be ignored.\n" << std::endl;                          
     }
+    // 
+    template <PMRContainerTp T = container_tp>
+    Field(std::pmr::monotonic_buffer_resource &pmr_pool, const Arg &arg) : v(arg.GetFieldSize(), &pmr_pool), arg(arg) { }
 
     template <ContainerTp alloc_container_tp, typename ArgTp>
     friend decltype(auto) create_field(const ArgTp &arg);    
@@ -118,15 +108,18 @@ class Field{
     template <FieldTp field_tp, ContainerTp container_tp, bool do_copy>
     friend decltype(auto) create_field(field_tp &src);
 
+    template <PMRContainerTp pmr_container_tp, typename ArgTp>
+    friend decltype(auto) create_field_with_buffer(const ArgTp &arg_, const std::size_t offset);
+
+    template <PMRSpinorFieldTp pmr_spinor_t, PMRContainerTp pmr_container_tp>
+    friend decltype(auto) export_pmr_field(pmr_spinor_t& src_pmr_spinor, const bool reset_src);
+
   public:
 
     Field()              = default;
     Field(const Field &) = default;
     Field(Field &&)      = default;    
     // 
-    template <PMRContainerTp T = container_tp>
-    Field(std::pmr::monotonic_buffer_resource &pmr_pool, const Arg &arg) : v(arg.GetFieldSize(), &pmr_pool), arg(arg) { }
-    //
     template <ContainerViewTp T>    
     Field(const T &src, const Arg &arg) : v{src}, arg(arg) {}
     

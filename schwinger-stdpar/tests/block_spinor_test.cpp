@@ -1,6 +1,6 @@
-#include <field.h>
-#include <block_field.h>
-#include <dslash_factory.h>
+#include <fields/field.h>
+#include <fields/block_field.h>
+#include <kernels/dslash_factory.h>
 
 //#include <dslash_test.h>
 //
