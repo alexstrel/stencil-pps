@@ -186,8 +186,7 @@ class Field{
     auto Even() { return ParityView(FieldParity::EvenFieldParity );}
     auto Odd()  { return ParityView(FieldParity::OddFieldParity  );}
 
-    auto EODecompose() //[[assert(arg.subset == FieldSiteSubset::FullSiteSubset)("Cannot decompose a non-full field!.")]] 
-    {
+    auto EODecompose() {
       assert(arg.subset == FieldSiteSubset::FullSiteSubset);
 
       return std::make_tuple(this->Even(), this->Odd());
