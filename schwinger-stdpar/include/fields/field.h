@@ -1,4 +1,5 @@
 #pragma once
+
 #include <fields/field_descriptor.h>
 
 template<GenericContainerTp Ct, typename Arg>
@@ -100,7 +101,7 @@ class Field{
     }
     // 
     template <PMRContainerTp T = container_tp>
-    Field(std::pmr::monotonic_buffer_resource &pmr_pool, const Arg &arg) : v(arg.GetFieldSize(), &pmr_pool), arg(arg) { }
+    explicit Field(std::pmr::monotonic_buffer_resource &pmr_pool, const Arg &arg) : v(arg.GetFieldSize(), &pmr_pool), arg(arg) { }
 
     template <ContainerTp alloc_container_tp, typename ArgTp>
     friend decltype(auto) create_field(const ArgTp &arg);    
@@ -121,7 +122,7 @@ class Field{
     Field(Field &&)      = default;    
     // 
     template <ContainerViewTp T>    
-    Field(const T &src, const Arg &arg) : v{src}, arg(arg) {}
+    explicit Field(const T &src, const Arg &arg) : v{src}, arg(arg) {}
     
     // Needed for block-la operations
     constexpr std::size_t size() const { return 1ul; } 
@@ -185,8 +186,9 @@ class Field{
     auto Even() { return ParityView(FieldParity::EvenFieldParity );}
     auto Odd()  { return ParityView(FieldParity::OddFieldParity  );}
 
-    auto EODecompose() {
-      assert(arg.subset == FieldSiteSubset::FullSiteSubset);	    
+    auto EODecompose() //[[assert(arg.subset == FieldSiteSubset::FullSiteSubset)("Cannot decompose a non-full field!.")]] 
+    {
+      assert(arg.subset == FieldSiteSubset::FullSiteSubset);
 
       return std::make_tuple(this->Even(), this->Odd());
     }

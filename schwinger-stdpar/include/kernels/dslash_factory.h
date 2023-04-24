@@ -16,8 +16,7 @@ class Mat{
 
     Mat(const KernelArgs &args, const TransformParams &param) : dslash_kernel_ptr(new Kernel<KernelArgs>(args)), param(param) {}
 
-    template<SpinorFieldTp spinor_tp>
-    void operator()(spinor_tp &out, spinor_tp &in, auto&& transformer, const FieldOrder order = FieldOrder::EOFieldOrder){	         
+    void operator()(SpinorFieldTp auto &out, SpinorFieldTp auto &in, auto&& transformer, const FieldOrder order = FieldOrder::EOFieldOrder){
       if ( order == FieldOrder::EOFieldOrder ) {       
         // Extract dims:
         const auto [Nx, Ny] = in.GetCBDims(); //Get CB dimensions

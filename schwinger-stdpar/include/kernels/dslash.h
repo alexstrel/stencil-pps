@@ -207,7 +207,7 @@ class Dslash{
       return res;
     }     
 
-    template<BlockSpinorFieldViewTp  block_spinor_field_view>
+    template<BlockSpinorFieldViewTp block_spinor_field_view>
     void apply(auto &&transformer,
                block_spinor_field_view &out_block_spinor,
                block_spinor_field_view &in_block_spinor,
