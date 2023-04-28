@@ -2,6 +2,14 @@
 
 #include <core/common.h>
 
+enum class PMRState {
+  Vacant         = 0,  
+  NonVacant      = 1,  
+  Reserved       = 2,    
+  Locked         = 3,      
+  InvalidState   = min_int  
+};
+
 //using a-la QUDA terminology 
 enum class FieldSiteSubset {
   FullSiteSubset         = 2,  
