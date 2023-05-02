@@ -10,6 +10,7 @@
 
 #include <fields/field_concepts.h>
 #include <core/enums.h>
+#include <memory.h>
 
 
 template<std::size_t nD, std::size_t nS, std::size_t nC>
@@ -39,17 +40,15 @@ class FieldDescriptor {
     const std::array<int, ndim> dir;
     const std::array<int, nFace*ndim> comm_dir;
 
-    const FieldOrder         order;        		
-    const FieldSiteSubset    subset;
-    const FieldParity        parity;
+    const FieldOrder         order  = FieldOrder::InvalidFieldOrder;        		
+    const FieldSiteSubset    subset = FieldSiteSubset::InvalidSiteSubset;
+    const FieldParity        parity = FieldParity::InvalidFieldParity;
 
-    std::shared_ptr<std::byte[]>                          pmr_buffer;//needed only for pmr-used spinor
-    std::size_t                                           pmr_bytes;
-    std::shared_ptr<std::pmr::monotonic_buffer_resource>  pmr_pool; 
+    std::shared_ptr<PMRBuffer> pmr_buffer;
     //
-    bool is_imported;    
+    bool is_exclusive;    
 
-    FieldDescriptor() = default;
+    FieldDescriptor()                        = default;
     FieldDescriptor(const FieldDescriptor& ) = default;
     FieldDescriptor(FieldDescriptor&& )      = default;
 
@@ -57,39 +56,35 @@ class FieldDescriptor {
                     const std::array<int, ndim*nFace> comm_dir,
 	            const FieldOrder order         = FieldOrder::LexFieldOrder,
 	            const FieldSiteSubset subset   = FieldSiteSubset::FullSiteSubset,  
-	            const FieldParity parity       = FieldParity::InvalidFieldParity) : 
+	            const FieldParity parity       = FieldParity::InvalidFieldParity,
+	            const bool is_exclusive        = false) : 
 	            dir{dir},
                     comm_dir{comm_dir},
 	            order(order),
 	            subset(subset),
 	            parity(parity), 
                     pmr_buffer(nullptr),
-                    pmr_bytes(0ul), 
-                    pmr_pool(nullptr), 
-                    is_imported(false)  {} 
+                    is_exclusive(is_exclusive)  {} 
 
-    FieldDescriptor(const FieldDescriptor &args, const FieldSiteSubset subset,  const FieldParity parity) : 
+    FieldDescriptor(const FieldDescriptor &args, const FieldSiteSubset subset,  const FieldParity parity, const bool is_exclusive = false) : 
 	            dir{subset == FieldSiteSubset::ParitySiteSubset && args.subset == FieldSiteSubset::FullSiteSubset ? args.dir[0] / 2 : args.dir[0], args.dir[1]},
 	            comm_dir{args.dir[1], subset == FieldSiteSubset::ParitySiteSubset && args.subset == FieldSiteSubset::FullSiteSubset ? args.dir[0] / 2 : args.dir[0]},
 	            order(args.order),
 	            subset(subset),
 	            parity(parity),
                     pmr_buffer(nullptr),
-                    pmr_bytes(0ul), 
-                    pmr_pool(nullptr),
-                    is_imported(false)  {} 
+                    is_exclusive(is_exclusive)  {} 
 
+    //Use it for block fields only:
     FieldDescriptor(const FieldDescriptor &args, 
-                    const std::tuple<std::shared_ptr<std::byte[]>, std::size_t> extern_pmr) :
+                    const std::shared_ptr<PMRBuffer> extern_pmr_buffer) :
                     dir(args.dir),
                     comm_dir(args.comm_dir),
                     order(args.order),
                     subset(args.subset),
                     parity(args.parity),
-                    pmr_buffer(std::get<0>(extern_pmr)),
-                    pmr_bytes(std::get<1>(extern_pmr)),
-                    pmr_pool(nullptr),
-                    is_imported(true)  {}
+                    pmr_buffer(extern_pmr_buffer),
+                    is_exclusive(extern_pmr_buffer->IsExclusive())  {}
        
 
     decltype(auto) GetFieldSize() const {
@@ -124,65 +119,46 @@ class FieldDescriptor {
       const int xh = subset == FieldSiteSubset::FullSiteSubset ? dir[0] / 2 : dir[0];	    
       return std::make_tuple(xh, dir[1]);
     }
-
+    
     template<ArithmeticTp T>
-    void AllocatePMRBuffer(const std::size_t n = 1) {
-      if( is_imported ) return;
-
-      const std::size_t bytes = GetFieldSize()*sizeof(T)*n;      
-
-      if (pmr_buffer != nullptr && bytes <= pmr_bytes) return;
+    void RegisterPMRBuffer(const std::size_t n = 1) {  
+      // 
+      const std::size_t bytes = GetFieldSize()*sizeof(T)*n;
+      //
+      bool is_reserved = (n > 1);  
+      //
+      auto new_pmr_buffer = pool::pmr_malloc<is_exclusive>(nbytes, is_reserved);
       
-      if ( pmr_buffer != nullptr ) pmr_buffer.reset(); 
-      
-      pmr_bytes  = bytes;
-      pmr_buffer = std::make_shared<std::byte[]>(pmr_bytes); 
-    }
-
-    template<ArithmeticTp T>
-    void RegisterPMRPool(const std::size_t offset = 0ul) {
-      if( pmr_buffer == nullptr) return;
-
-      const std::size_t bytes = GetFieldSize()*sizeof(T);
-
-      if(offset+bytes > pmr_bytes) return; 
-
-      pmr_pool = std::make_shared< std::pmr::monotonic_buffer_resource >( pmr_buffer.get() + offset, bytes );
-    }
-
-    void ReleasePMR() {
+      if (pmr_buffer->State() == PMRState::Locked) {
+      }    
       //
-      if(pmr_pool   != nullptr) pmr_pool.reset();
-      //
-      if(pmr_buffer != nullptr and not is_imported) pmr_buffer.reset(); 
+      pmr_buffer.reset(new_pmr_buffer);
+    }    
 
-      pmr_bytes  = 0ul;
-    }
- 
-    decltype(auto) ExportPMR() const { return std::tie(pmr_buffer, pmr_bytes); }
-
-    void ImportPMR (const std::tuple<std::shared_ptr<std::byte[]>, std::size_t > &extern_pmr) {
+    void UnregisterPMRBuffer() {
       //
-      if(pmr_pool != nullptr) {
-        pmr_pool.reset();
+      if(pmr_buffer != nullptr) { 
+        pmr_buffer->Release();
+        //
+        pmr_buffer.reset(nullptr); 
       }
-
-      if(pmr_buffer != nullptr and !is_imported) {
-        pmr_buffer.reset();
-        pmr_bytes  = 0ul;
-      }
-      
-      pmr_buffer = std::get<std::shared_ptr<std::byte[]>>( extern_pmr );
-      pmr_bytes  = std::get<std::size_t>( extern_pmr );
-      //
-      is_imported = true;
     }
-
-    bool CheckPMRAllocation(const std::size_t bytes) const {
-      return (pmr_buffer != nullptr and pmr_bytes >= bytes);
+    
+    void ResetPMRBuffer() {
+      //
+      if(pmr_buffer != nullptr) { 
+        pmr_buffer.reset(nullptr); 
+      }
+    }     
+    
+    bool IsReservedPMR(const std::size_t n = 1) const {
+      //
+      const std::size_t nbytes = GetFieldSize()*sizeof(T)*n;    
+      //
+      return pmr_buffer->IsReserved(nbytes);
     } 
     
-    inline bool IsPMRAllocated() const { return (pmr_buffer != nullptr and pmr_bytes > 0ul); }        
+    void SetExclusive() { is_exclusive = true; }    
 
     auto operator=(const FieldDescriptor&) -> FieldDescriptor& = default;
     auto operator=(FieldDescriptor&&     ) -> FieldDescriptor& = default;

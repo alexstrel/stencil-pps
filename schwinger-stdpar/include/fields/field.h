@@ -40,41 +40,26 @@ decltype(auto) create_field(field_tp &src) {
 }
 
 template <PMRContainerTp pmr_container_tp, typename Arg>
-decltype(auto) create_field_with_buffer(const Arg &arg_, const std::size_t offset = 0 ) {//offset for block spinors only
+decltype(auto) create_field_with_buffer(const Arg &arg_, const bool use_reserved = false) {
 
   using data_tp = pmr_container_tp::value_type;
   
-  if (Arg::type != FieldType::SpinorFieldType and offset != 0 ) {
-    std::cerr << "Cannot use offset for non-spinor field types.\n" << std::endl;
-    exit(-1); 
-  }
-
   auto arg = Arg{arg_};
 
-  arg.template AllocatePMRBuffer<data_tp>();
-  arg.template RegisterPMRPool<data_tp>(offset);
+  if ( not use_reserved) {// if not use a reserved buffer, register new one
+    arg.template RegisterPMRBuffer<data_tp>();
+  } else {
+  // use reserved, e.g., by a block field constructor, 
+  // arg must have a valid pmr_buffer with PMRStatus::Reserved
+    if ( not arg.IsReservedPMR() ) {
+      std::cerr << "Incorrect PMR buffer state, check reservation." << std::endl;
+      exit(-1);    
+    }
+  }
 
-  auto& pmr_pool_handle = *arg.pmr_pool;
+  auto& pmr_pool_handle = *arg.pmr_buffer->Pool();
 
   return Field<pmr_container_tp, Arg>(pmr_pool_handle, arg);
-}
-
-template <PMRSpinorFieldTp pmr_spinor_t, PMRContainerTp pmr_container_tp = pmr_spinor_t::container_tp>
-decltype(auto) export_pmr_field(pmr_spinor_t& src_pmr_spinor, const bool reset_src = true) {//
-
-  using data_tp = pmr_container_tp::value_type;
-  using Arg     = pmr_spinor_t::descriptor_tp; 
- 
-  auto arg  = Arg{src_pmr_spinor.ExportArg()};
-
-  if ( reset_src ) src_pmr_spinor.destroy();
-
-  arg.template AllocatePMRBuffer<data_tp>();
-  arg.template RegisterPMRPool<data_tp>();
-
-  auto& pmr_pool_handle = *arg.pmr_pool;
-
-  return Field<pmr_container_tp, decltype(arg)>(pmr_pool_handle, arg);
 }
 
 template <GenericContainerTp generic_container_tp, typename Arg>
@@ -110,10 +95,7 @@ class Field{
     friend decltype(auto) create_field(field_tp &src);
 
     template <PMRContainerTp pmr_container_tp, typename ArgTp>
-    friend decltype(auto) create_field_with_buffer(const ArgTp &arg_, const std::size_t offset);
-
-    template <PMRSpinorFieldTp pmr_spinor_t, PMRContainerTp pmr_container_tp>
-    friend decltype(auto) export_pmr_field(pmr_spinor_t& src_pmr_spinor, const bool reset_src);
+    friend decltype(auto) create_field_with_buffer(const ArgTp &arg_, const bool use_reserved);
 
   public:
 
@@ -138,21 +120,19 @@ class Field{
       printf("PMR buffer pointer: %p, PMR buffer use count %d\n", this->arg.pmr_buffer.get(), this->arg.pmr_buffer.use_count());
     }
     
-    void destroy() {
+    void destroy(const bool reset_pmr_buffer = false) {
       static_assert(is_allocated_type_v<container_tp>, "Cannot resize a non-owner field!");
 
       v.resize(0ul);
-      ghost.resize(0ul);     
-    }
-
-    template<PMRContainerTp T = container_tp>
-    decltype(auto) ExportPMR(const bool erase = true) {
-      if (erase) {
-        v.resize(0ul);
-        ghost.resize(0ul);
-      }
+      ghost.resize(0ul); 
       //
-      return arg.ExportPMR(); 
+      if constexpr ( std::is_same_v< typename T::allocator_type,  std::pmr::polymorphic_allocator<typename T::value_type> > ) {
+        if (reset_pmr_buffer) {
+          arg.ResetPMRBuffer();
+        } else {
+          arg.UnregisterPMRBuffer(); // also changes the buffer state
+        }
+      }
     }
 
     decltype(auto) ExportArg() { return arg; }

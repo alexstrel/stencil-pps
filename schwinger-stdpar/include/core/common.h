@@ -55,7 +55,7 @@ template <typename T> constexpr bool is_container_type_v = is_container_type<T>:
 template <typename T>
 concept GenericContainerTp = is_container_type_v<T>; 
 
-// More specific container type (memory-owner containers, i.e., excl. container adapters):
+// More specific container type (allocator aware containers, e.g., std::vector etc.):
 //
 template <typename T, typename = std::void_t<>> class is_allocated_type : public std::false_type { };
 
