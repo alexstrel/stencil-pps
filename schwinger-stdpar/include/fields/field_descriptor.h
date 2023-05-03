@@ -10,7 +10,7 @@
 
 #include <fields/field_concepts.h>
 #include <core/enums.h>
-#include <memory.h>
+#include <core/memory.h>
 
 
 template<std::size_t nD, std::size_t nS, std::size_t nC>
@@ -123,16 +123,17 @@ class FieldDescriptor {
     template<ArithmeticTp T>
     void RegisterPMRBuffer(const std::size_t n = 1) {  
       // 
-      const std::size_t bytes = GetFieldSize()*sizeof(T)*n;
+      const std::size_t nbytes = GetFieldSize()*sizeof(T)*n;
       //
-      bool is_reserved = (n > 1);  
+      const bool is_reserved = (n > 1); 
       //
-      auto new_pmr_buffer = pool::pmr_malloc<is_exclusive>(nbytes, is_reserved);
-      
-      if (pmr_buffer->State() == PMRState::Locked) {
-      }    
+      if (pmr_buffer != nullptr) pmr_buffer.reset(); 
       //
-      pmr_buffer.reset(new_pmr_buffer);
+      if ( is_exclusive ) {
+        pmr_buffer = pmr_pool::pmr_malloc<true>(nbytes, is_reserved);
+      } else {
+        pmr_buffer = pmr_pool::pmr_malloc<false>(nbytes, is_reserved);      
+      }
     }    
 
     void UnregisterPMRBuffer() {
@@ -147,10 +148,11 @@ class FieldDescriptor {
     void ResetPMRBuffer() {
       //
       if(pmr_buffer != nullptr) { 
-        pmr_buffer.reset(nullptr); 
+        pmr_buffer.reset(); 
       }
     }     
     
+    template<ArithmeticTp T>    
     bool IsReservedPMR(const std::size_t n = 1) const {
       //
       const std::size_t nbytes = GetFieldSize()*sizeof(T)*n;    

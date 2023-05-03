@@ -4,7 +4,7 @@
 
 //#include <dslash_test.h>
 //
-using Float   = double;
+using Float   = float;
 //
 //using vector_tp = std::vector<std::complex<Float>>;
 
@@ -96,7 +96,9 @@ int main(int argc, char **argv)
 
   using vector_tp = std::vector<std::complex<Float>>;
 
-  const auto sargs = SpinorFieldArgs<nSpin>{{X, T}, {0, 0, 0, 0}};
+  auto sargs = SpinorFieldArgs<nSpin>{{X, T}, {0, 0, 0, 0}};
+  
+  sargs.SetExclusive();
   //
   auto src_spinor = create_field<vector_tp, decltype(sargs)>(sargs);  
 
@@ -112,25 +114,31 @@ int main(int argc, char **argv)
   //
   print_range(pmr_src_spinor, 4);
   //
+
   using pmr_vector_lp_tp = std::pmr::vector<std::complex<float>>;
 
-  std::cout << "Exported PMR spinor..." << std::endl;
+  std::cout << "New PMR spinor..." << std::endl;
 
   constexpr bool destroy_src = false;
+  
+  src_spinor.destroy();
 
-  auto next_pmr_spinor = export_pmr_field<decltype(pmr_src_spinor), pmr_vector_lp_tp>(pmr_src_spinor, destroy_src);  
+  auto next_pmr_spinor = create_field_with_buffer<pmr_vector_tp, decltype(sargs)>(sargs);  
   next_pmr_spinor.show();
 
   print_range(next_pmr_spinor, 4);
 
-  std::cout << "NOW they share same buffer!" << std::endl;
+  std::cout << "Next PMR buffer!" << std::endl;
+  
+  auto next_to_next_pmr_spinor = create_field_with_buffer<pmr_vector_tp, decltype(sargs)>(sargs);  
+  next_to_next_pmr_spinor.show();  
 
   //pmr_src_spinor.destroy();
   //
-  pmr_src_spinor.show();
+  //pmr_src_spinor.show();
   //
-  print_range(pmr_src_spinor, 4);
-
+  print_range(next_to_next_pmr_spinor, 4);
+#if 0
   std::cout << "Create Regular Block spinor" << std::endl;
   //
   using spinor_t = Field<vector_tp,  decltype(sargs)>;
@@ -196,6 +204,6 @@ int main(int argc, char **argv)
     std::cout << "Number of sites = " << X << " x " << T << "." << std::endl;
     std::cout << std::flush;
   }
-
+#endif
   return 0;
 }

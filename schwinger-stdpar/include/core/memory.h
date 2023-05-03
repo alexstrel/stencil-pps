@@ -1,7 +1,12 @@
 #pragma once
-#include <common.h>
+
+#include <vector>
+#include <map>
 #include <memory>
 #include <memory_resource>
+#include <ranges>
+
+#include <core/common.h>
 
 constexpr std::size_t alignment_req = std::alignment_of_v<long double>;
 
@@ -70,14 +75,14 @@ class PMRBuffer{
     //
     auto Pool()  const { return pmr_pool;  } 
     
-    bool IsExclusive const { return is_exclusive; }           
+    bool IsExclusive() const { return is_exclusive; }           
     
     void SetState(PMRState state) { 
       if ((pmr_state == PMRState::Vacant) and ( state == PMRState::Locked or state == PMRState::Reserved)) is_exclusive = true;
       pmr_state = state; 
     }
     
-    void ResetPool() const {  pmr_pool->reset(); } 
+    void ResetPool() const {  pmr_pool->release(); } 
     
     bool IsReserved(const std::size_t nbytes) const {  
       if (pmr_ptr != nullptr ) {
@@ -85,7 +90,7 @@ class PMRBuffer{
           return false;
         }
         //
-        return (nbytes <= base_bytes);
+        return (nbytes <= pmr_base_bytes);
       } 
       //
       return false;
@@ -99,16 +104,16 @@ class PMRBuffer{
         if (pmr_state == PMRState::Locked) pmr_state = PMRState::NonVacant;
         else                               pmr_state = PMRState::Vacant;
       }
-      pmr_pool->reset();
+      pmr_pool->release();
       //      
       is_exclusive = false;
     }
                
-    void Destroy()   const {  
-      pmr_pool.reset(nullptr);
+    void Destroy() {  
+      pmr_pool.reset();
       pmr_base_bytes = 0;
       pmr_bytes      = 0;      
-      pmr_ptr.reset(nullptr);
+      pmr_ptr.reset();
       //
       pmr_state = PMRState::InvalidState;
     } 
@@ -145,7 +150,7 @@ namespace pmr_pool
   template<bool is_exclusive = true>
   decltype(auto) pmr_malloc(const std::size_t nbytes, const bool is_reserved = false) {
   
-    PRMState final_buffer_state = is_reserved ? PMRState::Reserved : (is_exclusive ? PMRState::Locked : PMRState::NonVacant);    
+    PMRState final_buffer_state = is_reserved ? PMRState::Reserved : (is_exclusive ? PMRState::Locked : PMRState::NonVacant);    
      
     if( pmr_memory_pool == false ) { 
       pmrBuffers.reserve(max_n_buffers);
@@ -159,7 +164,7 @@ namespace pmr_pool
           
       if ( buffer_range.first != pmrCachedBuffers.end() ) {//...and threre is one (not locked or reserved) with sufficient size
         //
-        auto subrange_view = std::range::subrange(buffer_range.first, buffer_range.second);
+        auto subrange_view = std::ranges::subrange(buffer_range.first, buffer_range.second);
 	  
         for(auto& [bytes, pmr_buffer] : subrange_view) {
 	  if ( ((pmr_buffer->State() == PMRState::Vacant) or (pmr_buffer->State() == PMRState::NonVacant and not is_exclusive)) and (pmr_buffer->State() != PMRState::Reserved) ) {
@@ -213,7 +218,7 @@ namespace pmr_pool
         auto &cached_pmr_buffer = range_it->second;
         if ( cached_pmr_buffer->IsEquel(pmr_buffer) ) {
           //
-          pmrAllocatedBuffers.erase(range_it);                    
+          pmrCachedBuffers.erase(range_it);                    
           //
           break;
         }
@@ -235,7 +240,7 @@ namespace pmr_pool
       for(auto &pmr_buffer : pmrBuffers) { 
         pmr_buffer->Destroy();  
         //        
-        pmr_buffer.reset(nullptr);
+        pmr_buffer.reset();
       }
       //
       pmrBuffers.resize(0);

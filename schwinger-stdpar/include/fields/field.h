@@ -51,7 +51,7 @@ decltype(auto) create_field_with_buffer(const Arg &arg_, const bool use_reserved
   } else {
   // use reserved, e.g., by a block field constructor, 
   // arg must have a valid pmr_buffer with PMRStatus::Reserved
-    if ( not arg.IsReservedPMR() ) {
+    if ( not arg.template IsReservedPMR<data_tp>() ) {
       std::cerr << "Incorrect PMR buffer state, check reservation." << std::endl;
       exit(-1);    
     }
@@ -81,9 +81,7 @@ class Field{
     const Arg arg;//copy of the arguments
 
     Field(const Arg &arg) : v(arg.GetFieldSize()),
-                            arg(arg){
-      if( arg.IsPMRAllocated() )  std::cout << "Warning: argument structure contains non-trivial pmr buffer, which will be ignored.\n" << std::endl;                          
-    }
+                            arg(arg){ }
     // 
     template <PMRContainerTp T = container_tp>
     explicit Field(std::pmr::monotonic_buffer_resource &pmr_pool, const Arg &arg) : v(arg.GetFieldSize(), &pmr_pool), arg(arg) { }
@@ -126,7 +124,7 @@ class Field{
       v.resize(0ul);
       ghost.resize(0ul); 
       //
-      if constexpr ( std::is_same_v< typename T::allocator_type,  std::pmr::polymorphic_allocator<typename T::value_type> > ) {
+      if constexpr ( std::is_same_v< typename container_tp::allocator_type,  std::pmr::polymorphic_allocator<data_tp> > ) {
         if (reset_pmr_buffer) {
           arg.ResetPMRBuffer();
         } else {
