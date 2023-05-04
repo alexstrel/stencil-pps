@@ -46,7 +46,7 @@ decltype(auto) create_field_with_buffer(const Arg &arg_, const bool use_reserved
   auto arg = Arg{arg_};
 
   if ( not use_reserved) {// if not use a reserved buffer, register new one
-    arg.template RegisterPMRBuffer<data_tp>(use_reserved);
+    arg.template RegisterPMRBuffer<data_tp>();
   } else {
   // use reserved, e.g., by a block field constructor, 
   // arg must have a valid pmr_buffer with PMRStatus::Reserved
@@ -54,6 +54,7 @@ decltype(auto) create_field_with_buffer(const Arg &arg_, const bool use_reserved
       std::cerr << "Incorrect PMR buffer state, check reservation." << std::endl;
       exit(-1);    
     }
+    arg.SetReserved();
   }
 
   auto& pmr_pool_handle = *arg.pmr_buffer->Pool();

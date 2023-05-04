@@ -160,16 +160,16 @@ class FieldDescriptor {
     void ReleasePMRBuffer() const { if(pmr_buffer != nullptr and not is_reserved) pmr_buffer->Release(); }     
     
     template<ArithmeticTp T>    
-    bool IsReservedPMR(const std::size_t n = 1) const {
+    bool IsReservedPMR() const {
       //
-      const std::size_t nbytes = GetFieldSize()*sizeof(T)*n;    
+      const std::size_t nbytes = GetFieldSize()*sizeof(T);    
       //
       return pmr_buffer->IsReserved(nbytes);
     } 
     
-    void SetExclusive() { is_exclusive = true; }    
+    void SetExclusive()   { is_exclusive = true; }    
 
-    void SetReservation() { is_reserved = true; }
+    void SetReserved()    { is_reserved = true; }
 
     bool IsExclusive() const { return is_exclusive; }
 
