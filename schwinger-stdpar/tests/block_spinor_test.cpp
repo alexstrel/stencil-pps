@@ -47,6 +47,22 @@ void print_range(field_tp &field, const int range){
    std::for_each(field.Data().begin(), field.Data().begin()+range, print);
 }
 
+template<GenericSpinorFieldTp field_tp>
+void print_range_v2(field_tp &field, const int range){
+   std::cout << "Print components for field : " << field.Data().data() << " ::: " << field.GetLength() << std::endl;
+
+   auto print = [](const auto& e) { std::cout << "Element " << e <<  "\t address " << &e << std::endl; };
+ 
+   if(range > field.GetLength()) {
+     std::cout << "WARNING: print range exceeds field length, nop." << std::endl;
+     return;
+   }
+
+   std::for_each(field.Data().begin(), field.Data().begin()+range, print);
+   
+   print(field.Data().back());
+}
+
 template<int N, bool to_eo = true>
 void convert_field(auto &dst_field, auto &src_field){
    const auto [Nx, Ny] = src_field.GetDims();
@@ -81,6 +97,12 @@ void convert_field(auto &dst_field, auto &src_field){
 
 #include <memory.h>
 
+void Destroy(auto &spinor) {
+
+  std::cout << "Destroy spinor: " << spinor.Get() << std::endl;
+  spinor.destroy();
+}
+
 //--------------------------------------------------------------------------------
 int main(int argc, char **argv)
 {
@@ -104,7 +126,7 @@ int main(int argc, char **argv)
   
   std::cout << "Create PMR spinor" << std::endl;
   //
-  sargs.SetExclusive();
+  sargs.SetShared();
   //
   auto pmr_src_spinor = create_field_with_buffer<pmr_vector_tp, decltype(sargs)>(sargs);
   //
@@ -112,9 +134,9 @@ int main(int argc, char **argv)
   //
   init_spinor(pmr_src_spinor);
   //
-  print_range(pmr_src_spinor, 4);
+  print_range_v2(pmr_src_spinor, 4);
   //
-  pmr_src_spinor.destroy();
+  Destroy(pmr_src_spinor);
 
   using pmr_vector_lp_tp = std::pmr::vector<std::complex<float>>;
 
@@ -126,9 +148,9 @@ int main(int argc, char **argv)
   //  
   next_pmr_spinor.show();
 
-  print_range(next_pmr_spinor, 4);
+  print_range_v2(next_pmr_spinor, 4);
 
-  next_pmr_spinor.destroy();
+  //Destroy(next_pmr_spinor);
 
   std::cout << "Next to next PMR buffer!" << std::endl;
   
@@ -136,7 +158,7 @@ int main(int argc, char **argv)
 
   next_to_next_pmr_spinor.show();  
   //
-  print_range(next_to_next_pmr_spinor, 4);
+  print_range_v2(next_to_next_pmr_spinor, 4);
 
   std::cout << "Next to next to next PMR buffer!" << std::endl;
 
@@ -144,7 +166,7 @@ int main(int argc, char **argv)
 
   next_to_next_to_next_pmr_spinor.show();
   //
-  print_range(next_to_next_to_next_pmr_spinor, 4);
+  print_range_v2(next_to_next_to_next_pmr_spinor, 4);
 
 #if 0
   std::cout << "Create Regular Block spinor" << std::endl;

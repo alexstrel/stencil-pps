@@ -56,6 +56,8 @@ decltype(auto) create_field_with_buffer(const Arg &arg_, const bool use_reserved
     }
     arg.SetReserved();
   }
+  
+  if ( not arg.IsExclusive() ) std::cout << "Warning: creating non-exclusive PMR field." << std::endl;
 
   auto& pmr_pool_handle = *arg.pmr_buffer->Pool();
 
@@ -133,6 +135,9 @@ class Field{
 
     //Return a reference to the data container
     auto& Data( ) { return v; }
+    
+    //Return the data raw ptr
+    auto Get( ) const { return v.data(); }    
 
     //Return a reference to the object (data access via std::span )
     decltype(auto) View() {

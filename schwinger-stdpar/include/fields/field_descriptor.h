@@ -59,7 +59,7 @@ class FieldDescriptor {
 	            const FieldOrder order         = FieldOrder::LexFieldOrder,
 	            const FieldSiteSubset subset   = FieldSiteSubset::FullSiteSubset,  
 	            const FieldParity parity       = FieldParity::InvalidFieldParity,
-	            const bool is_exclusive        = false) : 
+	            const bool is_exclusive        = true) : 
 	            dir{dir},
                     comm_dir{comm_dir},
 	            order(order),
@@ -69,15 +69,15 @@ class FieldDescriptor {
                     is_exclusive(is_exclusive),
                     is_reserved(false)  {} 
 
-    FieldDescriptor(const FieldDescriptor &args, const FieldSiteSubset subset,  const FieldParity parity, const bool is_exclusive = false) : 
+    FieldDescriptor(const FieldDescriptor &args, const FieldSiteSubset subset,  const FieldParity parity) : 
 	            dir{subset == FieldSiteSubset::ParitySiteSubset && args.subset == FieldSiteSubset::FullSiteSubset ? args.dir[0] / 2 : args.dir[0], args.dir[1]},
 	            comm_dir{args.dir[1], subset == FieldSiteSubset::ParitySiteSubset && args.subset == FieldSiteSubset::FullSiteSubset ? args.dir[0] / 2 : args.dir[0]},
 	            order(args.order),
 	            subset(subset),
 	            parity(parity),
                     pmr_buffer(nullptr),
-                    is_exclusive(is_exclusive),
-                    is_reserved(false)  {} 
+                    is_exclusive(args.IsExclusive()),
+                    is_reserved(args.IsReserved())  {} 
 
     //Use it for block fields only:
     FieldDescriptor(const FieldDescriptor &args, 
@@ -168,6 +168,7 @@ class FieldDescriptor {
     } 
     
     void SetExclusive()   { is_exclusive = true; }    
+    void SetShared()      { is_exclusive = false; }        
 
     void SetReserved()    { is_reserved = true; }
 
