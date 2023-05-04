@@ -47,6 +47,8 @@ class FieldDescriptor {
     std::shared_ptr<PMRBuffer> pmr_buffer;
     //
     bool is_exclusive;    
+    //
+    bool is_reserved;
 
     FieldDescriptor()                        = default;
     FieldDescriptor(const FieldDescriptor& ) = default;
@@ -64,7 +66,8 @@ class FieldDescriptor {
 	            subset(subset),
 	            parity(parity), 
                     pmr_buffer(nullptr),
-                    is_exclusive(is_exclusive)  {} 
+                    is_exclusive(is_exclusive),
+                    is_reserved(false)  {} 
 
     FieldDescriptor(const FieldDescriptor &args, const FieldSiteSubset subset,  const FieldParity parity, const bool is_exclusive = false) : 
 	            dir{subset == FieldSiteSubset::ParitySiteSubset && args.subset == FieldSiteSubset::FullSiteSubset ? args.dir[0] / 2 : args.dir[0], args.dir[1]},
@@ -73,7 +76,8 @@ class FieldDescriptor {
 	            subset(subset),
 	            parity(parity),
                     pmr_buffer(nullptr),
-                    is_exclusive(is_exclusive)  {} 
+                    is_exclusive(is_exclusive),
+                    is_reserved(false)  {} 
 
     //Use it for block fields only:
     FieldDescriptor(const FieldDescriptor &args, 
@@ -84,7 +88,8 @@ class FieldDescriptor {
                     subset(args.subset),
                     parity(args.parity),
                     pmr_buffer(extern_pmr_buffer),
-                    is_exclusive(extern_pmr_buffer->IsExclusive())  {}
+                    is_exclusive(extern_pmr_buffer->IsExclusive()),
+                    is_reserved(extern_pmr_buffer->IsReserved())  {}
        
 
     decltype(auto) GetFieldSize() const {
@@ -121,11 +126,9 @@ class FieldDescriptor {
     }
     
     template<ArithmeticTp T>
-    void RegisterPMRBuffer(const std::size_t n = 1) {  
+    void RegisterPMRBuffer(const bool is_reserved = false) {  
       // 
-      const std::size_t nbytes = GetFieldSize()*sizeof(T)*n;
-      //
-      const bool is_reserved = (n > 1); 
+      const std::size_t nbytes = GetFieldSize()*sizeof(T);
       //
       if (pmr_buffer != nullptr) pmr_buffer.reset(); 
       //
@@ -134,6 +137,8 @@ class FieldDescriptor {
       } else {
         pmr_buffer = pmr_pool::pmr_malloc<false>(nbytes, is_reserved);      
       }
+
+      this->is_reserved = is_reserved;
     }    
 
     void UnregisterPMRBuffer() {
@@ -141,7 +146,7 @@ class FieldDescriptor {
       if(pmr_buffer != nullptr) { 
         pmr_buffer->Release();
         //
-        pmr_buffer.reset(nullptr); 
+        pmr_buffer.reset(); 
       }
     }
     
@@ -150,7 +155,9 @@ class FieldDescriptor {
       if(pmr_buffer != nullptr) { 
         pmr_buffer.reset(); 
       }
-    }     
+    }
+
+    void ReleasePMRBuffer() const { if(pmr_buffer != nullptr and not is_reserved) pmr_buffer->Release(); }     
     
     template<ArithmeticTp T>    
     bool IsReservedPMR(const std::size_t n = 1) const {
@@ -161,6 +168,20 @@ class FieldDescriptor {
     } 
     
     void SetExclusive() { is_exclusive = true; }    
+
+    void SetReservation() { is_reserved = true; }
+
+    bool IsExclusive() const { return is_exclusive; }
+
+    bool IsReserved()  const { return is_reserved; }
+
+    auto GetState() const { 
+      if (pmr_buffer != nullptr) {
+        return pmr_buffer->State(); 
+      }
+
+      return PMRState::InvalidState;
+    } 
 
     auto operator=(const FieldDescriptor&) -> FieldDescriptor& = default;
     auto operator=(FieldDescriptor&&     ) -> FieldDescriptor& = default;

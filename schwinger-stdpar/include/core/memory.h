@@ -159,7 +159,6 @@ namespace pmr_pool
     }
         
     if ( not pmrCachedBuffers.empty() ) {//if buffer is not empty... 
-
       auto buffer_range = pmrCachedBuffers.equal_range(nbytes);      
           
       if ( buffer_range.first != pmrCachedBuffers.end() ) {//...and threre is one (not locked or reserved) with sufficient size
@@ -183,7 +182,6 @@ namespace pmr_pool
       }
     }
     //
-    //auto pmr_buffer = PMRBuffer{nbytes, buffer_state};
     pmrBuffers.emplace_back(std::make_shared<PMRBuffer>(nbytes, final_buffer_state));
     //
     auto pmr_buffer = pmrBuffers.back();
@@ -191,7 +189,7 @@ namespace pmr_pool
     pmrCachedBuffers.insert(std::make_pair(nbytes, pmr_buffer));	
     //
     pmrAllocatedBuffers.insert(std::make_pair(pmr_buffer->Get(), pmr_buffer));
-        
+
     return pmr_buffer;
   }    
 

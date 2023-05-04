@@ -55,11 +55,13 @@ class BlockSpinor{
     BlockSpinor(const SpinorArg &args_, const std::size_t n) : args(args_) {
       using data_tp = container_tp::value_type;
 
+      constexpr bool is_reserved = true;
+
       v.reserve(n);
       w.reserve(n);
 
       for(int i = 0; i < n; i++) {
-        v.push_back(create_field_with_buffer<container_tp, SpinorArg>(args));
+        v.push_back(create_field_with_buffer<container_tp, SpinorArg>(args, is_reserved));
         //
         w.push_back(v[i].View());
       }
@@ -76,9 +78,8 @@ class BlockSpinor{
     auto Size() const { return v.size(); } 
 
     void destroy() {
-      constexpr bool reset_pmr_buffer = true;
       
-      for(auto &spinor : v) spinor.destroy(reset_pmr_buffer);
+      for(auto &spinor : v) spinor.destroy();
       
       args.UnregisterPMRBuffer();
     }

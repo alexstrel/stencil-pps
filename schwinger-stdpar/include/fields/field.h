@@ -41,13 +41,12 @@ decltype(auto) create_field(field_tp &src) {
 
 template <PMRContainerTp pmr_container_tp, typename Arg>
 decltype(auto) create_field_with_buffer(const Arg &arg_, const bool use_reserved = false) {
-
   using data_tp = pmr_container_tp::value_type;
-  
+
   auto arg = Arg{arg_};
 
   if ( not use_reserved) {// if not use a reserved buffer, register new one
-    arg.template RegisterPMRBuffer<data_tp>();
+    arg.template RegisterPMRBuffer<data_tp>(use_reserved);
   } else {
   // use reserved, e.g., by a block field constructor, 
   // arg must have a valid pmr_buffer with PMRStatus::Reserved
@@ -118,18 +117,14 @@ class Field{
       printf("PMR buffer pointer: %p, PMR buffer use count %d\n", this->arg.pmr_buffer.get(), this->arg.pmr_buffer.use_count());
     }
     
-    void destroy(const bool reset_pmr_buffer = false) {
+    void destroy() {
       static_assert(is_allocated_type_v<container_tp>, "Cannot resize a non-owner field!");
 
       v.resize(0ul);
       ghost.resize(0ul); 
       //
       if constexpr ( std::is_same_v< typename container_tp::allocator_type,  std::pmr::polymorphic_allocator<data_tp> > ) {
-        if (reset_pmr_buffer) {
-          arg.ResetPMRBuffer();
-        } else {
-          arg.UnregisterPMRBuffer(); // also changes the buffer state
-        }
+        arg.ReleasePMRBuffer();
       }
     }
 

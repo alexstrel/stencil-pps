@@ -97,14 +97,14 @@ int main(int argc, char **argv)
   using vector_tp = std::vector<std::complex<Float>>;
 
   auto sargs = SpinorFieldArgs<nSpin>{{X, T}, {0, 0, 0, 0}};
-  
-  sargs.SetExclusive();
   //
   auto src_spinor = create_field<vector_tp, decltype(sargs)>(sargs);  
 
   using pmr_vector_tp = std::pmr::vector<std::complex<Float>>;
   
   std::cout << "Create PMR spinor" << std::endl;
+  //
+  sargs.SetExclusive();
   //
   auto pmr_src_spinor = create_field_with_buffer<pmr_vector_tp, decltype(sargs)>(sargs);
   //
@@ -114,30 +114,38 @@ int main(int argc, char **argv)
   //
   print_range(pmr_src_spinor, 4);
   //
+  pmr_src_spinor.destroy();
 
   using pmr_vector_lp_tp = std::pmr::vector<std::complex<float>>;
 
   std::cout << "New PMR spinor..." << std::endl;
 
   constexpr bool destroy_src = false;
-  
-  src_spinor.destroy();
 
-  auto next_pmr_spinor = create_field_with_buffer<pmr_vector_tp, decltype(sargs)>(sargs);  
+  auto next_pmr_spinor = create_field_with_buffer<pmr_vector_tp, decltype(sargs)>(sargs);
+  //  
   next_pmr_spinor.show();
 
   print_range(next_pmr_spinor, 4);
 
-  std::cout << "Next PMR buffer!" << std::endl;
+  next_pmr_spinor.destroy();
+
+  std::cout << "Next to next PMR buffer!" << std::endl;
   
   auto next_to_next_pmr_spinor = create_field_with_buffer<pmr_vector_tp, decltype(sargs)>(sargs);  
-  next_to_next_pmr_spinor.show();  
 
-  //pmr_src_spinor.destroy();
-  //
-  //pmr_src_spinor.show();
+  next_to_next_pmr_spinor.show();  
   //
   print_range(next_to_next_pmr_spinor, 4);
+
+  std::cout << "Next to next to next PMR buffer!" << std::endl;
+
+  auto next_to_next_to_next_pmr_spinor = create_field_with_buffer<pmr_vector_tp, decltype(sargs)>(sargs);
+
+  next_to_next_to_next_pmr_spinor.show();
+  //
+  print_range(next_to_next_to_next_pmr_spinor, 4);
+
 #if 0
   std::cout << "Create Regular Block spinor" << std::endl;
   //
