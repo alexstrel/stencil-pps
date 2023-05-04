@@ -184,6 +184,10 @@ class FieldDescriptor {
       return PMRState::InvalidState;
     } 
 
+    auto SetState(PMRState state) { 
+      if (pmr_buffer != nullptr) { pmr_buffer->SetState(state); }
+    }
+
     auto operator=(const FieldDescriptor&) -> FieldDescriptor& = default;
     auto operator=(FieldDescriptor&&     ) -> FieldDescriptor& = default;
 };

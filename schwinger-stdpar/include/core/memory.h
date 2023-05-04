@@ -94,7 +94,10 @@ class PMRBuffer{
       } 
       //
       return false;
-    }    
+    } 
+    
+    // Simply return the state:
+    bool IsReserved() const { return (pmr_state == PMRState::Reserved);}   
     
     void Release() {
       if (is_exclusive) {

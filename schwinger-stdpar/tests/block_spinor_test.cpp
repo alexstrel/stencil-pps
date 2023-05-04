@@ -168,50 +168,50 @@ int main(int argc, char **argv)
   //
   print_range_v2(next_to_next_to_next_pmr_spinor, 4);
 
-#if 0
   std::cout << "Create Regular Block spinor" << std::endl;
   //
   using spinor_t = Field<vector_tp,  decltype(sargs)>;
   //
-  auto block_src_spinor = create_block_spinor< spinor_t, decltype(sargs)>(sargs, N);
+  auto block_src_spinor = create_block_spinor<spinor_t, decltype(sargs)>(sargs, N);
   //
   block_src_spinor[0].show();
   //
   for(int i = 0; i < block_src_spinor.Size(); i++) {
     init_spinor(block_src_spinor[i]);
-    print_range(block_src_spinor[i], 4);
+    print_range_v2(block_src_spinor[i], 2);
     //
     block_src_spinor[i].show();
   }
 
   std::cout << "Create PMR Block spinor" << std::endl;
   //
+  constexpr bool use_pmr_buffer = true;
+  
   using pmr_spinor_t = Field<pmr_vector_tp,  decltype(sargs)>;
 
-  auto pmr_block_src_spinor = create_block_spinor< pmr_spinor_t, decltype(sargs), true>(sargs, N);
+  auto pmr_block_src_spinor = create_block_spinor< pmr_spinor_t, decltype(sargs), use_pmr_buffer>(sargs, N);
   //
   pmr_block_src_spinor[0].show();
 
   for(int i = 0; i < pmr_block_src_spinor.Size(); i++) {
     init_spinor(pmr_block_src_spinor[i]);
-    print_range(pmr_block_src_spinor[i], 4);
+    print_range_v2(pmr_block_src_spinor[i], 2);
     //
     pmr_block_src_spinor[i].show();
   }
 
-  print_range(pmr_block_src_spinor[0], 4);
+  print_range_v2(pmr_block_src_spinor[0], 4);
 
   using arg_tp = typename std::remove_cvref_t<decltype(pmr_block_src_spinor.ExportArg())>;
 
-  auto next_pmr_block_src_spinor = export_pmr_block_spinor< decltype(pmr_block_src_spinor) >(pmr_block_src_spinor, N);
-
-//  auto new_pmr_block_spinor = create_block_spinor_with_buffer< pmr_spinor_t, decltype(pmr_sargs) >(pmr_sargs, N);
+  auto next_pmr_block_src_spinor = create_block_spinor< pmr_spinor_t, decltype(sargs), use_pmr_buffer>(sargs, N);
+;
 {
   std::cout << "NEW block field data:: " << std::endl;
   next_pmr_block_src_spinor[0].show();
 
   for(int i = 0; i < next_pmr_block_src_spinor.Size(); i++) {
-    print_range(next_pmr_block_src_spinor[i], 4);
+    print_range_v2(next_pmr_block_src_spinor[i], 2);
     //
     next_pmr_block_src_spinor[i].show();
   }
@@ -221,19 +221,12 @@ int main(int argc, char **argv)
 
   std::cout << "Now check block field data:: " << std::endl;
   for(int i = 0; i < pmr_block_src_spinor.Size(); i++) {
-    print_range(pmr_block_src_spinor[i], 4);
+    print_range_v2(pmr_block_src_spinor[i], 2);
     //
     pmr_block_src_spinor[i].show();
   }
     //
 
-  // initialize the data
-  bool verbose = true;
-  
-  if (verbose > 0) {
-    std::cout << "Number of sites = " << X << " x " << T << "." << std::endl;
-    std::cout << std::flush;
-  }
-#endif
+
   return 0;
 }

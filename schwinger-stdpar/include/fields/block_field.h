@@ -15,7 +15,7 @@ decltype(auto) create_block_spinor(const Arg &arg_, const std::size_t n) {//offs
 
     const bool reserved = true;
     
-    auto pmr_buffer = pool::pmr_malloc<is_exclusive>(pmr_bytes, reserved);
+    auto pmr_buffer = pmr_pool::pmr_malloc<is_exclusive>(pmr_bytes, reserved);
     //
     auto pmr_arg = Arg{arg_, pmr_buffer};
     //
@@ -38,7 +38,7 @@ class BlockSpinor{
     std::vector<spinor_t> v;
     std::vector<spinor_view_t> w;
 
-    const SpinorArg args;
+    SpinorArg args;
 
     template<SpinorFieldTp T = spinor_t>
     BlockSpinor(const SpinorArg &args, const std::size_t n) : args(args) {
