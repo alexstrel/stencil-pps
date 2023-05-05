@@ -66,7 +66,7 @@ class BlockSpinor{
         w.push_back(v[i].View());
       }
       //
-      args.SetState(PMRState::Locked);//now locked
+      args.UpdatedReservedPMR();//now locked
     }
 
     auto View() { return std::span{w}; }

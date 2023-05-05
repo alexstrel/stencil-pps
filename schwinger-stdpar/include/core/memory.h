@@ -97,14 +97,18 @@ class PMRBuffer{
     } 
     
     // Simply return the state:
-    bool IsReserved() const { return (pmr_state == PMRState::Reserved);}   
+    bool IsReserved() const { return ((pmr_state == PMRState::Reserved) or (pmr_state == PMRState::ReservedShared));}
+    
+    void UpdateReservedState() {  if      (pmr_state == PMRState::Reserved)        pmr_state = PMRState::Locked;
+                                  else if (pmr_state == PMRState::ReservedShared)  pmr_state = PMRState::Shared;
+                                  else                                             pmr_state = PMRState::InvalidState; }       
     
     void Release() {
       if (is_exclusive) {
         pmr_state = PMRState::Vacant;
         //
       } else {
-        if (pmr_state == PMRState::Locked) pmr_state = PMRState::NonVacant;
+        if (pmr_state == PMRState::Locked) pmr_state = PMRState::Shared;
         else                               pmr_state = PMRState::Vacant;
       }
       pmr_pool->release();
@@ -153,7 +157,9 @@ namespace pmr_pool
   template<bool is_exclusive = true>
   decltype(auto) pmr_malloc(const std::size_t nbytes, const bool is_reserved = false) {
   
-    PMRState final_buffer_state = is_reserved ? PMRState::Reserved : (is_exclusive ? PMRState::Locked : PMRState::NonVacant);    
+    PMRState final_buffer_state = is_reserved ? (is_exclusive ? PMRState::Reserved : PMRState::ReservedShared) 
+                                              : (is_exclusive ? PMRState::Locked   : PMRState::Shared        ); 
+    //PMRState final_buffer_state = is_reserved ? PMRState::Reserved : (is_exclusive ? PMRState::Locked : PMRState::Shared);       
      
     if( pmr_memory_pool == false ) { 
       pmrBuffers.reserve(max_n_buffers);
@@ -169,13 +175,14 @@ namespace pmr_pool
         auto subrange_view = std::ranges::subrange(buffer_range.first, buffer_range.second);
 	  
         for(auto& [bytes, pmr_buffer] : subrange_view) {
-	  if ( ((pmr_buffer->State() == PMRState::Vacant) or (pmr_buffer->State() == PMRState::NonVacant and not is_exclusive)) and (pmr_buffer->State() != PMRState::Reserved) ) {
+	  if ( ((pmr_buffer->State() == PMRState::Vacant) or (pmr_buffer->State() == PMRState::Shared and not is_exclusive)) and (pmr_buffer->State() != PMRState::Reserved and pmr_buffer->State() != PMRState::ReservedShared) ) {
 	    //
-            if ( pmr_buffer->State() == PMRState::NonVacant ) { //this is a shared buffer
+            if ( pmr_buffer->State() == PMRState::Shared ) { //this is a shared buffer
               pmr_buffer->ResetPool(); 
               // we locked buffer if it's not reserved:
               if (not is_reserved) final_buffer_state = PMRState::Locked; 
-            }
+              else                 final_buffer_state = PMRState::Reserved;
+            } //else initial state is vacant
 	    //
 	    pmr_buffer->SetState( final_buffer_state );
 	    //	    

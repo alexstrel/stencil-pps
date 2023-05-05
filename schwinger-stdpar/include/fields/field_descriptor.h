@@ -187,6 +187,8 @@ class FieldDescriptor {
     auto SetState(PMRState state) { 
       if (pmr_buffer != nullptr) { pmr_buffer->SetState(state); }
     }
+    
+    void UpdatedReservedPMR() { pmr_buffer->UpdateReservedState(); }
 
     auto operator=(const FieldDescriptor&) -> FieldDescriptor& = default;
     auto operator=(FieldDescriptor&&     ) -> FieldDescriptor& = default;
