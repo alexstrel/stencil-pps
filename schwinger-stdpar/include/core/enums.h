@@ -3,10 +3,11 @@
 #include <core/common.h>
 
 enum class PMRState {
-  Vacant         = 0,  
-  NonVacant      = 1,  
-  Reserved       = 2,    
-  Locked         = 3,      
+  Vacant         =  0,  
+  Shared         =  1, 
+  ReservedShared =  2,   
+  Reserved       =  3,    
+  Locked         = -1,      
   InvalidState   = min_int  
 };
 
