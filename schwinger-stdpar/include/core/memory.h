@@ -86,7 +86,7 @@ class PMRBuffer{
     
     bool IsReserved(const std::size_t nbytes) const {  
       if (pmr_ptr != nullptr ) {
-        if (pmr_state != PMRState::Reserved) {
+        if (pmr_state != PMRState::Reserved and pmr_state != PMRState::ReservedShared) {
           return false;
         }
         //
@@ -135,6 +135,8 @@ static PMRBuffer default_pmr_buffer = PMRBuffer();
 */
 
 using PMRBufferRef = std::reference_wrapper<PMRBuffer>;
+using namespace std::ranges;
+using namespace std::views;
 
 namespace pmr_pool
 {
@@ -166,29 +168,40 @@ namespace pmr_pool
       //
       pmr_memory_pool = true;
     }
-        
+
+    // state filter :
+    auto select_pmr_buffer = [] (const auto &p) {
+      auto &pmrb = p.second;
+      return ( ((pmrb->State() == PMRState::Vacant) or (pmrb->State() == PMRState::Shared and not is_exclusive)) and (pmrb->State() != PMRState::Reserved and pmrb->State() != PMRState::ReservedShared) ); 
+    };   
+
+    // state transformation:
+    auto transform_pmr_buffer_state = [=, &is_reserved, &final_buffer_state] (auto &pmrb) mutable {
+      if ( pmrb->State() == PMRState::Shared ) { /*this is a shared buffer*/
+        pmrb->ResetPool();
+        /* we locked buffer if it's not reserved: */
+        if (not is_reserved) final_buffer_state = PMRState::Locked;
+        else                 final_buffer_state = PMRState::Reserved;
+      } /*else initial state is vacant*/
+
+      pmrb->SetState( final_buffer_state );
+    };
+   
     if ( not pmrCachedBuffers.empty() ) {//if buffer is not empty... 
       auto buffer_range = pmrCachedBuffers.equal_range(nbytes);      
           
       if ( buffer_range.first != pmrCachedBuffers.end() ) {//...and threre is one (not locked or reserved) with sufficient size
         //
-        auto subrange_view = std::ranges::subrange(buffer_range.first, buffer_range.second);
-	  
-        for(auto& [bytes, pmr_buffer] : subrange_view) {
-	  if ( ((pmr_buffer->State() == PMRState::Vacant) or (pmr_buffer->State() == PMRState::Shared and not is_exclusive)) and (pmr_buffer->State() != PMRState::Reserved and pmr_buffer->State() != PMRState::ReservedShared) ) {
-	    //
-            if ( pmr_buffer->State() == PMRState::Shared ) { //this is a shared buffer
-              pmr_buffer->ResetPool(); 
-              // we locked buffer if it's not reserved:
-              if (not is_reserved) final_buffer_state = PMRState::Locked; 
-              else                 final_buffer_state = PMRState::Reserved;
-            } //else initial state is vacant
-	    //
-	    pmr_buffer->SetState( final_buffer_state );
-	    //	    
-	    return pmr_buffer;
-	  } 
-        } 
+        auto selected_pmr_buffers = std::ranges::subrange(buffer_range.first, buffer_range.second) | std::views::filter(select_pmr_buffer);
+        if ( not selected_pmr_buffers.empty() ) {
+
+          auto p = *std::ranges::begin(selected_pmr_buffers);
+          auto& [bytes, pmr_buffer] = p;
+
+          transform_pmr_buffer_state(pmr_buffer);
+
+          return pmr_buffer;
+        }
       }
     }
     //
