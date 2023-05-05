@@ -135,8 +135,6 @@ static PMRBuffer default_pmr_buffer = PMRBuffer();
 */
 
 using PMRBufferRef = std::reference_wrapper<PMRBuffer>;
-using namespace std::ranges;
-using namespace std::views;
 
 namespace pmr_pool
 {
@@ -176,13 +174,13 @@ namespace pmr_pool
     };   
 
     // state transformation:
-    auto transform_pmr_buffer_state = [=, &is_reserved, &final_buffer_state] (auto &pmrb) mutable {
+    auto transform_pmr_buffer_state = [=, &is_reserved, &final_buffer_state] (const auto &pmrb) mutable {
       if ( pmrb->State() == PMRState::Shared ) { /*this is a shared buffer*/
         pmrb->ResetPool();
         /* we locked buffer if it's not reserved: */
         if (not is_reserved) final_buffer_state = PMRState::Locked;
         else                 final_buffer_state = PMRState::Reserved;
-      } /*else initial state is vacant*/
+      } /*otherwise an initial state was vacant*/
 
       pmrb->SetState( final_buffer_state );
     };
@@ -193,6 +191,7 @@ namespace pmr_pool
       if ( buffer_range.first != pmrCachedBuffers.end() ) {//...and threre is one (not locked or reserved) with sufficient size
         //
         auto selected_pmr_buffers = std::ranges::subrange(buffer_range.first, buffer_range.second) | std::views::filter(select_pmr_buffer);
+
         if ( not selected_pmr_buffers.empty() ) {
 
           auto p = *std::ranges::begin(selected_pmr_buffers);
