@@ -81,7 +81,7 @@ class BlockSpinor{
       
       for(auto &spinor : v) spinor.destroy();
       
-      args.UnregisterPMRBuffer();
+      args.ReleasePMRBuffer();
     }
 
     decltype(auto) ExportArg() { return args; }      
