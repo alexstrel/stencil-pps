@@ -17,12 +17,10 @@ decltype(auto) create_field(field_tp &src) {
   
   using src_data_tp      = field_tp::data_tp;  
   using dst_data_tp      = dst_container_tp::value_type;    
-  
-  using Arg              = field_tp::descriptor_tp;  
   //
-  auto arg  = Arg{src.ExportArg()};
+  auto arg = src.ExportArg();
   //
-  auto dst = Field<dst_container_tp, Arg>(arg);
+  auto dst = Field<dst_container_tp, decltype(arg)>(arg);
   
   if constexpr (do_copy){
     //
@@ -30,9 +28,9 @@ decltype(auto) create_field(field_tp &src) {
     auto &&src_view = src.View();
     //    
     if constexpr (std::is_same_v< src_container_tp, dst_container_tp >) {
-      std::copy( std::execution::par_unseq, dst_view.Data().begin(), dst_view.Data().end(), src_view.Data().begin());
+      std::copy( std::execution::par_unseq, dst_view.Begin(), dst_view.End(), src_view.Begin());
     } else {
-      std::transform(std::execution::par_unseq, src_view.Data().begin(), src_view.Data().end(), dst_view.Data().begin(), [=](const auto &in) { return static_cast<dst_data_tp>(in); } );
+      std::transform(std::execution::par_unseq, src_view.Begin(), src_view.End(), dst_view.Begin(), [=](const auto &in) { return static_cast<dst_data_tp>(in); } );
     }
   }
   //
@@ -70,7 +68,6 @@ class Field{
     //
     using container_tp  = generic_container_tp;        
     using data_tp       = typename container_tp::value_type;
-    using descriptor_tp = Arg;
 
     static constexpr std::size_t nDir    = Arg::ndir;
     static constexpr std::size_t nSpin   = Arg::nspin;                    
@@ -131,11 +128,14 @@ class Field{
       }
     }
 
-    decltype(auto) ExportArg() { return arg; }
+    decltype(auto) ExportArg() { return Arg{arg}; }
+
+    auto Begin() { return v.begin(); }
+    auto End()   { return v.end();   }
 
     //Return a reference to the data container
     auto& Data( ) { return v; }
-    
+
     //Return the data raw ptr
     auto Get( ) const { return v.data(); }    
 
