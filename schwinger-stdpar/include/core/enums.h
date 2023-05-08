@@ -3,12 +3,17 @@
 #include <core/common.h>
 
 enum class PMRState {
-  Vacant         =  0,  
-  Shared         =  1, 
-  ReservedShared =  2,   
-  Reserved       =  3,    
-  Locked         = -1,      
-  InvalidState   = min_int  
+  Vacant            =  0,
+  //    
+  ReservedExclusive =  1, 
+  LockedExclusive   =  2,          
+  //
+  Shared                =  3, 
+  ReservedShared        =  4,
+  ReservedNonExclusive  =  5,       
+  LockedNonExclusive    =  6, 
+  //     
+  InvalidState      = min_int  
 };
 
 //using a-la QUDA terminology 
