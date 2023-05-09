@@ -126,9 +126,10 @@ int main(int argc, char **argv)
   
   std::cout << "Create PMR spinor" << std::endl;
   //
-  sargs.SetShared();
+  //sargs.SetShared();
+  constexpr bool is_shared = true;
   //
-  auto pmr_src_spinor = create_field_with_buffer<pmr_vector_tp, decltype(sargs)>(sargs);
+  auto pmr_src_spinor = create_field_with_buffer<pmr_vector_tp, decltype(sargs), is_shared>(sargs);
   //
   pmr_src_spinor.show();
   //

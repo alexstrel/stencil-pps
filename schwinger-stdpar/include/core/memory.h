@@ -99,6 +99,9 @@ class PMRBuffer{
                                   else                                                   pmr_state = PMRState::InvalidState; }       
     
     void Release() {
+
+      if(IsReserved()) { return; } //if reserved , just nop
+
       if      (pmr_state == PMRState::LockedNonExclusive)    pmr_state = PMRState::Shared;
       else                                                   pmr_state = PMRState::Vacant;//PMRState::LockedExclusive
 

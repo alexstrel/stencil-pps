@@ -37,14 +37,14 @@ decltype(auto) create_field(field_tp &src) {
   return dst;
 }
 
-template <PMRContainerTp pmr_container_tp, typename Arg>
+template <PMRContainerTp pmr_container_tp, typename Arg, bool is_exclusive = true>
 decltype(auto) create_field_with_buffer(const Arg &arg_, const bool use_reserved = false) {
   using data_tp = pmr_container_tp::value_type;
 
   auto arg = Arg{arg_};
 
   if ( not use_reserved) {// if not use a reserved buffer, register new one
-    arg.template RegisterPMRBuffer<data_tp>();
+    arg.template RegisterPMRBuffer<data_tp, is_exclusive>();
   } else {
   // use reserved, e.g., by a block field constructor, 
   // arg must have a valid pmr_buffer with PMRStatus::Reserved
@@ -52,7 +52,6 @@ decltype(auto) create_field_with_buffer(const Arg &arg_, const bool use_reserved
       std::cerr << "Incorrect PMR buffer state, check reservation." << std::endl;
       exit(-1);    
     }
-    arg.SetReserved();
   }
   
   if ( not arg.IsExclusive() ) std::cout << "Warning: creating non-exclusive PMR field." << std::endl;
@@ -91,7 +90,7 @@ class Field{
     template <FieldTp field_tp, ContainerTp container_tp, bool do_copy>
     friend decltype(auto) create_field(field_tp &src);
 
-    template <PMRContainerTp pmr_container_tp, typename ArgTp>
+    template <PMRContainerTp pmr_container_tp, typename ArgTp, bool is_exclusive>
     friend decltype(auto) create_field_with_buffer(const ArgTp &arg_, const bool use_reserved);
 
   public:
