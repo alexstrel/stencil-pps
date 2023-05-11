@@ -90,32 +90,34 @@ class Dslash{
       Spinor res;
       
       constexpr std::array<DataTp, nDir> bndr_factor{DataTp(1.0),DataTp(-1.0)}; 
+
+      std::array X{site_coords};
       
       for (int d = 0; d < nDir; d++) {
 
+        const int Xd = X[d];
+        
 	// Fwd gather:
 	{ 
-          std::array X{site_coords};	  	
           //
 	  const bool ghost = false;
 	  //
 	  if ( ghost ) {
 	    //	  
 	  } else {
-            const bool local_bndr =  X[d] == (in.extent(d)-1);
+            const Link U_ = U(X[0],X[1],d);
 
-	    X[d] = local_bndr ? 0 : X[d] + 1;
+	    X[d] = (X[d] == (in.extent(d)-1)) ? 0 : X[d] + 1;
 
             const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
 	    //
-            const Link U_ = local_bndr ? bndr_factor[d]*U(X[0],X[1],d) : U(X[0],X[1],d);
-
-            res += U_*proj<+1>(in_, d);		  
+            res += U_*proj<+1>(in_, d);		          
+            // restore initial coord:
+            X[d] = Xd;
 	  }	  
 	}
 	// Bwd neighbour contribution:
-	{
-          std::array X{site_coords};	  	
+	{	  	
 	  //
 	  const bool ghost = false;
           //	
@@ -123,15 +125,16 @@ class Dslash{
             //    
           } else {  	
 	    //
-	    const bool local_bndr = X[d] == 0;
+	    const bool local_bndr = (X[d] == 0);
 
             X[d] = local_bndr ? (in.extent(d)-1) : X[d] - 1;		  
 
+	    const Link U_ = local_bndr ? bndr_factor[d]*U(X[0],X[1],d) : U(X[0],X[1],d);
 	    const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
 
-	    const Link U_ = local_bndr ? bndr_factor[d]*U(X[0],X[1],d) : U(X[0],X[1],d);
-
 	    res += conj(U_)*proj<-1>(in_, d);	 
+	    //
+	    X[d] = Xd;
 	  }
 	}
       }               
@@ -159,33 +162,33 @@ class Dslash{
       Spinor res; 
 
       constexpr std::array<DataTp, nDir> bndr_factor{DataTp(1.0),DataTp(-1.0)}; 
+
+      std::array X{site_coords};	 	      
 #pragma unroll
       for (int d = 0; d < nDir; d++) {
-
+      
+        const int Xd = X[d];
 	// Fwd gather:
 	{  
-          std::array X{site_coords};	 	
 
 	  const bool ghost = false;
           
 	  if ( ghost ) {
 	    //	  
 	  } else {
-	    const bool local_boundary_flag = is_local_boundary(d, X[d], (in.extent(d)-1), parity_bit); 
+            const Link U_ = U(X[0],X[1],d, my_parity);
 
 	    X[d] = (X[d] + (d == 0 ? parity_bit : 1) + in.extent(d)) % in.extent(d);
 
             const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
 	    //
-            const Link U_ = local_boundary_flag ? (bndr_factor[d]*U(X[0],X[1],d, my_parity)) : U(X[0],X[1],d, my_parity);
-
             res += U_*proj<+1>(in_, d);		  
+            //
+            X[d] = Xd;
 	  }	  
 	}
 	// Bwd neighbour contribution:
 	{
-          std::array X{site_coords};	
-          //
 	  const bool ghost = false;
 
           if ( ghost ) {
@@ -195,11 +198,12 @@ class Dslash{
 	    
 	    X[d] = (X[d] - (d == 0 ? (1- parity_bit) : 1) + in.extent(d)) % in.extent(d);	  
 
+	    const Link U_ = local_boundary_flag ? bndr_factor[d]*U(X[0],X[1],d, other_parity) : U(X[0],X[1],d, other_parity);
 	    const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
             //
-	    const Link U_ = local_boundary_flag ? bndr_factor[d]*U(X[0],X[1],d, other_parity) : U(X[0],X[1],d, other_parity);
-
 	    res += conj(U_)*proj<-1>(in_, d);	 
+	    //
+	    X[d] = Xd;
 	  }
 	}
       }
