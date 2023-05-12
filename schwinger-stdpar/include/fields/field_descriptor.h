@@ -65,7 +65,16 @@ class FieldDescriptor {
 
     FieldDescriptor(const FieldDescriptor &args, const FieldSiteSubset subset,  const FieldParity parity) : 
 	            dir{subset == FieldSiteSubset::ParitySiteSubset && args.subset == FieldSiteSubset::FullSiteSubset ? args.dir[0] / 2 : args.dir[0], args.dir[1]},
-	            comm_dir{args.dir[1], subset == FieldSiteSubset::ParitySiteSubset && args.subset == FieldSiteSubset::FullSiteSubset ? args.dir[0] / 2 : args.dir[0]},
+	            comm_dir([&dir_=args.dir,dst_subset=subset, src_subset=args.subset]()->std::array<int, ndim*nFace> {
+                        std::array<int, nFace*ndim> comm_dir;
+
+                        for( int d = 0; d < ndim; d++){
+                          const bool do_div = (d == 1) and (dst_subset == FieldSiteSubset::ParitySiteSubset and src_subset == FieldSiteSubset::FullSiteSubset);
+                          for( int face = 0; face < nFace; face++ ) {
+                             comm_dir[d+face*nFace] =  do_div ? dir_[d+face*nFace] / 2 : 1;
+                          }
+                        } return comm_dir;
+                      }()),
 	            order(args.order),
 	            subset(subset),
 	            parity(parity),
@@ -94,7 +103,18 @@ class FieldDescriptor {
       return static_cast<std::size_t>(0);
     } 
 
-    decltype(auto) GetGhostSize(int i, int face_idx = 0) const {
+    decltype(auto) GetGhostZoneSize() const {
+      if  constexpr (type == FieldType::ScalarFieldType) {
+        return dir[0]*dir[1];
+      } else if constexpr (type == FieldType::VectorFieldType) {
+        return dir[0]*dir[1]*nDir*nColor*nColor;
+      } else if constexpr (type == FieldType::SpinorFieldType) {
+        return dir[0]*dir[1]*nSpin*nColor;
+      }
+      return static_cast<std::size_t>(0);
+    }
+
+    decltype(auto) GetFaceSize(int i, int face_idx = 0) const {
       if  constexpr (type == FieldType::ScalarFieldType) {
         return comm_dir[i*nFace+face_idx];
       } else if constexpr (type == FieldType::VectorFieldType) {
