@@ -92,24 +92,26 @@ class FieldDescriptor {
        
 
     decltype(auto) GetFieldSize() const {
+      const int vol = dir[0]*dir[1];
       if  constexpr (type == FieldType::ScalarFieldType) {
-        return dir[0]*dir[1];
+        return vol;
       } else if constexpr (type == FieldType::VectorFieldType) {
-	return dir[0]*dir[1]*nDir*nColor*nColor;
+	return vol*nDir*nColor*nColor;
       } else if constexpr (type == FieldType::SpinorFieldType) {
-	return dir[0]*dir[1]*nSpin*nColor;
+	return vol*nSpin*nColor;
       }
       //
       return static_cast<std::size_t>(0);
     } 
 
     decltype(auto) GetGhostZoneSize() const {
+      const int vol = dir[0]*dir[1];
       if  constexpr (type == FieldType::ScalarFieldType) {
-        return dir[0]*dir[1];
+        return vol*nFace;
       } else if constexpr (type == FieldType::VectorFieldType) {
-        return dir[0]*dir[1]*nDir*nColor*nColor;
+        return vol*nDir*nColor*nColor*nFace;
       } else if constexpr (type == FieldType::SpinorFieldType) {
-        return dir[0]*dir[1]*nSpin*nColor;
+        return vol*nSpin*nColor*nFace;
       }
       return static_cast<std::size_t>(0);
     }

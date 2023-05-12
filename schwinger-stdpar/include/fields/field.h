@@ -79,6 +79,7 @@ class Field{
     const Arg arg;//copy of the arguments
 
     Field(const Arg &arg) : v(arg.GetFieldSize()),
+                            ghost(arg.GetGhostZoneSize()),
                             arg(arg){ }
     // 
     template <PMRContainerTp T = container_tp>
@@ -100,7 +101,7 @@ class Field{
     Field(Field &&)      = default;    
     // 
     template <ContainerViewTp T>    
-    explicit Field(const T &src, const Arg &arg) : v{src}, arg(arg) {}
+    explicit Field(const T &src, const T &ghost_src, const Arg &arg) : v{src}, ghost{ghost_src}, arg(arg) {}
     
     // Needed for block-la operations
     constexpr std::size_t size() const { return 1ul; } 
@@ -142,7 +143,7 @@ class Field{
     decltype(auto) View() {
       static_assert(is_allocated_type_v<container_tp>, "Cannot reference a non-owner field!");
 
-      return Field<std::span<data_tp>, decltype(arg)>(std::span{v}, arg);	    
+      return Field<std::span<data_tp>, decltype(arg)>(std::span{v}, std::span{ghost}, arg);	    
     }
 
     decltype(auto) ParityView(const FieldParity parity ) {// return a reference to the parity component
@@ -158,7 +159,10 @@ class Field{
       const auto parity_length = GetParityLength();
       const auto parity_offset = parity == FieldParity::EvenFieldParity ? 0 : parity_length;
 
-      return Field<std::span<data_tp>, decltype(parity_arg)>(std::span{v}.subspan(parity_offset, parity_length), parity_arg);
+      const auto ghost_parity_length = GetGhostParityLength();
+      const auto ghost_parity_offset = parity == FieldParity::EvenFieldParity ? 0 : ghost_parity_length;
+
+      return Field<std::span<data_tp>, decltype(parity_arg)>(std::span{v}.subspan(parity_offset, parity_length), std::span{ghost}.subspan(ghost_parity_offset, ghost_parity_length) , parity_arg);
     }
 
     auto Even() { return ParityView(FieldParity::EvenFieldParity );}
@@ -173,6 +177,9 @@ class Field{
     auto GetLength()       const { return v.size(); }
     auto GetBytes()        const { return v.size()*sizeof(data_tp); }
     auto GetParityLength() const { return v.size() / (arg.subset == FieldSiteSubset::FullSiteSubset ? 2 : 1); }
+
+    auto GetGhostParityLength() const { return ghost.size() / (arg.subset == FieldSiteSubset::FullSiteSubset ? 2 : 1); }
+
     auto GetDims()         const { return arg.GetLatticeDims(); }
     auto GetCBDims()       const { return arg.GetParityLatticeDims(); }
    
