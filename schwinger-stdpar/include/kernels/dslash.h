@@ -99,43 +99,52 @@ class Dslash{
         
 	// Fwd gather:
 	{ 
-          //
-	  const bool ghost = false;
+          // Check boundary in forward direction
+	  const bool do_halo = (X[d] == (in.extent(d)-1));
 	  //
-	  if ( ghost ) {
-	    //	  
+	  if ( do_halo ) {
+            const Link U_ = U(X[0],X[1],d);
+
+	    X[d] = 0;
+
+            const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
+	    //
+            res += U_*proj<+1>(in_, d);  
 	  } else {
             const Link U_ = U(X[0],X[1],d);
 
-	    X[d] = (X[d] == (in.extent(d)-1)) ? 0 : X[d] + 1;
+	    X[d] = X[d] + 1;
 
             const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
 	    //
             res += U_*proj<+1>(in_, d);		          
-            // restore initial coord:
-            X[d] = Xd;
 	  }	  
+          // restore initial coord:
+          X[d] = Xd;	  
 	}
 	// Bwd neighbour contribution:
 	{	  	
-	  //
-	  const bool ghost = false;
+	  const bool do_halo = (X[d] == 0);
           //	
-          if ( ghost ) {
+          if ( do_halo ) {
             //    
+            X[d] = (in.extent(d)-1);		  
+
+	    const Link U_ = bndr_factor[d]*U(X[0],X[1],d);
+	    const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
+
+	    res += conj(U_)*proj<-1>(in_, d);	             
           } else {  	
 	    //
-	    const bool local_bndr = (X[d] == 0);
+            X[d] = X[d] - 1;		  
 
-            X[d] = local_bndr ? (in.extent(d)-1) : X[d] - 1;		  
-
-	    const Link U_ = local_bndr ? bndr_factor[d]*U(X[0],X[1],d) : U(X[0],X[1],d);
+	    const Link U_ = U(X[0],X[1],d);
 	    const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
 
 	    res += conj(U_)*proj<-1>(in_, d);	 
-	    //
-	    X[d] = Xd;
 	  }
+	  // restore init coordinate
+	  X[d] = Xd;
 	}
       }               
 
@@ -152,7 +161,7 @@ class Dslash{
       using Spinor = std::array<DataTp, nSpin>;    
     
       auto is_local_boundary = [](const auto d, const auto coord, const auto bndry, const auto parity_bit){ 
-	      return ((coord == bndry) && (d != 0 || (d == 0 && parity_bit)));};
+	      return ((coord == bndry) and (d != 0 or (d == 0 and parity_bit == 1)));};
 
       const int parity_bit = parity == FieldParity::EvenFieldParity ? (site_coords[1] % 1) : 1 - (site_coords[1] % 1);
       //
@@ -171,40 +180,52 @@ class Dslash{
 	// Fwd gather:
 	{  
 
-	  const bool ghost = false;
+	  const bool do_halo = is_local_boundary(d, X[d], (in.extent(d) - 1), parity_bit); 
           
-	  if ( ghost ) {
-	    //	  
+	  if ( do_halo ) {
+	    //	
+            const Link U_ = U(X[0],X[1],d, my_parity);
+
+	    X[d] = 0;
+
+            const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
+	    //
+            res += U_*proj<+1>(in_, d);		      
 	  } else {
             const Link U_ = U(X[0],X[1],d, my_parity);
 
-	    X[d] = (X[d] + (d == 0 ? parity_bit : 1) + in.extent(d)) % in.extent(d);
+	    X[d] = X[d] + (d == 0 ? parity_bit : 1);
 
             const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
 	    //
             res += U_*proj<+1>(in_, d);		  
-            //
-            X[d] = Xd;
 	  }	  
+          //
+          X[d] = Xd;	  
 	}
 	// Bwd neighbour contribution:
 	{
-	  const bool ghost = false;
+	  const bool do_galo = is_local_boundary(d, X[d], 0, (1-parity_bit));
 
-          if ( ghost ) {
-            //    
+          if ( do_galo ) {
+            //  
+	    X[d] = (in.extent(d)-1);	  
+
+	    const Link U_ = bndr_factor[d]*U(X[0],X[1],d, other_parity);
+	    const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
+            //
+	    res += conj(U_)*proj<-1>(in_, d);              
           } else {  		
-            const bool local_boundary_flag = is_local_boundary(d, X[d], 0, (1-parity_bit));
 	    
-	    X[d] = (X[d] - (d == 0 ? (1- parity_bit) : 1) + in.extent(d)) % in.extent(d);	  
+	    X[d] = X[d] - (d == 0 ? (1- parity_bit) : 1);
 
-	    const Link U_ = local_boundary_flag ? bndr_factor[d]*U(X[0],X[1],d, other_parity) : U(X[0],X[1],d, other_parity);
+	    const Link U_ = U(X[0],X[1],d, other_parity);
 	    const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
             //
 	    res += conj(U_)*proj<-1>(in_, d);	 
-	    //
-	    X[d] = Xd;
 	  }
+          //
+          X[d] = Xd;	  
 	}
       }
 
