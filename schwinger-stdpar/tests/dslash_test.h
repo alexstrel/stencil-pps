@@ -1,5 +1,7 @@
 #pragma once
 
+#include <chrono>
+
 using vector_tp     = std::vector<std::complex<Float>>;
 
 //using sloppy_pmr_vector_tp  = std::pmr::vector<std::complex<float>>;
@@ -80,12 +82,22 @@ void run_simple_dslash(auto &&transformer, auto params, const int X, const int T
 
   // Create dslash matrix
   auto mat = Mat<decltype(dslash_args), Dslash, decltype(params)>{dslash_args, params};    
+ 
+  auto wall_start = std::chrono::high_resolution_clock::now();
 
   for(int i = 0; i < niter; i++) {
     // Apply dslash	  
     mat(dst_spinor, src_spinor, transformer, FieldOrder::LexFieldOrder);
   }
-  
+
+  auto wall_stop = std::chrono::high_resolution_clock::now();
+  //
+  auto wall_diff = wall_stop - wall_start;
+ 
+  auto wall_time = (static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(wall_diff).count()) / 1e6)  / niter;
+
+  std::cout << "Done for simple version : time per iteration is > " << wall_time << "sec." << std::endl;
+ 
   //DslashRef(chk_spinor, src_spinor, gauge, params.M, params.r, {X, T});  
   
   gauge.destroy();
@@ -121,11 +133,21 @@ void run_eo_dslash(auto &&transformer, auto params, const int X, const int T, co
   // Create dslash matrix
   auto eo_mat = Mat<decltype(eo_dslash_args), Dslash, decltype(params)>{eo_dslash_args, params};  
 
+  auto wall_start = std::chrono::high_resolution_clock::now();
+
   for(int i = 0; i < niter; i++) {
     // Apply dslash	  
     eo_mat(eo_dst_spinor, eo_src_spinor, transformer, FieldOrder::EOFieldOrder);
   } 
+ 
+  auto wall_stop = std::chrono::high_resolution_clock::now();
+
+  auto wall_diff = wall_stop - wall_start;
   
+  auto wall_time = (static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(wall_diff).count()) / 1e6)  / niter;
+
+  std::cout << "Done for EO version : time per iteration is > " << wall_time << "sec." << std::endl;
+
   eo_gauge.destroy();
   
   eo_dst_spinor.destroy();
@@ -160,10 +182,20 @@ void run_mrhs_dslash(auto &&transformer, auto params, const int X, const int T, 
   for (int i = 0; i < src_block_spinor.Size(); i++) init_spinor( src_block_spinor.v[i] );
   
   auto dst_block_spinor = create_block_spinor< spinor_t, decltype(sf_args), use_pmr_buffer>(sf_args, N); 
- 
+
+  auto wall_start = std::chrono::high_resolution_clock::now(); 
+
   for(int i = 0; i < niter; i++) {
     mat(dst_block_spinor, src_block_spinor);
   } 
+
+  auto wall_stop = std::chrono::high_resolution_clock::now();
+
+  auto wall_diff = wall_stop - wall_start;
+
+  auto wall_time = (static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(wall_diff).count()) / 1e6)  / niter;
+
+  std::cout << "Done for MRHS version (N =  " << N << ") : time per iteration is > " << wall_time << "sec." << std::endl;
 
   src_block_spinor.destroy();
   dst_block_spinor.destroy();  
