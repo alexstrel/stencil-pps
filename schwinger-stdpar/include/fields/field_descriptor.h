@@ -64,12 +64,16 @@ class FieldDescriptor {
                     pmr_buffer(nullptr){ } 
 
     FieldDescriptor(const FieldDescriptor &args, const FieldSiteSubset subset,  const FieldParity parity) : 
-	            dir{subset == FieldSiteSubset::ParitySiteSubset && args.subset == FieldSiteSubset::FullSiteSubset ? args.dir[0] / 2 : args.dir[0], args.dir[1]},
+	            dir([&dir_=args.dir,dst_subset=subset, src_subset=args.subset]()->std::array<int, ndim> {
+                        std::array<int, ndim> dir{dir_};
+                        if (dst_subset == FieldSiteSubset::ParitySiteSubset and src_subset == FieldSiteSubset::FullSiteSubset) dir[0] /= 2; 
+                        return dir;	            
+	              }()),
 	            comm_dir([&dir_=args.dir,dst_subset=subset, src_subset=args.subset]()->std::array<int, ndim*nFace> {
-                        std::array<int, nFace*ndim> comm_dir;
+                        std::array<int, nFace*ndim> comm_dir{};
 
                         for( int d = 0; d < ndim; d++){
-                          const bool do_div = (d == 1) and (dst_subset == FieldSiteSubset::ParitySiteSubset and src_subset == FieldSiteSubset::FullSiteSubset);
+                          const bool do_div = (d != 0) and (dst_subset == FieldSiteSubset::ParitySiteSubset and src_subset == FieldSiteSubset::FullSiteSubset);
                           for( int face = 0; face < nFace; face++ ) {
                              comm_dir[d+face*nFace] =  do_div ? dir_[d+face*nFace] / 2 : 1;
                           }
@@ -92,7 +96,10 @@ class FieldDescriptor {
        
 
     decltype(auto) GetFieldSize() const {
-      const int vol = dir[0]*dir[1];
+      int vol = 1; 
+#pragma unroll      
+      for(int i = 0; i < ndim; i++) vol *= dir[i];
+      
       if  constexpr (type == FieldType::ScalarFieldType) {
         return vol;
       } else if constexpr (type == FieldType::VectorFieldType) {
@@ -105,7 +112,10 @@ class FieldDescriptor {
     } 
 
     decltype(auto) GetGhostZoneSize() const {
-      const int vol = dir[0]*dir[1];
+      int vol = 1; 
+#pragma unroll      
+      for(int i = 0; i < ndim; i++) vol *= dir[i];
+      
       if  constexpr (type == FieldType::ScalarFieldType) {
         return vol*nFace;
       } else if constexpr (type == FieldType::VectorFieldType) {
@@ -129,18 +139,19 @@ class FieldDescriptor {
     }
 
     decltype(auto) GetLatticeDims() const {
-      return std::tie(dir[0], dir[1]);	    
+      return dir;	    
     }
 
     decltype(auto) GetParityLatticeDims() const {
-      const int xh = subset == FieldSiteSubset::FullSiteSubset ? dir[0] / 2 : dir[0];	    
-      return std::make_tuple(xh, dir[1]);
+      std::array xcb{dir};
+      if (subset == FieldSiteSubset::FullSiteSubset)  xcb[0] / 2;	    
+      return xcb;
     }
     
     template<ArithmeticTp T, bool is_exclusive = true>
     void RegisterPMRBuffer(const bool is_reserved = false) {  
       // 
-      const std::size_t nbytes = GetFieldSize()*sizeof(T);
+      const std::size_t nbytes = (GetFieldSize()+GetGhostZoneSize())*sizeof(T);
       //
       if (pmr_buffer != nullptr) pmr_buffer.reset(); 
       //
@@ -168,7 +179,7 @@ class FieldDescriptor {
     template<ArithmeticTp T>    
     bool IsReservedPMR() const {
       //
-      const std::size_t nbytes = GetFieldSize()*sizeof(T);    
+      const std::size_t nbytes = (GetFieldSize()+GetGhostZoneSize())*sizeof(T);    
       //
       return pmr_buffer->IsReserved(nbytes);
     } 
