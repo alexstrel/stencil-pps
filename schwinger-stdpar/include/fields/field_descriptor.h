@@ -27,6 +27,13 @@ consteval FieldType get_field_type() {
 
 template<std::size_t nDir = invalid_dir, std::size_t nSpin = invalid_spin, std::size_t nColor = invalid_color>
 class FieldDescriptor {
+  private:
+    static auto get_dims(const auto &src_dir, const FieldSiteSubset dst_subset, const FieldSiteSubset src_subset){
+      std::array dir_{src_dir};
+      if (dst_subset == FieldSiteSubset::ParitySiteSubset and src_subset == FieldSiteSubset::FullSiteSubset) dir_[0] /= 2;
+      return dir_;
+    }
+    
   public: 
     static constexpr std::size_t ndim   = 2;
     static constexpr std::size_t ndir   = nDir;                    //vector field dim   (2 for U1 gauge)	  
@@ -64,11 +71,7 @@ class FieldDescriptor {
                     pmr_buffer(nullptr){ } 
 
     FieldDescriptor(const FieldDescriptor &args, const FieldSiteSubset subset,  const FieldParity parity) : 
-	            dir([&dir_=args.dir,dst_subset=subset, src_subset=args.subset]()->std::array<int, ndim> {
-                        std::array<int, ndim> dir{dir_};
-                        if (dst_subset == FieldSiteSubset::ParitySiteSubset and src_subset == FieldSiteSubset::FullSiteSubset) dir[0] /= 2; 
-                        return dir;	            
-	              }()),
+                    dir(get_dims(args.dir, subset, args.subset )),
 	            comm_dir([&dir_=args.dir,dst_subset=subset, src_subset=args.subset]()->std::array<int, ndim*nFace> {
                         std::array<int, nFace*ndim> comm_dir{};
 
@@ -147,6 +150,8 @@ class FieldDescriptor {
       if (subset == FieldSiteSubset::FullSiteSubset)  xcb[0] / 2;	    
       return xcb;
     }
+    
+    inline int X(const int i) const { return dir[i]; }
     
     template<ArithmeticTp T, bool is_exclusive = true>
     void RegisterPMRBuffer(const bool is_reserved = false) {  

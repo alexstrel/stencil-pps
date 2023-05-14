@@ -78,9 +78,29 @@ class Dslash{
     }  
     
 
+    template<std::size_t... Is, std::size_t nDir>
+    inline decltype(auto) accessor(std::index_sequence<Is...>, const auto& field_accessor, const std::array<int, nDir>& x, const int &s){
+      return field_accessor(x[Is]..., s);
+    }
+    
+    template<std::size_t... Is, std::size_t nDir>
+    inline decltype(auto) parity_accessor(std::index_sequence<Is...>, const auto& field_accessor, const std::array<int, nDir>& x, const int &d, const int &parity){
+      return field_accessor(x[Is]..., d, parity);
+    }    
+
     template<int nDir, int nSpin>
-    inline decltype(auto) compute_site_stencil(auto &out, const auto &in, const auto &U, const std::array<int, nDir> site_coords){
+    inline decltype(auto) compute_site_stencil(const auto &in_accessor, const auto &U_accessor, const std::array<int, nDir> site_coords){
       using ArgTp = typename std::remove_cvref_t<Arg>;
+      
+      using Indices = std::make_index_sequence<nDir>;      
+      //Define accessor wrappers:
+      auto in = [&in_=in_accessor, this](const std::array<int, nDir> &x, const int &s){ 
+        return accessor(Indices{}, in_, x, s);
+      };
+
+      auto U  = [&U_=U_accessor, this](const std::array<int, nDir> &x, const int &d){ 
+        return accessor(Indices{}, U_, x, d);
+      };
 
       using DataTp = ArgTp::gauge_data_tp;
       //
@@ -100,22 +120,22 @@ class Dslash{
 	// Fwd gather:
 	{ 
           // Check boundary in forward direction
-	  const bool do_halo = (X[d] == (in.extent(d)-1));
+	  const bool do_halo = (X[d] == (in_accessor.extent(d)-1));
 	  //
 	  if ( do_halo ) {
-            const Link U_ = U(X[0],X[1],d);
+            const Link U_ = U(X, d);
 
 	    X[d] = 0;
 
-            const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
+            const Spinor in_{in(X,0), in(X,1)};            
 	    //
             res += U_*proj<+1>(in_, d);  
 	  } else {
-            const Link U_ = U(X[0],X[1],d);
+            const Link U_ = U(X, d);
 
 	    X[d] = X[d] + 1;
 
-            const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
+            const Spinor in_{in(X,0), in(X,1)};
 	    //
             res += U_*proj<+1>(in_, d);		          
 	  }	  
@@ -128,18 +148,18 @@ class Dslash{
           //	
           if ( do_halo ) {
             //    
-            X[d] = (in.extent(d)-1);		  
+            X[d] = (in_accessor.extent(d)-1);		  
 
-	    const Link U_ = bndr_factor[d]*U(X[0],X[1],d);
-	    const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
+	    const Link U_ = bndr_factor[d]*U(X, d);
+	    const Spinor in_{in(X,0), in(X,1)};
 
 	    res += conj(U_)*proj<-1>(in_, d);	             
           } else {  	
 	    //
             X[d] = X[d] - 1;		  
 
-	    const Link U_ = U(X[0],X[1],d);
-	    const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
+	    const Link U_ = U(X, d);
+	    const Spinor in_{in(X,0), in(X,1)};
 
 	    res += conj(U_)*proj<-1>(in_, d);	 
 	  }
@@ -152,13 +172,23 @@ class Dslash{
     }     
 
     template<int nDir, int nSpin>
-    inline decltype(auto) compute_site_eo_stencil(auto &out, const auto &in, const auto &U, const FieldParity parity, const std::array<int, nDir> site_coords){
+    inline decltype(auto) compute_site_eo_stencil(const auto &in_accessor, const auto &U_accessor, const FieldParity parity, const std::array<int, nDir> site_coords){
       using ArgTp = typename std::remove_cvref_t<Arg>;
 
       using DataTp = ArgTp::gauge_data_tp;
       //
       using Link   = DataTp; 
-      using Spinor = std::array<DataTp, nSpin>;    
+      using Spinor = std::array<DataTp, nSpin>; 
+      
+      using Indices = std::make_index_sequence<nDir>;      
+      //Define accessor wrappers:
+      auto in = [&in_=in_accessor, this](const std::array<int, nDir> &x, const int &s){ 
+        return accessor(Indices{}, in_, x, s);
+      };
+
+      auto U  = [&U_=U_accessor, this](const std::array<int, nDir> &x, const int &d, const int &p){ 
+        return parity_accessor(Indices{}, U_, x, d, p);
+      };         
     
       auto is_local_boundary = [](const auto d, const auto coord, const auto bndry, const auto parity_bit){ 
 	      return ((coord == bndry) and (d != 0 or (d == 0 and parity_bit == 1)));};
@@ -180,23 +210,23 @@ class Dslash{
 	// Fwd gather:
 	{  
 
-	  const bool do_halo = is_local_boundary(d, X[d], (in.extent(d) - 1), parity_bit); 
+	  const bool do_halo = is_local_boundary(d, X[d], (in_accessor.extent(d) - 1), parity_bit); 
           
 	  if ( do_halo ) {
 	    //	
-            const Link U_ = U(X[0],X[1],d, my_parity);
+            const Link U_ = U(X,d, my_parity);
 
 	    X[d] = 0;
 
-            const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
+            const Spinor in_{in(X,0), in(X,1)};
 	    //
             res += U_*proj<+1>(in_, d);		      
 	  } else {
-            const Link U_ = U(X[0],X[1],d, my_parity);
+            const Link U_ = U(X,d, my_parity);
 
 	    X[d] = X[d] + (d == 0 ? parity_bit : 1);
 
-            const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
+            const Spinor in_{in(X,0), in(X,1)};
 	    //
             res += U_*proj<+1>(in_, d);		  
 	  }	  
@@ -209,18 +239,18 @@ class Dslash{
 
           if ( do_galo ) {
             //  
-	    X[d] = (in.extent(d)-1);	  
+	    X[d] = (in_accessor.extent(d)-1);	  
 
-	    const Link U_ = bndr_factor[d]*U(X[0],X[1],d, other_parity);
-	    const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
+	    const Link U_ = bndr_factor[d]*U(X, d, other_parity);
+	    const Spinor in_{in(X,0), in(X,1)};
             //
 	    res += conj(U_)*proj<-1>(in_, d);              
           } else {  		
 	    
 	    X[d] = X[d] - (d == 0 ? (1- parity_bit) : 1);
 
-	    const Link U_ = U(X[0],X[1],d, other_parity);
-	    const Spinor in_{in(X[0],X[1],0), in(X[0],X[1],1)};
+	    const Link U_ = U(X,d, other_parity);
+	    const Spinor in_{in(X,0), in(X,1)};
             //
 	    res += conj(U_)*proj<-1>(in_, d);	 
 	  }
@@ -251,14 +281,14 @@ class Dslash{
 
       // Define accessors:
       constexpr bool is_constant = true;      
-      const auto U  = args.gauge.template Accessor<is_constant>();       
+      const auto U  = args.gauge.template DefaultAccessor<is_constant>();       
       
 #pragma unroll
       for ( int i = 0; i < out_block_spinor.size(); i++ ){  	      
-        auto out      = out_block_spinor[i].Accessor();
-        const auto in = in_block_spinor[i].template Accessor<is_constant>();
+        auto out      = out_block_spinor[i].DefaultAccessor();
+        const auto in = in_block_spinor[i].template DefaultAccessor<is_constant>();
 
-        auto tmp = compute_site_stencil<nDir, nSpin>(out, in, U, {x,y});      
+        auto tmp = compute_site_stencil<nDir, nSpin>(in, U, {x,y});      
 #pragma unroll
         for (int s = 0; s < nSpin; s++){
           out(x,y,s) = transformer(in(x,y,s), tmp[s]);
@@ -288,12 +318,12 @@ class Dslash{
       // Define accessors:
       constexpr bool is_constant = true;
       
-      auto out      = out_spinor.Accessor();
-      const auto in = in_spinor.template Accessor<is_constant>();
+      auto out      = out_spinor.ParityAccessor();
+      const auto in = in_spinor.template ParityAccessor<is_constant>();
       //
-      const auto U  = args.gauge.template ExtAccessor<is_constant>();
+      const auto U  = args.gauge.template Accessor<is_constant>();
       
-      auto tmp = compute_site_eo_stencil<nDir, nSpin>(out, in, U, parity, {x,y});      
+      auto tmp = compute_site_eo_stencil<nDir, nSpin>(in, U, parity, {x,y});      
 #pragma unroll
       for (int s = 0; s < nSpin; s++)
         out(x,y,s) = transformer(in(x,y,s), tmp[s]);

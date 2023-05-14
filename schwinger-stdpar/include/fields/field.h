@@ -188,7 +188,7 @@ class Field{
 
     //Direct field accessors (note that ncolor always 1, so no slicing for this dof):
     template<bool is_constant = false>
-    auto Accessor() const {
+    auto DefaultAccessor() const {
        //
        static_assert(nColor == 1, "Currently only O(1) model is supported.");
 
@@ -202,59 +202,81 @@ class Field{
        
        if constexpr (is_constant){
          return stdex::mdspan<const data_tp, Extents3D, stdex::layout_stride>{
-                    v.data(), Dyn3DMap{Extents3D{arg.dir[0], arg.dir[1]}, Strides3D{1, arg.dir[0], arg.dir[0]*arg.dir[1]}}} ;
+                    v.data(), Dyn3DMap{Extents3D{arg.X(0), arg.X(1)}, Strides3D{1, arg.X(0), arg.X(0)*arg.X(1)}}} ;
        } else {
          return stdex::mdspan<data_tp, Extents3D, stdex::layout_stride>{
-                   v.data(), Dyn3DMap{Extents3D{arg.dir[0], arg.dir[1]}, Strides3D{1, arg.dir[0], arg.dir[0]*arg.dir[1]}}};
+                   v.data(), Dyn3DMap{Extents3D{arg.X(0), arg.X(1)}, Strides3D{1, arg.X(0), arg.X(0)*arg.X(1)}}};
        }
+    }
+
+    //Direct field accessors (note that ncolor always 1, so no slicing for this dof):
+    template<bool is_constant = false>
+    auto ParityAccessor() const {
+      //
+      static_assert(nColor == 1, "Currently only O(1) model is supported.");
+
+      using dyn_indx_type     = std::size_t;
+
+      constexpr dyn_indx_type nDoF = Arg::type == FieldType::VectorFieldType ? nDir*nColor*nColor : nSpin*nColor;
+
+      using Dyn3DMap  = stdex::layout_stride::mapping<stdex::extents<dyn_indx_type, stdex::dynamic_extent, std::dynamic_extent, nDoF>>;
+      using Extents3D = stdex::extents<dyn_indx_type, stdex::dynamic_extent, stdex::dynamic_extent, nDoF>;
+      using Strides3D = std::array<dyn_indx_type, 3>;       
+       
+      if constexpr (is_constant){
+        return stdex::mdspan<const data_tp, Extents3D, stdex::layout_stride>{
+                    v.data(), Dyn3DMap{Extents3D{arg.X(0), arg.X(1)}, Strides3D{1, arg.X(0), arg.X(0)*arg.X(1)}}} ;
+      } else {
+        return stdex::mdspan<data_tp, Extents3D, stdex::layout_stride>{
+                   v.data(), Dyn3DMap{Extents3D{arg.X(0), arg.X(1)}, Strides3D{1, arg.X(0), arg.X(0)*arg.X(1)}}};
+      }
     }
     
     //Direct field accessors (note that ncolor always 1, so no slicing for this dof):
     template<bool is_constant = false>    
-    auto ExtAccessor() const {
-       //
-       static_assert(nColor == 1, "Currently only O(1) model is supported.");
+    auto Accessor() const {
+      //
+      static_assert(nColor == 1, "Currently only O(1) model is supported.");
 
-       using dyn_indx_type     = std::size_t;
+      using dyn_indx_type     = std::size_t;
 
-       constexpr dyn_indx_type nDoF = Arg::type == FieldType::VectorFieldType ? nDir*nColor*nColor : nSpin*nColor;
+      constexpr dyn_indx_type nDoF = Arg::type == FieldType::VectorFieldType ? nDir*nColor*nColor : nSpin*nColor;
 
-       constexpr dyn_indx_type nparity = 2;
+      constexpr dyn_indx_type nparity = 2;
 
-       using Dyn4DMap  = stdex::layout_stride::mapping<stdex::extents<dyn_indx_type, stdex::dynamic_extent, std::dynamic_extent, nDoF, nparity>>;
-       using Extents4D = stdex::extents<dyn_indx_type, stdex::dynamic_extent, stdex::dynamic_extent, nDoF, nparity>;
-       using Strides4D = std::array<dyn_indx_type, 4>;       
+      using Dyn4DMap  = stdex::layout_stride::mapping<stdex::extents<dyn_indx_type, stdex::dynamic_extent, std::dynamic_extent, nDoF, nparity>>;
+      using Extents4D = stdex::extents<dyn_indx_type, stdex::dynamic_extent, stdex::dynamic_extent, nDoF, nparity>;
+      using Strides4D = std::array<dyn_indx_type, 4>;       
        
-       if constexpr (is_constant){
-         return stdex::mdspan<const data_tp, Extents4D, stdex::layout_stride>{
-                   v.data(), Dyn4DMap{Extents4D{arg.dir[0], arg.dir[1]}, Strides4D{1, arg.dir[0], arg.dir[0]*arg.dir[1], arg.dir[0]*arg.dir[1]*nDoF}}} ;
-       } else {
-         return stdex::mdspan<data_tp, Extents4D, stdex::layout_stride>{
-                   v.data(), Dyn4DMap{Extents4D{arg.dir[0], arg.dir[1]}, Strides4D{1, arg.dir[0], arg.dir[0]*arg.dir[1], arg.dir[0]*arg.dir[1]*nDoF}}} ;       
-       }
+      if constexpr (is_constant){
+        return stdex::mdspan<const data_tp, Extents4D, stdex::layout_stride>{
+                   v.data(), Dyn4DMap{Extents4D{arg.X(0), arg.X(1)}, Strides4D{1, arg.X(0), arg.X(0)*arg.X(1), arg.X(0)*arg.X(1)*nDoF}}} ;
+      } else {
+        return stdex::mdspan<data_tp, Extents4D, stdex::layout_stride>{
+                   v.data(), Dyn4DMap{Extents4D{arg.X(0), arg.X(1)}, Strides4D{1, arg.X(0), arg.X(0)*arg.X(1), arg.X(0)*arg.X(1)*nDoF}}} ;       
+      }
     }    
-    
     
     template<bool is_constant = false>
     auto FlatAccessor(const std::size_t stride = 1) const {
-       //
-       static_assert(nColor == 1, "Currently only O(1) model is supported.");
+      //
+      static_assert(nColor == 1, "Currently only O(1) model is supported.");
     
-       using dyn_indx_type = std::size_t;
+      using dyn_indx_type = std::size_t;
 
-       using Dyn1DMap  = stdex::layout_stride::mapping<stdex::extents<dyn_indx_type, stdex::dynamic_extent>>;
-       using Extents1D = stdex::extents<dyn_indx_type, stdex::dynamic_extent>;
-       using Strides1D = std::array<dyn_indx_type, 1>;       
+      using Dyn1DMap  = stdex::layout_stride::mapping<stdex::extents<dyn_indx_type, stdex::dynamic_extent>>;
+      using Extents1D = stdex::extents<dyn_indx_type, stdex::dynamic_extent>;
+      using Strides1D = std::array<dyn_indx_type, 1>;       
        
-       const dyn_indx_type len = GetLength() / stride;
+      const dyn_indx_type len = GetLength() / stride;
        
-       if constexpr (is_constant){
-         return stdex::mdspan<const data_tp, stdex::extents<dyn_indx_type, stdex::dynamic_extent>, stdex::layout_stride>{
+      if constexpr (is_constant){
+        return stdex::mdspan<const data_tp, stdex::extents<dyn_indx_type, stdex::dynamic_extent>, stdex::layout_stride>{
                     v.data(), Dyn1DMap{Extents1D{len}, Strides1D{stride}}} ;
-       } else {
-         return stdex::mdspan<data_tp, stdex::extents<dyn_indx_type, stdex::dynamic_extent>, stdex::layout_stride>{
+      } else {
+        return stdex::mdspan<data_tp, stdex::extents<dyn_indx_type, stdex::dynamic_extent>, stdex::layout_stride>{
                     v.data(), Dyn1DMap{Extents1D{len}, Strides1D{stride}}} ;       
-       }    
+      }    
     }    
     
 };
