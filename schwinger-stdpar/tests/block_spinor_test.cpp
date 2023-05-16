@@ -257,7 +257,7 @@ int main(int argc, char **argv)
   }
 
   std::cout << "Create a parity view.\n" << std::endl;
-  auto &&ntntn_pmr_bs_even_view = next_to_next_to_next_pmr_block_src_spinor.Even();
+  auto &&ntntn_pmr_bs_even_view = next_to_next_to_next_pmr_block_src_spinor.ParityView(FieldParity::EvenFieldParity);//Even();
 
   std::cout << "Size: \n" << ntntn_pmr_bs_even_view.Size() << std::endl;
 

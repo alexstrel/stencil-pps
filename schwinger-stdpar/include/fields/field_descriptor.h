@@ -85,7 +85,7 @@ class FieldDescriptor {
 	            order(args.order),
 	            subset(subset),
 	            parity(parity),
-                    pmr_buffer(nullptr){ } 
+                    pmr_buffer(args.pmr_buffer){ } 
 
     //Use it for block fields only:
     FieldDescriptor(const FieldDescriptor &args, 
