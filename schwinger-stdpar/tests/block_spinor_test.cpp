@@ -244,6 +244,29 @@ int main(int argc, char **argv)
 
     next_to_next_to_next_pmr_block_src_spinor[i].show();
   }
+#if 1
+  std::cout << "Create a view.\n" << std::endl;
+  auto &&ntntn_pmr_bs_view = next_to_next_to_next_pmr_block_src_spinor.View();
+
+  std::cout << "Size: \n" << ntntn_pmr_bs_view.Size() << std::endl;
+
+  for(int i = 0; i < ntntn_pmr_bs_view.Size(); i++) {
+    //print_range_v2(ntntn_pmr_bs_view[i], 2);
+
+    ntntn_pmr_bs_view[i].show();
+  }
+
+  std::cout << "Create a parity view.\n" << std::endl;
+  auto &&ntntn_pmr_bs_even_view = next_to_next_to_next_pmr_block_src_spinor.Even();
+
+  std::cout << "Size: \n" << ntntn_pmr_bs_even_view.Size() << std::endl;
+
+  for(int i = 0; i < ntntn_pmr_bs_even_view.Size(); i++) {
+    //print_range_v2(ntntn_pmr_bs_view[i], 2);
+    //
+    ntntn_pmr_bs_even_view[i].show();
+  }
+#endif
 }
 
 
