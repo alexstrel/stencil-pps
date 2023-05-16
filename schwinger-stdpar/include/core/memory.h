@@ -81,11 +81,9 @@ class PMRBuffer{
     bool IsReserved(const std::size_t nbytes) const {  
       if (pmr_ptr != nullptr ) {
         if (pmr_state != PMRState::ReservedExclusive and pmr_state != PMRState::ReservedShared and pmr_state != PMRState::ReservedNonExclusive) {
-          printf(" PMR %d ", pmr_state);
           return false;
         }
         //
-        printf("NB :: %d %d ", nbytes, pmr_base_bytes);
         return (nbytes <= pmr_base_bytes);
       } 
       //
