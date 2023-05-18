@@ -29,12 +29,14 @@ decltype(auto) create_block_spinor(const Arg &arg_, const std::size_t n) {//offs
 
 template<GenericSpinorFieldTp spinor_t, typename SpinorArg, bool is_exclusive = true>
 class BlockSpinor{
-  public:	 
+  public:	
+    using block_container_tp = std::vector<spinor_t> ;
+
     using container_tp  = typename spinor_t::container_tp;
     using arg_tp        = SpinorArg;
     using spinor_tp     = spinor_t;
 
-    std::vector<spinor_t> v;
+    block_container_tp v;
 
     SpinorArg args;
 
@@ -63,7 +65,7 @@ class BlockSpinor{
     template <SpinorFieldViewTp T = spinor_t>    
     BlockSpinor(const SpinorArg &args_, const std::size_t n) : args(args_) { v.reserve(n); }    
 
-    decltype(auto) View() {
+    decltype(auto) Convert() {
       static_assert(is_allocated_type_v<container_tp>, "Cannot reference a non-owner field!");
       
       using spinor_view_t = decltype(std::declval<spinor_t>().View());      

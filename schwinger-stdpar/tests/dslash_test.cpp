@@ -88,16 +88,16 @@ int main(int argc, char **argv)
 
   DslashParam<Float> dslash_param{mass, r};
 
-  const int niter = 1000;
+  const int niter = 1;
   
   const auto scale1 = mass + static_cast<Float>(2.0)*r;
   const auto scale2 = static_cast<Float>(0.5);
 
   auto transformer = [=](const auto &x, const auto &y) {return (scale1*x-scale2*y);};  
 
-  run_simple_dslash<nDir, nSpin>(transformer, dslash_param, X, T, niter);
+  //run_simple_dslash<nDir, nSpin>(transformer, dslash_param, X, T, niter);
   //
-  run_eo_dslash<nDir, nSpin>(transformer, dslash_param, X, T, niter);
+  //run_eo_dslash<nDir, nSpin>(transformer, dslash_param, X, T, niter);
   //
   //
   constexpr int  N = 8;

@@ -246,25 +246,25 @@ int main(int argc, char **argv)
   }
 #if 1
   std::cout << "Create a view.\n" << std::endl;
-  auto &&ntntn_pmr_bs_view = next_to_next_to_next_pmr_block_src_spinor.View();
+  auto &&ntntn_pmr_bs_view = next_to_next_to_next_pmr_block_src_spinor.Convert();
 
-  std::cout << "Size: \n" << ntntn_pmr_bs_view.Size() << std::endl;
+  std::cout << "1. Size: \n" << ntntn_pmr_bs_view.Size() << std::endl;
 
   for(int i = 0; i < ntntn_pmr_bs_view.Size(); i++) {
-    //print_range_v2(ntntn_pmr_bs_view[i], 2);
+    print_range_v2(ntntn_pmr_bs_view[i], 2);
 
     ntntn_pmr_bs_view[i].show();
   }
 
   std::cout << "Create a parity view.\n" << std::endl;
-  auto &&ntntn_pmr_bs_even_view = next_to_next_to_next_pmr_block_src_spinor.ParityView(FieldParity::EvenFieldParity);//Even();
+  auto &&ntntn_pmr_bs_parity_view = next_to_next_to_next_pmr_block_src_spinor.Odd();
 
-  std::cout << "Size: \n" << ntntn_pmr_bs_even_view.Size() << std::endl;
+  std::cout << "2. Size: \n" << ntntn_pmr_bs_parity_view.Size() << std::endl;
 
-  for(int i = 0; i < ntntn_pmr_bs_even_view.Size(); i++) {
-    //print_range_v2(ntntn_pmr_bs_view[i], 2);
+  for(int i = 0; i < ntntn_pmr_bs_parity_view.Size(); i++) {
+    print_range_v2(ntntn_pmr_bs_parity_view[i], 2);
     //
-    ntntn_pmr_bs_even_view[i].show();
+    ntntn_pmr_bs_parity_view[i].show();
   }
 #endif
 }

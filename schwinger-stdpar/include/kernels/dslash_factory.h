@@ -5,6 +5,8 @@
 #include <kernels/dslash.h>
 #include <core/cartesian_product.hpp>
 
+#include <typeinfo>
+
 template<typename KernelArgs, template <typename Args> class Kernel, typename TransformParams>
 class Mat{
   private:
@@ -71,10 +73,10 @@ class Mat{
       }
     }
 
-    void operator()(auto &out, auto &in){    
-      assert(in.GetFieldOrder() == FieldOrder::LexFieldOrder);
+    void operator()(BlockSpinorFieldTp auto &out_block_spinor, BlockSpinorFieldTp auto &in_block_spinor){    
+      assert(in_block_spinor.GetFieldOrder() == FieldOrder::LexFieldOrder);
       // Take into account only internal points:
-      const auto [Nx, Ny] = in.GetDims(); //Get CB dimensions
+      const auto [Nx, Ny] = in_block_spinor.GetDims(); //Get CB dimensions
 
       auto X = std::views::iota(0, Nx);
       auto Y = std::views::iota(0, Ny);
@@ -89,10 +91,14 @@ class Mat{
 
       auto transformer = [=](const auto &x, const auto &y) {return (scale1*x-scale2*y);};
 
-      auto &&out_ = out.View();
-      auto &&in_  = in.View();       
+      //First, we need to convert to views all components in the block
+      auto &&out = out_block_spinor.Convert();
+      auto &&in  = in_block_spinor.Convert();       
 
-      using spinor_ref_t =  typename std::remove_cvref_t<decltype(out_)>;
+      using spinor_ref_t =  typename std::remove_cvref_t<decltype(out.BlockView())>;
+
+      auto &&out_ = out.BlockView();
+      auto &&in_  = in.BlockView();
 
       auto DslashKernel = [=, &dslash_kernel = *dslash_kernel_ptr] (const auto i) mutable { 
                              //
@@ -104,37 +110,6 @@ class Mat{
                     idx.end(),
                     DslashKernel);      
     } 
-/*
-    template<BlockSpinorFieldTp block_spinor_field>
-    void operator()(block_spinor_field &out, block_spinor_field &in){
-      assert(in.GetFieldOrder() == FieldOrder::LexFieldOrder);
-      // Take into account only internal points:
-      const auto [Nx, Ny] = in.GetDims(); //Get CB dimensions
-
-      auto X = std::views::iota(0, Nx);
-      auto Y = std::views::iota(0, Ny);
-
-      auto idx = std::views::cartesian_product(Y, X);//Y is the slowest index, X is the fastest
-                                                     //
-      const auto mass = param.M;
-      const auto r    = param.r;
-
-      auto transformer = [=](const auto &x, const auto &y) {return ((mass+2.0*r)*x-0.5*y);};
-
-      auto &&out_ = out.View();
-      auto &&in_  = in.View();
-
-      auto DslashKernel = [=, &dslash_kernel = *dslash_kernel_ptr] (const auto i) {
-                             //
-                             dslash_kernel.template apply(transformer, out_, in_, i);
-                           };
-      //
-      std::for_each(std::execution::par_unseq,
-                    idx.begin(),
-                    idx.end(),
-                    DslashKernel);
-    }      
-*/    
 };
 
 
