@@ -55,14 +55,12 @@ concept GaugeFieldViewTp  = GenericGaugeFieldTp<T> and (not is_allocated_type_v<
 
 // Spinor block Field concepts
 template <typename T>
-//concept BlockSpinorFieldTp     = SpinorFieldTp<T> or (ContainerTp<T> and SpinorFieldTp< typename std::remove_pointer< decltype( std::declval<T>().data() ) >::type >); 
 concept BlockSpinorFieldTp     = ContainerTp<typename T::block_container_tp> and SpinorFieldTp< typename std::remove_pointer< decltype( std::declval<typename T::block_container_tp>().data() ) >::type >;
 
 template <typename T>
-//concept BlockSpinorFieldViewTp = SpinorFieldViewTp<T> or (ContainerViewTp<T> and SpinorFieldViewTp< typename std::remove_pointer< decltype( std::declval<T>().data() ) >::type >); 
 concept BlockSpinorFieldViewTp = ContainerViewTp<T> and SpinorFieldViewTp< typename std::remove_pointer< decltype( std::declval<T>().data() ) >::type >;
 
 template <typename T>
-concept PMRBlockSpinorFieldTp  = ContainerTp<T> and PMRSpinorFieldTp< typename std::remove_pointer< decltype( std::declval<T>().data() ) >::type >;
+concept PMRBlockSpinorFieldTp  = ContainerTp<typename T::block_container_tp> and PMRSpinorFieldTp< typename std::remove_pointer< decltype( std::declval<typename T::block_container_tp>().data() ) >::type >;
 
 
