@@ -56,88 +56,40 @@ void DslashRef(auto &out_spinor, const auto &in_spinor, const auto &gauge_field,
 }
 
 template<int nDir, int nSpin>
-void run_simple_dslash(auto &&transformer, auto params, const int X, const int T, const int niter) {
+void run_dslash_test(auto params, const int X, const int T, const int niter) {
   //
-  const auto sf_args = SpinorFieldArgs<nSpin>{{X, T}, {0, 0, 0, 0}};
+  const auto cs_param = SpinorFieldArgs<nSpin>{{X/2, T}, {0, 0, 0, 0}, FieldSiteSubset::ParitySiteSubset, FieldParity::EvenFieldParity};
   //
-  auto src_spinor = create_field<vector_tp, decltype(sf_args)>(sf_args);
-  auto dst_spinor = create_field<vector_tp, decltype(sf_args)>(sf_args);
-  auto chk_spinor = create_field<vector_tp, decltype(sf_args)>(sf_args);
+  auto src_spinor = create_field<vector_tp, decltype(cs_param)>(cs_param);
+  auto dst_spinor = create_field<vector_tp, decltype(cs_param)>(cs_param);
   //
-  const auto gf_args    = GaugeFieldArgs<nDir>{{X, T}, {0, 0}};
+  const auto gauge_param = GaugeFieldArgs<nDir>{{X, T}, {0, 0}}; 
   //
-  auto gauge            = create_field<vector_tp, decltype(gf_args)>(gf_args);  
+  auto gauge = create_field<vector_tp, decltype(gauge_param)>(gauge_param);
   //
   init_u1(gauge);
-  init_spinor(src_spinor);
-  // Setup dslash arguments:
-  auto &&u_ref        = gauge.View();
-  //u_ref.destroy();
-  using gauge_tp      = decltype(gauge.View());
-  using spinor_ref_tp = decltype(src_spinor.View());
+  init_spinor(src_spinor);  
 
+  auto &&u_ref   = gauge.View();
+  using gauge_tp = decltype(gauge.View());
+    
   std::unique_ptr<DslashArgs<gauge_tp, nSpin>> dslash_args_ptr(new DslashArgs{u_ref});
 
   auto &dslash_args = *dslash_args_ptr;
 
   // Create dslash matrix
-  auto mat = Mat<decltype(dslash_args), Dslash, decltype(params)>{dslash_args, params};    
- 
-  auto wall_start = std::chrono::high_resolution_clock::now();
-
-  for(int i = 0; i < niter; i++) {
-    // Apply dslash	  
-    mat(dst_spinor, src_spinor, transformer, FieldOrder::LexFieldOrder);
-  }
-
-  auto wall_stop = std::chrono::high_resolution_clock::now();
+  auto mat = Mat<decltype(dslash_args), Dslash>{dslash_args};
   //
-  auto wall_diff = wall_stop - wall_start;
- 
-  auto wall_time = (static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(wall_diff).count()) / 1e6)  / niter;
+  const auto s1 = params.M + static_cast<Float>(2.0)*params.r;
+  const auto s2 = static_cast<Float>(0.5);
 
-  std::cout << "Done for simple version : time per iteration is > " << wall_time << "sec." << std::endl;
- 
-  //DslashRef(chk_spinor, src_spinor, gauge, params.M, params.r, {X, T});  
-  
-  gauge.destroy();
-  
-  dst_spinor.destroy();
-  src_spinor.destroy();
-
-}
-
-template<int nDir, int nSpin>
-void run_eo_dslash(auto &&transformer, auto params, const int X, const int T, const int niter) {
-  //
-  const auto eo_sf_args = SpinorFieldArgs<nSpin>{{X/2, T}, {0, 0, 0, 0}, FieldOrder::EOFieldOrder};
-  //
-  auto eo_src_spinor = create_field<vector_tp, decltype(eo_sf_args)>(eo_sf_args);
-  auto eo_dst_spinor = create_field<vector_tp, decltype(eo_sf_args)>(eo_sf_args);
-  //auto eo_chk_spinor = create_field<vector_tp, decltype(eo_sf_args)>(eo_sf_args);
-  //
-  const auto eo_gf_args = GaugeFieldArgs<nDir>{{X/2, T}, {0, 0}, FieldOrder::EOFieldOrder}; 
-  //
-  auto eo_gauge = create_field<vector_tp, decltype(eo_gf_args)>(eo_gf_args);
-  //
-  init_u1(eo_gauge);
-  init_spinor(eo_src_spinor);  
-
-  auto &&eo_u_ref   = eo_gauge.View();
-  using eo_gauge_tp = decltype(eo_gauge.View());
-    
-  std::unique_ptr<DslashArgs<eo_gauge_tp, nSpin>> eo_dslash_args_ptr(new DslashArgs{eo_u_ref});
-
-  auto &eo_dslash_args = *eo_dslash_args_ptr;
-
-  // Create dslash matrix
-  auto eo_mat = Mat<decltype(eo_dslash_args), Dslash, decltype(params)>{eo_dslash_args, params};  
+  auto transformer = [=](const auto &x, const auto &y) {return (s1*x-s2*y);};      
 
   auto wall_start = std::chrono::high_resolution_clock::now();
 
   for(int i = 0; i < niter; i++) {
     // Apply dslash	  
-    eo_mat(eo_dst_spinor, eo_src_spinor, transformer, FieldOrder::EOFieldOrder);
+    mat(dst_spinor, src_spinor, transformer, FieldParity::EvenFieldParity);
   } 
  
   auto wall_stop = std::chrono::high_resolution_clock::now();
@@ -148,20 +100,20 @@ void run_eo_dslash(auto &&transformer, auto params, const int X, const int T, co
 
   std::cout << "Done for EO version : time per iteration is > " << wall_time << "sec." << std::endl;
 
-  eo_gauge.destroy();
+  gauge.destroy();
   
-  eo_dst_spinor.destroy();
-  eo_src_spinor.destroy();   
+  dst_spinor.destroy();
+  src_spinor.destroy();   
 }
 
 template<int nDir, int nSpin, int N, bool use_pmr_buffer = false>
-void run_mrhs_dslash(auto &&transformer, auto params, const int X, const int T, const int niter) {
+void run_mrhs_dslash_test(auto params, const int X, const int T, const int niter) {
   //
-  const auto sf_args = SpinorFieldArgs<nSpin>{{X, T}, {0, 0, 0, 0}};
+  const auto cs_param = SpinorFieldArgs<nSpin>{{X/2, T}, {0, 0, 0, 0}, FieldSiteSubset::ParitySiteSubset, FieldParity::EvenFieldParity};
   //
-  const auto gf_args = GaugeFieldArgs<nDir>{{X, T}, {0, 0}};
+  const auto gauge_param = GaugeFieldArgs<nDir>{{X, T}, {0, 0}};
   //
-  auto gauge = create_field<vector_tp, decltype(gf_args)>(gf_args);    
+  auto gauge = create_field<vector_tp, decltype(gauge_param)>(gauge_param);    
   //  
   init_u1(gauge);
   //
@@ -173,20 +125,25 @@ void run_mrhs_dslash(auto &&transformer, auto params, const int X, const int T, 
   auto &dslash_args = *dslash_args_ptr;
 
   // Create dslash matrix
-  auto mat = Mat<decltype(dslash_args), Dslash, decltype(params)>{dslash_args, params};    
+  auto mat = Mat<decltype(dslash_args), Dslash>{dslash_args};    
   //
-  using spinor_t  = Field<vector_tp, decltype(sf_args)>;//
+  using spinor_t  = Field<vector_tp, decltype(cs_param)>;//
   //
-  auto src_block_spinor = create_block_spinor< spinor_t, decltype(sf_args), use_pmr_buffer>(sf_args, N); 
+  auto src_block_spinor = create_block_spinor< spinor_t, decltype(cs_param), use_pmr_buffer>(cs_param, N); 
   //
-  for (int i = 0; i < src_block_spinor.Size(); i++) init_spinor( src_block_spinor.v[i] );
+  for (int i = 0; i < src_block_spinor.nComponents(); i++) init_spinor( src_block_spinor.v[i] );
   
-  auto dst_block_spinor = create_block_spinor< spinor_t, decltype(sf_args), use_pmr_buffer>(sf_args, N); 
+  auto dst_block_spinor = create_block_spinor< spinor_t, decltype(cs_param), use_pmr_buffer>(cs_param, N); 
+
+  const auto s1 = params.M + static_cast<Float>(2.0)*params.r;
+  const auto s2 = static_cast<Float>(0.5);
+
+  auto transformer = [=](const auto &x, const auto &y) {return (s1*x-s2*y);};
 
   auto wall_start = std::chrono::high_resolution_clock::now(); 
 
   for(int i = 0; i < niter; i++) {
-    mat(dst_block_spinor, src_block_spinor);
+    mat(dst_block_spinor, src_block_spinor, transformer, FieldParity::EvenFieldParity);
   } 
 
   auto wall_stop = std::chrono::high_resolution_clock::now();

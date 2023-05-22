@@ -59,9 +59,9 @@ class FieldDescriptor {
 
     FieldDescriptor(const std::array<int, ndim> dir, 
                     const std::array<int, ndim*nFace> comm_dir,
-	            const FieldOrder order         = FieldOrder::LexFieldOrder,
 	            const FieldSiteSubset subset   = FieldSiteSubset::FullSiteSubset,  
-	            const FieldParity parity       = FieldParity::InvalidFieldParity,
+	            const FieldParity     parity   = FieldParity::InvalidFieldParity,
+	            const FieldOrder      order    = FieldOrder::EOFieldOrder,	            
 	            const bool is_exclusive        = true) : 
 	            dir{dir},
                     comm_dir{comm_dir},
@@ -129,7 +129,7 @@ class FieldDescriptor {
       return static_cast<std::size_t>(0);
     }
 
-    decltype(auto) GetFaceSize(int i, int face_idx = 0) const {
+    auto GetFaceSize(int i, int face_idx = 0) const {
       if  constexpr (type == FieldType::ScalarFieldType) {
         return comm_dir[i*nFace+face_idx];
       } else if constexpr (type == FieldType::VectorFieldType) {
@@ -141,15 +141,17 @@ class FieldDescriptor {
       return static_cast<std::size_t>(0);
     }
 
-    decltype(auto) GetLatticeDims() const {
+    auto GetLatticeDims() const {
       return dir;	    
     }
 
-    decltype(auto) GetParityLatticeDims() const {
+    auto GetParityLatticeDims() const {
       std::array xcb{dir};
       if (subset == FieldSiteSubset::FullSiteSubset)  xcb[0] / 2;	    
       return xcb;
     }
+    
+    auto GetParity() const { return parity; }
     
     inline int X(const int i) const { return dir[i]; }
     

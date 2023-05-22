@@ -65,12 +65,12 @@ class BlockSpinor{
     template <SpinorFieldViewTp T = spinor_t>    
     BlockSpinor(const SpinorArg &args_, const std::size_t n) : args(args_) { v.reserve(n); }    
 
-    decltype(auto) Convert() {
+    decltype(auto) ConvertToView() {
       static_assert(is_allocated_type_v<container_tp>, "Cannot reference a non-owner field!");
       
       using spinor_view_t = decltype(std::declval<spinor_t>().View());      
 
-      const std::size_t n = Size();
+      const std::size_t n = nComponents();
 
       auto block_spinor_view = BlockSpinor<spinor_view_t, decltype(args), is_exclusive>{args, n};
 
@@ -81,7 +81,7 @@ class BlockSpinor{
       return block_spinor_view;     
     }
 
-    decltype(auto) ParityView(const FieldParity parity ) {
+    decltype(auto) ConvertToParityView(const FieldParity parity ) {
       static_assert(is_allocated_type_v<container_tp>, "Cannot reference a non-owner field!");
       
       if (args.subset != FieldSiteSubset::FullSiteSubset) {
@@ -91,7 +91,7 @@ class BlockSpinor{
       
       using spinor_parity_view_t = decltype(std::declval<spinor_t>().ParityView(parity));
 
-      const std::size_t n = Size();
+      const std::size_t n = nComponents();
 
       auto block_spinor_parity_view = BlockSpinor<spinor_parity_view_t, decltype(args), is_exclusive>{args, n};
 
@@ -102,18 +102,21 @@ class BlockSpinor{
       return block_spinor_parity_view;
     }
 
-    auto Even() { return ParityView(FieldParity::EvenFieldParity );}
-    auto Odd()  { return ParityView(FieldParity::OddFieldParity  );}
+    auto ConvertToEvenView() { return ConvertToParityView(FieldParity::EvenFieldParity );}
+    auto ConvertToOddView()  { return ConvertToParityView(FieldParity::OddFieldParity  );}
 
     auto& Get()  { return v; }
 
     decltype(auto) BlockView() { return std::span{v}; }
 
-    auto GetDims() const { return args.GetLatticeDims(); }
+    auto GetDims()       const { return args.GetLatticeDims(); }
+    auto GetCBDims()     const { return args.GetParityLatticeDims(); }    
 
-    auto GetFieldOrder() const { return args.order; }    
+    auto GetFieldOrder()  const { return args.order; }    
 
-    auto Size() const { return v.size(); } 
+    auto GetFieldSubset() const { return args.subset; }
+
+    auto nComponents()   const { return v.size(); } 
 
     void destroy() {
       

@@ -89,22 +89,14 @@ int main(int argc, char **argv)
   DslashParam<Float> dslash_param{mass, r};
 
   const int niter = 1;
-  
-  const auto scale1 = mass + static_cast<Float>(2.0)*r;
-  const auto scale2 = static_cast<Float>(0.5);
-
-  auto transformer = [=](const auto &x, const auto &y) {return (scale1*x-scale2*y);};  
-
-  //run_simple_dslash<nDir, nSpin>(transformer, dslash_param, X, T, niter);
   //
-  //run_eo_dslash<nDir, nSpin>(transformer, dslash_param, X, T, niter);
+  run_dslash_test<nDir, nSpin>(dslash_param, X, T, niter);
   //
+  constexpr int  N = 8; 
   //
-  constexpr int  N = 8;
-  
-  //constexpr bool use_pmr_buffer = false;
+  constexpr bool use_pmr_buffer = false;
   //
-  run_mrhs_dslash<nDir, nSpin, N>(transformer, dslash_param, X, T, niter);
+  run_mrhs_dslash_test<nDir, nSpin, N>(dslash_param, X, T, niter);
 
   // initialize the data
   bool verbose = true;

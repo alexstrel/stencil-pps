@@ -184,7 +184,8 @@ class Field{
     auto GetCBDims()       const { return arg.GetParityLatticeDims(); }
    
     auto GetFieldSubset()  const { return arg.subset; }
-    auto GetFieldOrder()   const { return arg.order; }    
+    auto GetFieldOrder()   const { return arg.order; } 
+    auto GetFieldParity()  const { return arg.parity; }       
 
     //Direct field accessors (note that ncolor always 1, so no slicing for this dof):
     template<bool is_constant = false>

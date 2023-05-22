@@ -78,101 +78,18 @@ class Dslash{
     }  
     
 
-    template<std::size_t... Is, std::size_t nDir>
-    inline decltype(auto) accessor(std::index_sequence<Is...>, const auto& field_accessor, const std::array<int, nDir>& x, const int &s){
-      return field_accessor(x[Is]..., s);
+    template<std::size_t... Idxs, std::size_t nDir>
+    inline decltype(auto) accessor(std::index_sequence<Idxs...>, const auto& field_accessor, const std::array<int, nDir>& x, const int &s){
+      return field_accessor(x[Idxs]..., s);
     }
     
-    template<std::size_t... Is, std::size_t nDir>
-    inline decltype(auto) parity_accessor(std::index_sequence<Is...>, const auto& field_accessor, const std::array<int, nDir>& x, const int &d, const int &parity){
-      return field_accessor(x[Is]..., d, parity);
+    template<std::size_t... Idxs, std::size_t nDir>
+    inline decltype(auto) parity_accessor(std::index_sequence<Idxs...>, const auto& field_accessor, const std::array<int, nDir>& x, const int &d, const int &parity){
+      return field_accessor(x[Idxs]..., d, parity);
     }    
 
     template<int nDir, int nSpin>
-    inline decltype(auto) compute_site_stencil(const auto &in_accessor, const auto &U_accessor, const std::array<int, nDir> site_coords){
-      using ArgTp = typename std::remove_cvref_t<Arg>;
-      
-      using Indices = std::make_index_sequence<nDir>;      
-      //Define accessor wrappers:
-      auto in = [&in_=in_accessor, this](const std::array<int, nDir> &x, const int &s){ 
-        return accessor(Indices{}, in_, x, s);
-      };
-
-      auto U  = [&U_=U_accessor, this](const std::array<int, nDir> &x, const int &d){ 
-        return accessor(Indices{}, U_, x, d);
-      };
-
-      using DataTp = ArgTp::gauge_data_tp;
-      //
-      using Link   = DataTp; 
-      using Spinor = std::array<DataTp, nSpin>;    
-    
-      Spinor res;
-      
-      constexpr std::array<DataTp, nDir> bndr_factor{DataTp(1.0),DataTp(-1.0)}; 
-
-      std::array X{site_coords};
-      
-      for (int d = 0; d < nDir; d++) {
-
-        const int Xd = X[d];
-        
-	// Fwd gather:
-	{ 
-          // Check boundary in forward direction
-	  const bool do_halo = (X[d] == (in_accessor.extent(d)-1));
-	  //
-	  if ( do_halo ) {
-            const Link U_ = U(X, d);
-
-	    X[d] = 0;
-
-            const Spinor in_{in(X,0), in(X,1)};            
-	    //
-            res += U_*proj<+1>(in_, d);  
-	  } else {
-            const Link U_ = U(X, d);
-
-	    X[d] = X[d] + 1;
-
-            const Spinor in_{in(X,0), in(X,1)};
-	    //
-            res += U_*proj<+1>(in_, d);		          
-	  }	  
-          // restore initial coord:
-          X[d] = Xd;	  
-	}
-	// Bwd neighbour contribution:
-	{	  	
-	  const bool do_halo = (X[d] == 0);
-          //	
-          if ( do_halo ) {
-            //    
-            X[d] = (in_accessor.extent(d)-1);		  
-
-	    const Link U_ = bndr_factor[d]*U(X, d);
-	    const Spinor in_{in(X,0), in(X,1)};
-
-	    res += conj(U_)*proj<-1>(in_, d);	             
-          } else {  	
-	    //
-            X[d] = X[d] - 1;		  
-
-	    const Link U_ = U(X, d);
-	    const Spinor in_{in(X,0), in(X,1)};
-
-	    res += conj(U_)*proj<-1>(in_, d);	 
-	  }
-	  // restore init coordinate
-	  X[d] = Xd;
-	}
-      }               
-
-      return res;
-    }     
-
-    template<int nDir, int nSpin>
-    inline decltype(auto) compute_site_eo_stencil(const auto &in_accessor, const auto &U_accessor, const FieldParity parity, const std::array<int, nDir> site_coords){
+    inline decltype(auto) compute_parity_site_stencil(const auto &in_accessor, const auto &U_accessor, const FieldParity parity, const std::array<int, nDir> site_coords){
       using ArgTp = typename std::remove_cvref_t<Arg>;
 
       using DataTp = ArgTp::gauge_data_tp;
@@ -261,12 +178,13 @@ class Dslash{
 
       return res;
     }     
-
-    template<BlockSpinorFieldViewTp block_spinor_field_view>
+    
+    template<GenericSpinorFieldViewTp generic_spinor_field_view>
     void apply(auto &&transformer,
-               block_spinor_field_view &out_block_spinor,
-               block_spinor_field_view &in_block_spinor,
-               const auto cartesian_coords) {	    
+               generic_spinor_field_view &out_spinor,
+               generic_spinor_field_view &in_spinor,
+               const auto cartesian_coords,
+               const FieldParity parity) {	    
       // Take into account only internal points:
       // Dslash_nm = (M + 2r) \delta_nm - 0.5 * \sum_\mu  ((r - \gamma_\mu)*U_(x){\mu}*\delta_{m,n+\mu} + (r + \gamma_\mu)U^*(x-mu)_{\mu}\delta_{m,n-\mu})
       //
@@ -280,54 +198,21 @@ class Dslash{
       auto [y, x] = cartesian_coords;
 
       // Define accessors:
-      constexpr bool is_constant = true;      
-      const auto U  = args.gauge.template DefaultAccessor<is_constant>();       
-      
+      constexpr bool is_constant = true;
+      const auto U  = args.gauge.template Accessor<is_constant>();      
+             
 #pragma unroll
-      for ( int i = 0; i < out_block_spinor.size(); i++ ){  	      
-        auto out      = out_block_spinor[i].DefaultAccessor();
-        const auto in = in_block_spinor[i].template DefaultAccessor<is_constant>();
+      for ( int i = 0; i < out_spinor.size(); i++ ){  	      
+        auto out      = out_spinor[i].ParityAccessor();
+        const auto in = in_spinor[i].template ParityAccessor<is_constant>();
 
-        auto tmp = compute_site_stencil<nDir, nSpin>(in, U, {x,y});      
+        auto tmp = compute_parity_site_stencil<nDir, nSpin>(in, U, parity, {x,y});      
 #pragma unroll
         for (int s = 0; s < nSpin; s++){
           out(x,y,s) = transformer(in(x,y,s), tmp[s]);
         }
       }//end of for loop
-    }
-    
-    template<SpinorFieldViewTp spinor_field_view>    
-    void apply(auto &&transformer,
-	       spinor_field_view &out_spinor, 
-	       spinor_field_view &in_spinor, 
-	       const auto cartesian_coords, 
-	       const FieldParity parity) {
-
-      // Take into account only internal points:
-      // Dslash_nm = (M + 4r) \delta_nm - 0.5 * \sum_\mu  ((r - \gamma_\mu)*U_(x){\mu}*\delta_{m,n+\mu} + (r + \gamma_\mu)U^*(x-mu)_{\mu}\delta_{m,n-\mu})
-      //
-      // gamma_{1/2} -> sigma_{1/2}, gamma_{5} -> sigma_{3}
-      //
-      using ArgTp = typename std::remove_cvref_t<Arg>;
-
-      constexpr auto nSpin = ArgTp::nSpin;      
-      constexpr auto nDir  = ArgTp::nDir;       
-
-      auto [y, x] = cartesian_coords;
-
-      // Define accessors:
-      constexpr bool is_constant = true;
-      
-      auto out      = out_spinor.ParityAccessor();
-      const auto in = in_spinor.template ParityAccessor<is_constant>();
-      //
-      const auto U  = args.gauge.template Accessor<is_constant>();
-      
-      auto tmp = compute_site_eo_stencil<nDir, nSpin>(in, U, parity, {x,y});      
-#pragma unroll
-      for (int s = 0; s < nSpin; s++)
-        out(x,y,s) = transformer(in(x,y,s), tmp[s]);
-    }
+    }    
     
 };
 
