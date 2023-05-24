@@ -7,6 +7,7 @@
 #include <numeric>
 #include <memory>
 #include <memory_resource>
+#include <functional>
 
 #include <fields/field_concepts.h>
 #include <core/enums.h>
@@ -25,7 +26,7 @@ consteval FieldType get_field_type() {
   return FieldType::InvalidFieldType;
 }
 
-template<std::size_t nDir = invalid_dir, std::size_t nSpin = invalid_spin, std::size_t nColor = invalid_color, std::size_t nParity = invalid_parity>
+template<std::size_t nDim, std::size_t nDir = invalid_dir, std::size_t nSpin = invalid_spin, std::size_t nColor = invalid_color, std::size_t nParity = invalid_parity>
 class FieldDescriptor {
   private:
     template <std::size_t src_nParity>
@@ -40,7 +41,7 @@ class FieldDescriptor {
     }
     
   public: 
-    static constexpr std::size_t ndim   = 2;                       // FIXME
+    static constexpr std::size_t ndim   = nDim;                       // FIXME
     //
     static constexpr std::size_t ndir   = nDir;                    //vector field dim   (2 for U1 gauge)	  
     static constexpr std::size_t nspin  = nSpin;                   //number of spin dof (2 for spinor)
@@ -166,7 +167,9 @@ class FieldDescriptor {
     
     auto GetParity() const { return parity; }
     
-    inline int X(const int i) const { return dir[i]; }
+    inline int  X(const int i) const { return dir[i]; }
+    
+    inline auto X() const { return dir; }    
     
     template<ArithmeticTp T, bool is_exclusive = true>
     void RegisterPMRBuffer(const bool is_reserved = false) {  
@@ -228,7 +231,12 @@ class FieldDescriptor {
     auto operator=(FieldDescriptor&&     ) -> FieldDescriptor& = default;
 };
 
-template<int nParity = invalid_parity> using GaugeFieldArgs  = FieldDescriptor<2, invalid_spin, 1, nParity>;
+constexpr std::size_t ndims   = 2;
+constexpr std::size_t nspins  = 2;
+constexpr std::size_t ncolors = 1;
+constexpr std::size_t ndirs   = 2;
 
-template<int nParity = invalid_parity> using SpinorFieldArgs = FieldDescriptor<invalid_dir, 2, 1, nParity>;
+template<int nParity = invalid_parity> using GaugeFieldArgs  = FieldDescriptor<ndims, ndirs, invalid_spin, ncolors, nParity>;
+
+template<int nParity = invalid_parity> using SpinorFieldArgs = FieldDescriptor<ndims, invalid_dir, nspins, ncolors, nParity>;
 

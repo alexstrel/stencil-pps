@@ -68,6 +68,7 @@ class Field{
     using container_tp  = generic_container_tp;        
     using data_tp       = typename container_tp::value_type;
 
+    static constexpr std::size_t nDim    = Arg::ndim;
     static constexpr std::size_t nDir    = Arg::ndir;
     static constexpr std::size_t nSpin   = Arg::nspin;                    
     static constexpr std::size_t nColor  = Arg::ncolor;                    
@@ -157,7 +158,7 @@ class Field{
       //           
       constexpr std::size_t other_parity = 1;
       
-      auto parity_arg = FieldDescriptor<nDir, nSpin, nColor, other_parity>(this->arg, parity);
+      auto parity_arg = FieldDescriptor<nDim, nDir, nSpin, nColor, other_parity>(this->arg, parity);
       //
       const auto parity_length = GetParityLength();
       const auto parity_offset = parity == FieldParity::EvenFieldParity ? 0 : parity_length;
@@ -192,7 +193,7 @@ class Field{
     auto GetFieldSubset()  const { return (nParity == 2 ? FieldSiteSubset::FullSiteSubset : (nParity == 1 ? FieldSiteSubset::ParitySiteSubset : FieldSiteSubset::InvalidSiteSubset)); }    
     
     template<bool is_constant, std::size_t... dofs>
-    inline decltype(auto) mdaccessor(std::array<std::size_t, (Arg::ndim + sizeof...(dofs))> strides) const {
+    inline decltype(auto) mdaccessor(std::array<std::size_t, (nDim + sizeof...(dofs))> strides) const {
            
       using dyn_indx_type = std::size_t;
     
@@ -212,28 +213,44 @@ class Field{
     template<bool is_constant = false>
     auto ParityAccessor() const {
       //
-      static_assert(nColor == 1, "Currently only O(1) model is supported.");
+      static_assert(nColor == 1, "Only O(1) model is supported.");
 
       using dyn_indx_type     = std::size_t;
-
-      constexpr dyn_indx_type nDoF = Arg::type == FieldType::VectorFieldType ? nDir*nColor*nColor : nSpin*nColor;
       
-      auto Strides3D = std::array<dyn_indx_type, 3>{1, arg.X(0), arg.X(0)*arg.X(1)};       
-      return mdaccessor<is_constant, nDoF>(Strides3D);            
+      //constexpr dyn_indx_type nDoF = Arg::type == FieldType::VectorFieldType ? nDir*nColor*nColor : nSpin*nColor;
+      
+      if constexpr (Arg::type == FieldType::VectorFieldType) {
+        constexpr int nDofs = 1;
+        
+        auto StridesMD = std::array<dyn_indx_type, nDim+nDofs>{1, arg.X(0), arg.X(0)*arg.X(1)};       
+        return mdaccessor<is_constant, nDir>(StridesMD);            
+      } else {
+        constexpr int nDofs = 1;
+        
+        auto StridesMD = std::array<dyn_indx_type, nDim+nDofs>{1, arg.X(0), arg.X(0)*arg.X(1)};       
+        return mdaccessor<is_constant, nSpin>(StridesMD);                  
+      }
     }
     
     //Direct field accessors (note that ncolor always 1, so no slicing for this dof):
     template<bool is_constant = false>    
     auto Accessor() const {
       //
-      static_assert(nColor == 1, "Currently only O(1) model is supported.");
+      static_assert(nColor == 1, "Only O(1) model is supported.");
 
       using dyn_indx_type     = std::size_t;
 
-      constexpr dyn_indx_type nDoF = Arg::type == FieldType::VectorFieldType ? nDir*nColor*nColor : nSpin*nColor;
-      
-      auto Strides4D = std::array<dyn_indx_type, 4>{1, arg.X(0), arg.X(0)*arg.X(1), arg.X(0)*arg.X(1)*nDoF};       
-      return mdaccessor<is_constant, nDoF, nParity>(Strides4D);      
+      if constexpr (Arg::type == FieldType::VectorFieldType) {      
+        constexpr int nDofs = 2;
+        
+        auto StridesMD = std::array<dyn_indx_type, nDim+nDofs>{1, arg.X(0), arg.X(0)*arg.X(1), arg.X(0)*arg.X(1)*nDir};       
+        return mdaccessor<is_constant, nDir, nParity>(StridesMD);       
+      } else {
+        constexpr int nDofs = 2;
+        
+        auto StridesMD = std::array<dyn_indx_type, nDim+nDofs>{1, arg.X(0), arg.X(0)*arg.X(1), arg.X(0)*arg.X(1)*nSpin};       
+        return mdaccessor<is_constant, nSpin, nParity>(StridesMD);                        
+      }
     }    
     
     template<bool is_constant = false>
