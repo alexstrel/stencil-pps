@@ -3,7 +3,7 @@
 #include <kernels/dslash_factory.h>
 
 //
-using Float   = double;
+using Float   = float;
 //
 std::random_device rd;  //Will be used to obtain a seed for the random number engine
 std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()s
@@ -77,26 +77,23 @@ void convert_field(auto &dst_field, auto &src_field){
 int main(int argc, char **argv)
 {
   //
-  constexpr int nDir  = 2;  
-  constexpr int nSpin = 2;  
-
-  constexpr int X = 1024;
-  constexpr int T = 1024;
+  constexpr int X = 2048;
+  constexpr int T = 2048;
 
   const Float mass = 0.05;
   const Float r    = 1.0;
 
   DslashParam<Float> dslash_param{mass, r};
 
-  const int niter = 1;
+  const int niter = 1000;
   //
-  run_dslash_test<nDir, nSpin>(dslash_param, X, T, niter);
+  run_dslash_test(dslash_param, X, T, niter);
   //
   constexpr int  N = 8; 
   //
   constexpr bool use_pmr_buffer = false;
   //
-  run_mrhs_dslash_test<nDir, nSpin, N>(dslash_param, X, T, niter);
+  run_mrhs_dslash_test<N>(dslash_param, X, T, niter);
 
   // initialize the data
   bool verbose = true;

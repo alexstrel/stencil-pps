@@ -4,8 +4,7 @@
 
 using vector_tp     = std::vector<std::complex<Float>>;
 
-//using sloppy_pmr_vector_tp  = std::pmr::vector<std::complex<float>>;
-//using pmr_vector_tp         = std::pmr::vector<std::complex<Float>>;
+//FLOPS per cite : [2*(6 + (6 + 6 + 6 + 6) + 2) + (6 + 6 + 2)]
 
 template<typename Float>
 void DslashRef(auto &out_spinor, const auto &in_spinor, const auto &gauge_field, const Float mass, const Float r, const std::array<int, 2> n) {//const int nx, const int ny
@@ -55,7 +54,6 @@ void DslashRef(auto &out_spinor, const auto &in_spinor, const auto &gauge_field,
   }
 }
 
-template<int nDir, int nSpin>
 void run_dslash_test(auto params, const int X, const int T, const int niter) {
   //
   constexpr int nSpinorParity = 1;
@@ -76,7 +74,7 @@ void run_dslash_test(auto params, const int X, const int T, const int niter) {
   auto &&u_ref   = gauge.View();
   using gauge_tp = decltype(gauge.View());
     
-  std::unique_ptr<DslashArgs<gauge_tp, nSpin>> dslash_args_ptr(new DslashArgs{u_ref});
+  std::unique_ptr<DslashArgs<gauge_tp, decltype(cs_param)::nspin>> dslash_args_ptr(new DslashArgs{u_ref});
 
   auto &dslash_args = *dslash_args_ptr;
 
@@ -86,7 +84,9 @@ void run_dslash_test(auto params, const int X, const int T, const int niter) {
   const auto s1 = params.M + static_cast<Float>(2.0)*params.r;
   const auto s2 = static_cast<Float>(0.5);
 
-  auto transformer = [=](const auto &x, const auto &y) {return (s1*x-s2*y);};      
+  auto transformer = [=](const auto &x, const auto &y) {return (s1*x-s2*y);};
+  //
+  mat(dst_spinor, src_spinor, transformer, FieldParity::EvenFieldParity);        
 
   auto wall_start = std::chrono::high_resolution_clock::now();
 
@@ -109,7 +109,7 @@ void run_dslash_test(auto params, const int X, const int T, const int niter) {
   src_spinor.destroy();   
 }
 
-template<int nDir, int nSpin, int N, bool use_pmr_buffer = false>
+template<int N, bool use_pmr_buffer = false>
 void run_mrhs_dslash_test(auto params, const int X, const int T, const int niter) {
   //
   constexpr int nSpinorParity = 1;
@@ -126,7 +126,7 @@ void run_mrhs_dslash_test(auto params, const int X, const int T, const int niter
   auto &&u_ref        = gauge.View();
   using gauge_tp      = decltype(gauge.View());
 
-  std::unique_ptr<DslashArgs<gauge_tp, nSpin>> dslash_args_ptr(new DslashArgs{u_ref});
+  std::unique_ptr<DslashArgs<gauge_tp, decltype(cs_param)::nspin>> dslash_args_ptr(new DslashArgs{u_ref});
 
   auto &dslash_args = *dslash_args_ptr;
 
@@ -144,7 +144,9 @@ void run_mrhs_dslash_test(auto params, const int X, const int T, const int niter
   const auto s1 = params.M + static_cast<Float>(2.0)*params.r;
   const auto s2 = static_cast<Float>(0.5);
 
-  auto transformer = [=](const auto &x, const auto &y) {return (s1*x-s2*y);};
+  auto transformer = [=](const auto &x, const auto &y) {return (s1*x-s2*y);}; 
+  //
+  mat(dst_block_spinor, src_block_spinor, transformer, FieldParity::EvenFieldParity);  
 
   auto wall_start = std::chrono::high_resolution_clock::now(); 
 

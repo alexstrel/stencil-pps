@@ -77,9 +77,6 @@ void convert_field(auto &dst_field, auto &src_field){
 int main(int argc, char **argv)
 {
   //
-  constexpr int nDir  = 2;  
-  constexpr int nSpin = 2;  
-
   constexpr int X = 1024;
   constexpr int T = 1024;
 
@@ -90,16 +87,11 @@ int main(int argc, char **argv)
 
   const int niter = 1000;
   
-  const auto scale1 = mass + static_cast<Float>(2.0)*r;
-  const auto scale2 = static_cast<Float>(0.5);
-
-  auto transformer = [=](const auto &x, const auto &y) {return (scale1*x-scale2*y);};  
-
-  run_simple_pmr_dslash<nDir, nSpin>(transformer, dslash_param, X, T, niter);
+  run_pmr_dslash_test(dslash_param, X, T, niter);
   //
   constexpr int  N = 8;  
   //
-  run_mrhs_pmr_dslash<nDir, nSpin, N>(transformer, dslash_param, X, T, niter);
+  run_mrhs_pmr_dslash_test<N>(dslash_param, X, T, niter);
 
   // initialize the data
   bool verbose = true;
