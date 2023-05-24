@@ -107,18 +107,19 @@ void Destroy(auto &spinor) {
 int main(int argc, char **argv)
 {
   //
-  constexpr int nDir  = 2;  
-  constexpr int nSpin = 2;  
-  constexpr int N     = 2;
+  constexpr int N = 2;
 
   constexpr int X = 1024;
   constexpr int T = 1024;
 
+  constexpr int nParity = 2;
+
   const int niter = 1000;
+  
 
   using vector_tp = std::vector<std::complex<Float>>;
 
-  auto sargs = SpinorFieldArgs<nSpin>{{X, T}, {0, 0, 0, 0}};
+  auto sargs = SpinorFieldArgs<nParity>{{X, T}, {0, 0, 0, 0}};
   //
   auto src_spinor = create_field<vector_tp, decltype(sargs)>(sargs);  
 
@@ -177,7 +178,7 @@ int main(int argc, char **argv)
   //
   block_src_spinor[0].show();
   //
-  for(int i = 0; i < block_src_spinor.Size(); i++) {
+  for(int i = 0; i < block_src_spinor.nComponents(); i++) {
     init_spinor(block_src_spinor[i]);
     print_range_v2(block_src_spinor[i], 2);
     //
@@ -195,7 +196,7 @@ int main(int argc, char **argv)
   //
   pmr_block_src_spinor[0].show();
 
-  for(int i = 0; i < pmr_block_src_spinor.Size(); i++) {
+  for(int i = 0; i < pmr_block_src_spinor.nComponents(); i++) {
     init_spinor(pmr_block_src_spinor[i]);
     print_range_v2(pmr_block_src_spinor[i], 2);
     //
@@ -213,7 +214,7 @@ int main(int argc, char **argv)
   std::cout << "NEW block field data:: " << std::endl;
   next_pmr_block_src_spinor[0].show();
 
-  for(int i = 0; i < next_pmr_block_src_spinor.Size(); i++) {
+  for(int i = 0; i < next_pmr_block_src_spinor.nComponents(); i++) {
     print_range_v2(next_pmr_block_src_spinor[i], 2);
     //
     next_pmr_block_src_spinor[i].show();
@@ -227,7 +228,7 @@ int main(int argc, char **argv)
   std::cout << "NEW NEXT block field data:: " << std::endl;
   next_to_next_pmr_block_src_spinor[0].show();
 
-  for(int i = 0; i < next_to_next_pmr_block_src_spinor.Size(); i++) {
+  for(int i = 0; i < next_to_next_pmr_block_src_spinor.nComponents(); i++) {
     print_range_v2(next_to_next_pmr_block_src_spinor[i], 2);
     
     next_to_next_pmr_block_src_spinor[i].show();
@@ -239,34 +240,34 @@ int main(int argc, char **argv)
   std::cout << "NEW NEXT NEXT block field data:: " << std::endl;
   next_to_next_to_next_pmr_block_src_spinor[0].show();
 
-  for(int i = 0; i < next_to_next_to_next_pmr_block_src_spinor.Size(); i++) {
+  for(int i = 0; i < next_to_next_to_next_pmr_block_src_spinor.nComponents(); i++) {
     print_range_v2(next_to_next_to_next_pmr_block_src_spinor[i], 2);
 
     next_to_next_to_next_pmr_block_src_spinor[i].show();
   }
-#if 1
+
   std::cout << "Create a view.\n" << std::endl;
-  auto &&ntntn_pmr_bs_view = next_to_next_to_next_pmr_block_src_spinor.Convert();
+  auto &&ntntn_pmr_bs_view = next_to_next_to_next_pmr_block_src_spinor.ConvertToView();
 
-  std::cout << "1. Size: \n" << ntntn_pmr_bs_view.Size() << std::endl;
+  std::cout << "1. Size: \n" << ntntn_pmr_bs_view.nComponents() << std::endl;
 
-  for(int i = 0; i < ntntn_pmr_bs_view.Size(); i++) {
+  for(int i = 0; i < ntntn_pmr_bs_view.nComponents(); i++) {
     print_range_v2(ntntn_pmr_bs_view[i], 2);
 
     ntntn_pmr_bs_view[i].show();
   }
 
   std::cout << "Create a parity view.\n" << std::endl;
-  auto &&ntntn_pmr_bs_parity_view = next_to_next_to_next_pmr_block_src_spinor.Odd();
+  auto &&ntntn_pmr_bs_parity_view = next_to_next_to_next_pmr_block_src_spinor.ConvertToOddView();
 
-  std::cout << "2. Size: \n" << ntntn_pmr_bs_parity_view.Size() << std::endl;
+  std::cout << "2. Size: \n" << ntntn_pmr_bs_parity_view.nComponents() << std::endl;
 
-  for(int i = 0; i < ntntn_pmr_bs_parity_view.Size(); i++) {
+  for(int i = 0; i < ntntn_pmr_bs_parity_view.nComponents(); i++) {
     print_range_v2(ntntn_pmr_bs_parity_view[i], 2);
     //
     ntntn_pmr_bs_parity_view[i].show();
   }
-#endif
+
 }
 
 

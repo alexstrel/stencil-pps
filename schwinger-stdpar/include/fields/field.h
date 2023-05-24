@@ -71,6 +71,7 @@ class Field{
     static constexpr std::size_t nDir    = Arg::ndir;
     static constexpr std::size_t nSpin   = Arg::nspin;                    
     static constexpr std::size_t nColor  = Arg::ncolor;                    
+    static constexpr std::size_t nParity = Arg::nparity;                        
 
   private: 
     container_tp v;
@@ -149,12 +150,14 @@ class Field{
     decltype(auto) ParityView(const FieldParity parity ) {// return a reference to the parity component
       static_assert(is_allocated_type_v<container_tp>, "Cannot reference a non-owner field!");
       //
-      if (arg.subset != FieldSiteSubset::FullSiteSubset) {
+      if (nParity != 2) {
         std::cerr << "Cannot get a parity component from a non-full field, exiting...\n" << std::endl;
-	exit(-1);
+	std::quick_exit( EXIT_FAILURE );
       }
-      //
-      auto parity_arg = FieldDescriptor(this->arg, FieldSiteSubset::ParitySiteSubset, parity);
+      //           
+      constexpr std::size_t other_parity = 1;
+      
+      auto parity_arg = FieldDescriptor<nDir, nSpin, nColor, other_parity>(this->arg, parity);
       //
       const auto parity_length = GetParityLength();
       const auto parity_offset = parity == FieldParity::EvenFieldParity ? 0 : parity_length;
@@ -169,46 +172,41 @@ class Field{
     auto Odd()  { return ParityView(FieldParity::OddFieldParity  );}
 
     auto EODecompose() {
-      assert(arg.subset == FieldSiteSubset::FullSiteSubset);
+      assert(nParity == 2);
 
       return std::make_tuple(this->Even(), this->Odd());
     }
 
     auto GetLength()       const { return v.size(); }
     auto GetBytes()        const { return v.size()*sizeof(data_tp); }
-    auto GetParityLength() const { return v.size() / (arg.subset == FieldSiteSubset::FullSiteSubset ? 2 : 1); }
+    auto GetParityLength() const { return v.size() / nParity; }
 
-    auto GetGhostParityLength() const { return ghost.size() / (arg.subset == FieldSiteSubset::FullSiteSubset ? 2 : 1); }
+    auto GetGhostParityLength() const { return ghost.size() / nParity; }
 
     auto GetDims()         const { return arg.GetLatticeDims(); }
     auto GetCBDims()       const { return arg.GetParityLatticeDims(); }
    
-    auto GetFieldSubset()  const { return arg.subset; }
     auto GetFieldOrder()   const { return arg.order; } 
-    auto GetFieldParity()  const { return arg.parity; }       
+    auto GetFieldParity()  const { return arg.parity; } 
 
-    //Direct field accessors (note that ncolor always 1, so no slicing for this dof):
-    template<bool is_constant = false>
-    auto DefaultAccessor() const {
-       //
-       static_assert(nColor == 1, "Currently only O(1) model is supported.");
-
-       using dyn_indx_type     = std::size_t;
-
-       constexpr dyn_indx_type nDoF = Arg::type == FieldType::VectorFieldType ? nDir*nColor*nColor : nSpin*nColor;
-
-       using Dyn3DMap  = stdex::layout_stride::mapping<stdex::extents<dyn_indx_type, stdex::dynamic_extent, std::dynamic_extent, nDoF>>;
-       using Extents3D = stdex::extents<dyn_indx_type, stdex::dynamic_extent, stdex::dynamic_extent, nDoF>;
-       using Strides3D = std::array<dyn_indx_type, 3>;       
+    auto GetFieldSubset()  const { return (nParity == 2 ? FieldSiteSubset::FullSiteSubset : (nParity == 1 ? FieldSiteSubset::ParitySiteSubset : FieldSiteSubset::InvalidSiteSubset)); }    
+    
+    template<bool is_constant, std::size_t... dofs>
+    inline decltype(auto) mdaccessor(std::array<std::size_t, (2+sizeof...(dofs))> strides) const {
+           
+      using dyn_indx_type = std::size_t;
+    
+      using DynMDMap  = stdex::layout_stride::mapping<stdex::extents<dyn_indx_type, stdex::dynamic_extent, std::dynamic_extent, dofs...>>;
+      using ExtentsMD = stdex::extents<dyn_indx_type, stdex::dynamic_extent, stdex::dynamic_extent, dofs...>;
        
-       if constexpr (is_constant){
-         return stdex::mdspan<const data_tp, Extents3D, stdex::layout_stride>{
-                    v.data(), Dyn3DMap{Extents3D{arg.X(0), arg.X(1)}, Strides3D{1, arg.X(0), arg.X(0)*arg.X(1)}}} ;
-       } else {
-         return stdex::mdspan<data_tp, Extents3D, stdex::layout_stride>{
-                   v.data(), Dyn3DMap{Extents3D{arg.X(0), arg.X(1)}, Strides3D{1, arg.X(0), arg.X(0)*arg.X(1)}}};
-       }
-    }
+      if constexpr (is_constant){
+        return stdex::mdspan<const data_tp, ExtentsMD, stdex::layout_stride>{
+                    v.data(), DynMDMap{ExtentsMD{arg.X(0), arg.X(1)}, strides}} ;
+      } else {
+        return stdex::mdspan<data_tp, ExtentsMD, stdex::layout_stride>{
+                   v.data(), DynMDMap{ExtentsMD{arg.X(0), arg.X(1)}, strides}};
+      }                 
+    }      
 
     //Direct field accessors (note that ncolor always 1, so no slicing for this dof):
     template<bool is_constant = false>
@@ -219,18 +217,9 @@ class Field{
       using dyn_indx_type     = std::size_t;
 
       constexpr dyn_indx_type nDoF = Arg::type == FieldType::VectorFieldType ? nDir*nColor*nColor : nSpin*nColor;
-
-      using Dyn3DMap  = stdex::layout_stride::mapping<stdex::extents<dyn_indx_type, stdex::dynamic_extent, std::dynamic_extent, nDoF>>;
-      using Extents3D = stdex::extents<dyn_indx_type, stdex::dynamic_extent, stdex::dynamic_extent, nDoF>;
-      using Strides3D = std::array<dyn_indx_type, 3>;       
-       
-      if constexpr (is_constant){
-        return stdex::mdspan<const data_tp, Extents3D, stdex::layout_stride>{
-                    v.data(), Dyn3DMap{Extents3D{arg.X(0), arg.X(1)}, Strides3D{1, arg.X(0), arg.X(0)*arg.X(1)}}} ;
-      } else {
-        return stdex::mdspan<data_tp, Extents3D, stdex::layout_stride>{
-                   v.data(), Dyn3DMap{Extents3D{arg.X(0), arg.X(1)}, Strides3D{1, arg.X(0), arg.X(0)*arg.X(1)}}};
-      }
+      
+      auto Strides3D = std::array<dyn_indx_type, 3>{1, arg.X(0), arg.X(0)*arg.X(1)};       
+      return mdaccessor<is_constant, nDoF>(Strides3D);            
     }
     
     //Direct field accessors (note that ncolor always 1, so no slicing for this dof):
@@ -242,20 +231,9 @@ class Field{
       using dyn_indx_type     = std::size_t;
 
       constexpr dyn_indx_type nDoF = Arg::type == FieldType::VectorFieldType ? nDir*nColor*nColor : nSpin*nColor;
-
-      constexpr dyn_indx_type nparity = 2;
-
-      using Dyn4DMap  = stdex::layout_stride::mapping<stdex::extents<dyn_indx_type, stdex::dynamic_extent, std::dynamic_extent, nDoF, nparity>>;
-      using Extents4D = stdex::extents<dyn_indx_type, stdex::dynamic_extent, stdex::dynamic_extent, nDoF, nparity>;
-      using Strides4D = std::array<dyn_indx_type, 4>;       
-       
-      if constexpr (is_constant){
-        return stdex::mdspan<const data_tp, Extents4D, stdex::layout_stride>{
-                   v.data(), Dyn4DMap{Extents4D{arg.X(0), arg.X(1)}, Strides4D{1, arg.X(0), arg.X(0)*arg.X(1), arg.X(0)*arg.X(1)*nDoF}}} ;
-      } else {
-        return stdex::mdspan<data_tp, Extents4D, stdex::layout_stride>{
-                   v.data(), Dyn4DMap{Extents4D{arg.X(0), arg.X(1)}, Strides4D{1, arg.X(0), arg.X(0)*arg.X(1), arg.X(0)*arg.X(1)*nDoF}}} ;       
-      }
+      
+      auto Strides4D = std::array<dyn_indx_type, 4>{1, arg.X(0), arg.X(0)*arg.X(1), arg.X(0)*arg.X(1)*nDoF};       
+      return mdaccessor<is_constant, nDoF, nParity>(Strides4D);      
     }    
     
     template<bool is_constant = false>

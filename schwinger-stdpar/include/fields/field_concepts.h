@@ -8,18 +8,20 @@
 template <typename T>
 concept GenericSpinorFieldTp = requires{
   requires GenericContainerTp<typename T::container_tp>;
-  requires (T::nSpin  == 1ul or T::nSpin  == 2ul or T::nSpin  == 4ul);
-  requires (T::nColor == 1ul or T::nColor == 3ul);
-  requires (T::nDir   == invalid_dir); 
+  requires (T::nSpin   == 1ul or T::nSpin  == 2ul or T::nSpin  == 4ul);
+  requires (T::nColor  == 1ul or T::nColor == 3ul);
+  requires (T::nDir    == invalid_dir); 
+  requires (T::nParity == invalid_parity or T::nParity == 1 or T::nParity == 2);   
 };
 
 // Generic Gauge Field type:
 template <typename T>
 concept GenericGaugeFieldTp = requires{
   requires GenericContainerTp<typename T::container_tp>;
-  requires (T::nSpin  == invalid_spin);
-  requires (T::nColor == 1ul or T::nColor == 3ul);
-  requires (T::nDir   >= 2ul and T::nDir  <= 4ul);
+  requires (T::nSpin   == invalid_spin);
+  requires (T::nColor  == 1ul or T::nColor == 3ul);
+  requires (T::nDir    >= 2ul and T::nDir  <= 4ul);
+  requires (T::nParity == invalid_parity or T::nParity == 1 or T::nParity == 2);     
 };
 
 // Generic Field type :

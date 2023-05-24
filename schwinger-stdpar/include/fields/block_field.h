@@ -84,9 +84,9 @@ class BlockSpinor{
     decltype(auto) ConvertToParityView(const FieldParity parity ) {
       static_assert(is_allocated_type_v<container_tp>, "Cannot reference a non-owner field!");
       
-      if (args.subset != FieldSiteSubset::FullSiteSubset) {
+      if (spinor_tp::nParity != 2) {
         std::cerr << "Cannot get a parity component from a non-full field, exiting...\n" << std::endl;
-        exit(-1);
+        std::quick_exit( EXIT_FAILURE );
       }
       
       using spinor_parity_view_t = decltype(std::declval<spinor_t>().ParityView(parity));
@@ -114,7 +114,7 @@ class BlockSpinor{
 
     auto GetFieldOrder()  const { return args.order; }    
 
-    auto GetFieldSubset() const { return args.subset; }
+    auto GetFieldSubset() const { return (spinor_tp::nParity == 2 ? FieldSiteSubset::FullSiteSubset : (spinor_tp::nParity == 1 ? FieldSiteSubset::ParitySiteSubset : FieldSiteSubset::InvalidSiteSubset)); }
 
     auto nComponents()   const { return v.size(); } 
 

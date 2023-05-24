@@ -32,7 +32,8 @@ class Mat{
     void operator()(GenericSpinorFieldTp auto &out, GenericSpinorFieldTp auto &in, auto&& transformer, const FieldParity parity){
       
       if ( in.GetFieldOrder() != FieldOrder::EOFieldOrder and in.GetFieldSubset() != FieldSiteSubset::ParitySiteSubset ) { 
-        std::cerr << "Only parity field is allowed." << std::endl; exit(-1);  
+        std::cerr << "Only parity field is allowed." << std::endl; 
+        std::quick_exit( EXIT_FAILURE );  
       }    
 
       using spinor_tp    = typename std::remove_cvref_t<decltype(in)>;

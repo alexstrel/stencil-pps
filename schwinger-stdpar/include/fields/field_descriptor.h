@@ -25,20 +25,27 @@ consteval FieldType get_field_type() {
   return FieldType::InvalidFieldType;
 }
 
-template<std::size_t nDir = invalid_dir, std::size_t nSpin = invalid_spin, std::size_t nColor = invalid_color>
+template<std::size_t nDir = invalid_dir, std::size_t nSpin = invalid_spin, std::size_t nColor = invalid_color, std::size_t nParity = invalid_parity>
 class FieldDescriptor {
   private:
-    static auto get_dims(const auto &src_dir, const FieldSiteSubset dst_subset, const FieldSiteSubset src_subset){
+    template <std::size_t src_nParity>
+    static auto get_dims(const auto &src_dir){
+      constexpr std::size_t dst_nParity = nParity; 
+      
       std::array dir_{src_dir};
-      if (dst_subset == FieldSiteSubset::ParitySiteSubset and src_subset == FieldSiteSubset::FullSiteSubset) dir_[0] /= 2;
+      
+      if constexpr (dst_nParity == 1 and src_nParity == 2) dir_[0] /= 2;
+      
       return dir_;
     }
     
   public: 
     static constexpr std::size_t ndim   = 2;
+    //
     static constexpr std::size_t ndir   = nDir;                    //vector field dim   (2 for U1 gauge)	  
     static constexpr std::size_t nspin  = nSpin;                   //number of spin dof (2 for spinor)
     static constexpr std::size_t ncolor = nColor;                  //for all fields
+    static constexpr std::size_t nparity= nParity;                       //for all fields    
 
     static constexpr FieldType  type = get_field_type<ndir, nspin, ncolor>();
 
@@ -48,7 +55,6 @@ class FieldDescriptor {
     const std::array<int, nFace*ndim> comm_dir;
 
     const FieldOrder         order  = FieldOrder::InvalidFieldOrder;        		
-    const FieldSiteSubset    subset = FieldSiteSubset::InvalidSiteSubset;
     const FieldParity        parity = FieldParity::InvalidFieldParity;
 
     std::shared_ptr<PMRBuffer> pmr_buffer;
@@ -58,34 +64,42 @@ class FieldDescriptor {
     FieldDescriptor(FieldDescriptor&& )      = default;
 
     FieldDescriptor(const std::array<int, ndim> dir, 
-                    const std::array<int, ndim*nFace> comm_dir,
-	            const FieldSiteSubset subset   = FieldSiteSubset::FullSiteSubset,  
+                    const std::array<int, ndim*nFace> comm_dir,  
 	            const FieldParity     parity   = FieldParity::InvalidFieldParity,
 	            const FieldOrder      order    = FieldOrder::EOFieldOrder,	            
 	            const bool is_exclusive        = true) : 
 	            dir{dir},
                     comm_dir{comm_dir},
 	            order(order),
-	            subset(subset),
 	            parity(parity), 
-                    pmr_buffer(nullptr){ } 
-
-    FieldDescriptor(const FieldDescriptor &args, const FieldSiteSubset subset,  const FieldParity parity) : 
-                    dir(get_dims(args.dir, subset, args.subset )),
-	            comm_dir([&dir_=args.dir,dst_subset=subset, src_subset=args.subset]()->std::array<int, ndim*nFace> {
+                    pmr_buffer(nullptr){ 
+                      if ((parity != FieldParity::InvalidFieldParity and nparity != 1) and (parity == FieldParity::InvalidFieldParity and nparity == 1)) {
+                        std::cerr << "Incorrect number of parities " << std::endl;
+                        std::quick_exit( EXIT_FAILURE );
+                      }
+                    } 
+                    
+    template<typename Args>
+    FieldDescriptor(const Args &args, const FieldParity parity) : 
+                    dir(get_dims<std::remove_cvref_t<decltype(args)>::nparity>(args.dir)),
+	            comm_dir([&dir_=args.dir,dst_nParity=nparity, src_nParity=std::remove_cvref_t<decltype(args)>::nparity]()->std::array<int, ndim*nFace> {
                         std::array<int, nFace*ndim> comm_dir{};
 
                         for( int d = 0; d < ndim; d++){
-                          const bool do_div = (d != 0) and (dst_subset == FieldSiteSubset::ParitySiteSubset and src_subset == FieldSiteSubset::FullSiteSubset);
+                          const bool do_div = (d != 0) and (dst_nParity == 1 and src_nParity == 2);
                           for( int face = 0; face < nFace; face++ ) {
                              comm_dir[d+face*nFace] =  do_div ? dir_[d+face*nFace] / 2 : 1;
                           }
                         } return comm_dir;
                       }()),
 	            order(args.order),
-	            subset(subset),
 	            parity(parity),
-                    pmr_buffer(args.pmr_buffer){ } 
+                    pmr_buffer(args.pmr_buffer){ 
+                      if ((parity != FieldParity::InvalidFieldParity and nparity != 1) and (parity == FieldParity::InvalidFieldParity and nparity == 1)) {
+                        std::cerr << "Incorrect number of parities " << std::endl;
+                        std::quick_exit( EXIT_FAILURE );
+                      }                    
+                    } 
 
     //Use it for block fields only:
     FieldDescriptor(const FieldDescriptor &args, 
@@ -93,7 +107,6 @@ class FieldDescriptor {
                     dir(args.dir),
                     comm_dir(args.comm_dir),
                     order(args.order),
-                    subset(args.subset),
                     parity(args.parity),
                     pmr_buffer(extern_pmr_buffer){ }
        
@@ -147,7 +160,7 @@ class FieldDescriptor {
 
     auto GetParityLatticeDims() const {
       std::array xcb{dir};
-      if (subset == FieldSiteSubset::FullSiteSubset)  xcb[0] / 2;	    
+      xcb[0] / nParity;	    
       return xcb;
     }
     
@@ -215,7 +228,7 @@ class FieldDescriptor {
     auto operator=(FieldDescriptor&&     ) -> FieldDescriptor& = default;
 };
 
-template<int nDir,  int nColor = 1> using GaugeFieldArgs  = FieldDescriptor<nDir, invalid_spin, nColor>;
+template<int nParity = invalid_parity> using GaugeFieldArgs  = FieldDescriptor<2, invalid_spin, 1, nParity>;
 
-template<int nSpin, int nColor = 1> using SpinorFieldArgs = FieldDescriptor<invalid_dir,  nSpin, nColor>;
+template<int nParity = invalid_parity> using SpinorFieldArgs = FieldDescriptor<invalid_dir, 2, 1, nParity>;
 

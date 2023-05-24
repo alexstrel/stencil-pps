@@ -58,12 +58,15 @@ void DslashRef(auto &out_spinor, const auto &in_spinor, const auto &gauge_field,
 template<int nDir, int nSpin>
 void run_dslash_test(auto params, const int X, const int T, const int niter) {
   //
-  const auto cs_param = SpinorFieldArgs<nSpin>{{X/2, T}, {0, 0, 0, 0}, FieldSiteSubset::ParitySiteSubset, FieldParity::EvenFieldParity};
+  constexpr int nSpinorParity = 1;
+  constexpr int nGaugeParity  = 2;
+  //  
+  const auto cs_param = SpinorFieldArgs<nSpinorParity>{{X/2, T}, {0, 0, 0, 0}, FieldParity::EvenFieldParity};
   //
   auto src_spinor = create_field<vector_tp, decltype(cs_param)>(cs_param);
   auto dst_spinor = create_field<vector_tp, decltype(cs_param)>(cs_param);
   //
-  const auto gauge_param = GaugeFieldArgs<nDir>{{X, T}, {0, 0}}; 
+  const auto gauge_param = GaugeFieldArgs<nGaugeParity>{{X, T}, {0, 0}}; 
   //
   auto gauge = create_field<vector_tp, decltype(gauge_param)>(gauge_param);
   //
@@ -109,9 +112,12 @@ void run_dslash_test(auto params, const int X, const int T, const int niter) {
 template<int nDir, int nSpin, int N, bool use_pmr_buffer = false>
 void run_mrhs_dslash_test(auto params, const int X, const int T, const int niter) {
   //
-  const auto cs_param = SpinorFieldArgs<nSpin>{{X/2, T}, {0, 0, 0, 0}, FieldSiteSubset::ParitySiteSubset, FieldParity::EvenFieldParity};
+  constexpr int nSpinorParity = 1;
+  constexpr int nGaugeParity  = 2;  
+  //  
+  const auto cs_param    = SpinorFieldArgs<nSpinorParity>{{X/2, T}, {0, 0, 0, 0}, FieldParity::EvenFieldParity};
   //
-  const auto gauge_param = GaugeFieldArgs<nDir>{{X, T}, {0, 0}};
+  const auto gauge_param = GaugeFieldArgs<nGaugeParity>{{X, T}, {0, 0}};
   //
   auto gauge = create_field<vector_tp, decltype(gauge_param)>(gauge_param);    
   //  
