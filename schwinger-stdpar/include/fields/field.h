@@ -192,7 +192,7 @@ class Field{
     auto GetFieldSubset()  const { return (nParity == 2 ? FieldSiteSubset::FullSiteSubset : (nParity == 1 ? FieldSiteSubset::ParitySiteSubset : FieldSiteSubset::InvalidSiteSubset)); }    
     
     template<bool is_constant, std::size_t... dofs>
-    inline decltype(auto) mdaccessor(std::array<std::size_t, (2+sizeof...(dofs))> strides) const {
+    inline decltype(auto) mdaccessor(std::array<std::size_t, (Arg::ndim + sizeof...(dofs))> strides) const {
            
       using dyn_indx_type = std::size_t;
     

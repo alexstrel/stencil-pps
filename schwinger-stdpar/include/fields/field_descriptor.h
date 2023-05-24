@@ -40,7 +40,7 @@ class FieldDescriptor {
     }
     
   public: 
-    static constexpr std::size_t ndim   = 2;
+    static constexpr std::size_t ndim   = 2;                       // FIXME
     //
     static constexpr std::size_t ndir   = nDir;                    //vector field dim   (2 for U1 gauge)	  
     static constexpr std::size_t nspin  = nSpin;                   //number of spin dof (2 for spinor)
