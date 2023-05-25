@@ -123,6 +123,92 @@ class PMRBuffer{
 
 static PMRBuffer default_pmr_buffer = PMRBuffer();
 
+namespace impl {
+  namespace pmr {
+  
+  template <typename T>
+  class vector {
+    public:
+      using allocator_type = std::pmr::polymorphic_allocator<T>;
+      using value_type     = typename allocator_type::value_type;
+      using size_type      = std::size_t;
+      //
+      using iterator               = value_type*;
+      using const_iterator         = const value_type*;
+      using reverse_iterator       = std::reverse_iterator<iterator>;
+      using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+      
+      vector() : data_(nullptr), size_(0), alloc_(std::pmr::get_default_resource()) {}
+      
+
+      explicit vector(size_type numElements, std::pmr::memory_resource* memResource) : data_(nullptr), 
+                                                                                        size_(numElements), 
+                                                                                        alloc_(memResource) {
+                                                                                          data_ = alloc_.allocate(numElements);
+                                                                                        }
+      ~vector() {
+        if(data_) {
+          for(size_type i = 0; i < size_; ++i) {
+            std::allocator_traits<allocator_type>::destroy(alloc_, data_ + i);
+          }
+          alloc_.deallocate(data_, size_);
+        }
+      }
+
+      // Iterators
+      iterator begin() noexcept { return data_; }
+      const_iterator begin() const noexcept { return data_; }
+      const_iterator cbegin() const noexcept { return data_; }
+    
+      iterator end() noexcept { return data_ + size_; }
+      const_iterator end() const noexcept { return data_ + size_; }
+      const_iterator cend() const noexcept { return data_ + size_; }
+
+      reverse_iterator rbegin() noexcept { return reverse_iterator(end()); }
+      const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator(end()); }
+      const_reverse_iterator crbegin() const noexcept { return const_reverse_iterator(cend()); }
+
+      reverse_iterator rend() noexcept { return reverse_iterator(begin()); }
+      const_reverse_iterator rend() const noexcept { return const_reverse_iterator(begin()); }
+      const_reverse_iterator crend() const noexcept { return const_reverse_iterator(cbegin()); }
+
+      value_type* data() noexcept {
+        return data_;
+      }
+
+      const value_type* data() const noexcept {
+        return data_;
+      }
+
+      void resize(size_type newSize) {
+        value_type* newData = alloc_.allocate(newSize);
+        // Transfer data from old memory to new memory here...
+        alloc_.deallocate(data_, size_);
+        data_ = newData;
+        size_ = newSize;
+      }
+
+      value_type& operator[](size_type index) {
+        if(index >= size_) {
+            throw std::out_of_range("Index out of range");
+        }
+        return data_[index];
+      }
+
+      size_type size() const {
+        return size_;
+      }
+
+    private:
+      value_type*    data_;
+      size_type      size_;
+      allocator_type alloc_;
+  };
+  
+
+} // pmr
+} // impl
+
 /**
     Derived from the QUDA library, original developer : Kate Clark (NVIDIA)
 */

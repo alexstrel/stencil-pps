@@ -3,8 +3,8 @@
 using vector_tp         = std::vector<std::complex<Float>>;
 using sloppy_vector_tp  = std::vector<std::complex<float>>;
 
-using pmr_vector_tp         = std::pmr::vector<std::complex<Float>>;
-using sloppy_pmr_vector_tp  = std::pmr::vector<std::complex<float>>;
+using pmr_vector_tp         = impl::pmr::vector<std::complex<Float>>;
+using sloppy_pmr_vector_tp  = impl::pmr::vector<std::complex<float>>;
 
 template<typename Float>
 void DslashRef(auto &out_spinor, const auto &in_spinor, const auto &gauge_field, const Float mass, const Float r, const std::array<int, 2> n) {//const int nx, const int ny
@@ -71,9 +71,9 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
   //  
   auto sloppy_gauge = create_field<decltype(gauge), sloppy_vector_tp, copy_gauge>(gauge);  
   //
-  auto src_spinor = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);
-  auto dst_spinor = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);
-  auto chk_spinor = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);
+  auto src_spinor  = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);
+  auto dst_spinor  = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);
+  auto chk_spinor  = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);  
   //
   init_spinor(src_spinor);  
   
@@ -95,7 +95,7 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
 
   auto transformer = [=](const auto &x, const auto &y) {return (s1*x-s2*y);};
   //
-  mat(dst_spinor, src_spinor, transformer, FieldParity::EvenFieldParity);        
+  //mat(dst_spinor, src_spinor, transformer, FieldParity::EvenFieldParity);        
 
   auto wall_start = std::chrono::high_resolution_clock::now();   
 
@@ -112,12 +112,38 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
 
   std::cout << "Done for EO version : time per iteration is > " << wall_time << "sec." << std::endl; 
   
-  gauge.destroy();
-  sloppy_gauge.destroy();
+  src_spinor.show();
   
   dst_spinor.destroy();
   src_spinor.destroy();
 
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  auto src_spinor2 = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);
+  auto dst_spinor2 = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);
+  
+  auto wall_start2 = std::chrono::high_resolution_clock::now();   
+
+  for(int i = 0; i < niter; i++) {
+    // Apply dslash	  
+    mat(dst_spinor2, src_spinor2, transformer, FieldParity::EvenFieldParity);
+  }
+  
+  auto wall_stop2 = std::chrono::high_resolution_clock::now();
+
+  auto wall_diff2 = wall_stop2 - wall_start2;
+  
+  auto wall_time2 = (static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(wall_diff2).count()) / 1e6)  / niter;
+
+  std::cout << "Done for another EO version : time per iteration is > " << wall_time2 << "sec." << std::endl;  
+
+  gauge.destroy();
+  sloppy_gauge.destroy();
+  
+  src_spinor.show();  
+  
+  dst_spinor2.destroy();
+  src_spinor2.destroy();    
 }
 
 template<int N>
@@ -166,7 +192,6 @@ void run_mrhs_pmr_dslash_test(auto params, const int X, const int T, const int n
   for(int i = 0; i < niter; i++) {
     mat(dst_block_spinor, src_block_spinor, transformer, FieldParity::EvenFieldParity);
   } 
-
 
   auto wall_stop = std::chrono::high_resolution_clock::now();
 

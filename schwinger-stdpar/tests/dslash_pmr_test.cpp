@@ -1,6 +1,7 @@
 #include <fields/field.h>
 #include <fields/block_field.h>
 #include <kernels/dslash_factory.h>
+#include <core/memory.h> 
 
 //
 using Float   = double;
@@ -85,7 +86,7 @@ int main(int argc, char **argv)
 
   DslashParam<Float> dslash_param{mass, r};
 
-  const int niter = 1000;
+  const int niter = 10;
   
   run_pmr_dslash_test(dslash_param, X, T, niter);
   //
