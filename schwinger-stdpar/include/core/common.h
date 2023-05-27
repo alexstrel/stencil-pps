@@ -43,11 +43,11 @@ concept FloatTp = std::is_floating_point_v<T> and requires(T x, T y) {
 
 // Generic complex type:
 template <typename T>
-concept ComplexTp = requires(T x) {
+concept ComplexTp = requires {
     typename T::value_type;
     requires FloatTp<typename T::value_type>;
-    { x.real() } -> std::convertible_to<typename T::value_type>;
-    { x.imag() } -> std::convertible_to<typename T::value_type>;
+    { std::declval<T>().real() } -> std::convertible_to<typename T::value_type>;
+    { std::declval<T>().imag() } -> std::convertible_to<typename T::value_type>;
 };
 
 // Generic arithmetic type:
