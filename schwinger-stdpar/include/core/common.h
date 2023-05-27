@@ -27,21 +27,32 @@ constexpr std::size_t invalid_parity = min_sizet;
 
 namespace stdex = std::experimental;
 
-// Simple arithmetic type
+// Extended floaitng point type:
 template <typename T>
-concept FloatTp = std::is_floating_point_v<T>;
-
-// Simple complex type
-template <typename T>
-concept ComplexTp    = requires {
-  requires std::is_floating_point_v<decltype(std::declval<T>().real())>;
-  requires std::is_floating_point_v<decltype(std::declval<T>().imag())>;  
+concept FloatTp = std::is_floating_point_v<T> and requires(T x, T y) {
+    { x + y } -> std::same_as<T>;
+    { x - y } -> std::same_as<T>;
+    { x * y } -> std::same_as<T>;
+    { x / y } -> std::same_as<T>;
+    { -x    } -> std::same_as<T>;
+    { +x    } -> std::same_as<T>;
+    //
+    { std::numeric_limits<T>::infinity()  } -> std::same_as<T>;
+    { std::numeric_limits<T>::quiet_NaN() } -> std::same_as<T>;
 };
 
-// Simple generic arithmetic type
+// Generic complex type:
+template <typename T>
+concept ComplexTp = requires(T x) {
+    typename T::value_type;
+    requires FloatTp<typename T::value_type>;
+    { x.real() } -> std::convertible_to<typename T::value_type>;
+    { x.imag() } -> std::convertible_to<typename T::value_type>;
+};
+
+// Generic arithmetic type:
 template <typename T>
 concept ArithmeticTp = FloatTp<T> or ComplexTp<T>;
-
 
 // Generic container type:
 template <typename T, typename = std::void_t<>> class is_container_type : public std::false_type { };
