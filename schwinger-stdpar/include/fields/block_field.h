@@ -66,7 +66,7 @@ class BlockSpinor{
     BlockSpinor(const SpinorArg &args_, const std::size_t n) : args(args_) { v.reserve(n); }    
 
     decltype(auto) ConvertToView() {
-      static_assert(is_allocated_type_v<container_tp>, "Cannot reference a non-owner field!");
+      static_assert(is_allocator_aware_type_v<container_tp>, "Cannot reference a non-owner field!");
       
       using spinor_view_t = decltype(std::declval<spinor_t>().View());      
 
@@ -82,7 +82,7 @@ class BlockSpinor{
     }
 
     decltype(auto) ConvertToParityView(const FieldParity parity ) {
-      static_assert(is_allocated_type_v<container_tp>, "Cannot reference a non-owner field!");
+      static_assert(is_allocator_aware_type_v<container_tp>, "Cannot reference a non-owner field!");
       
       if (spinor_tp::nParity != 2) {
         std::cerr << "Cannot get a parity component from a non-full field, exiting...\n" << std::endl;

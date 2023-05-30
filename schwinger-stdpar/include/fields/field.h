@@ -120,7 +120,7 @@ class Field{
     }
     
     void destroy() {
-      static_assert(is_allocated_type_v<container_tp>, "Cannot resize a non-owner field!");
+      static_assert(is_allocator_aware_type_v<container_tp>, "Cannot resize a non-owner field!");
 
       v.resize(0ul);
       ghost.resize(0ul); 
@@ -143,13 +143,13 @@ class Field{
 
     //Return a reference to the object (data access via std::span )
     decltype(auto) View() {
-      static_assert(is_allocated_type_v<container_tp>, "Cannot reference a non-owner field!");
+      static_assert(is_allocator_aware_type_v<container_tp>, "Cannot reference a non-owner field!");
 
       return Field<std::span<data_tp>, decltype(arg)>(std::span{v}, std::span{ghost}, arg);	    
     }
 
     decltype(auto) ParityView(const FieldParity parity ) {// return a reference to the parity component
-      static_assert(is_allocated_type_v<container_tp>, "Cannot reference a non-owner field!");
+      static_assert(is_allocator_aware_type_v<container_tp>, "Cannot reference a non-owner field!");
       //
       if (nParity != 2) {
         std::cerr << "Cannot get a parity component from a non-full field, exiting...\n" << std::endl;

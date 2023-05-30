@@ -30,30 +30,30 @@ concept GenericFieldTp    = GenericSpinorFieldTp<T> or GenericGaugeFieldTp<T>;
 
 // Allocated field type
 template <typename T>
-concept FieldTp           = GenericFieldTp<T> and is_allocated_type_v<typename T::container_tp>;
+concept FieldTp           = GenericFieldTp<T> and is_allocator_aware_type_v<typename T::container_tp>;
 
 // Reference field type
 template <typename T>
-concept FieldViewTp       = GenericFieldTp<T> and (not is_allocated_type_v<typename T::container_tp>);
+concept FieldViewTp       = GenericFieldTp<T> and (not is_allocator_aware_type_v<typename T::container_tp>);
 
 // Allocated field type
 template <typename T>
-concept SpinorFieldTp     = GenericSpinorFieldTp<T> and is_allocated_type_v<typename T::container_tp>;
+concept SpinorFieldTp     = GenericSpinorFieldTp<T> and is_allocator_aware_type_v<typename T::container_tp>;
 
 // Reference field type
 template <typename T>
-concept SpinorFieldViewTp = GenericSpinorFieldTp<T> and (not is_allocated_type_v<typename T::container_tp>);
+concept SpinorFieldViewTp = GenericSpinorFieldTp<T> and (not is_allocator_aware_type_v<typename T::container_tp>);
 
 // PMR spinor field type
 template <typename T>
-concept PMRSpinorFieldTp = SpinorFieldTp<T> and (std::is_same_v<typename T::container_tp::allocator_type, std::pmr::polymorphic_allocator< typename T::container_tp::value_type > >);
+concept PMRSpinorFieldTp = GenericSpinorFieldTp<T> and is_pmr_allocator_aware_type_v<typename T::container_tp>;
 
 // Allocated field type
 template <typename T>
-concept GaugeFieldTp      = GenericGaugeFieldTp<T> and is_allocated_type_v<typename T::container_tp>;
+concept GaugeFieldTp      = GenericGaugeFieldTp<T> and is_allocator_aware_type_v<typename T::container_tp>;
 
 template <typename T>
-concept GaugeFieldViewTp  = GenericGaugeFieldTp<T> and (not is_allocated_type_v<typename T::container_tp>);
+concept GaugeFieldViewTp  = GenericGaugeFieldTp<T> and (not is_allocator_aware_type_v<typename T::container_tp>);
 
 // Spinor block Field concepts
 template <typename T>

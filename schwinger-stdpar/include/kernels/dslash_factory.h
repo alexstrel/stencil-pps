@@ -47,7 +47,7 @@ class Mat{
 
       auto ids = std::views::cartesian_product(Y, X);//Y is the slowest index, X is the fastest
       
-      if constexpr (is_allocated_type_v<container_tp>) {
+      if constexpr (is_allocator_aware_type_v<container_tp>) {
         auto&& out_view = out.View();
         auto&& in_view  = in.View(); 
         
@@ -72,7 +72,7 @@ class Mat{
 
       auto ids = std::views::cartesian_product(Y, X);//Y is the slowest index, X is the fastest
                     
-     if constexpr (is_allocated_type_v<component_container_tp>) {
+     if constexpr (is_allocator_aware_type_v<component_container_tp>) {
         //First, we need to convert to views all components in the block
         auto &&out_block_spinor_view = out_block_spinor.ConvertToView();
         auto &&in_block_spinor_view  = in_block_spinor.ConvertToView();       
