@@ -61,7 +61,8 @@ void run_dslash_test(auto params, const int X, const int T, const int niter) {
   //  
   const auto cs_param = SpinorFieldArgs<nSpinorParity>{{X/2, T}, {0, 0, 0, 0}, FieldParity::EvenFieldParity};
   //
-  auto src_spinor = create_field<vector_tp, decltype(cs_param)>(cs_param);
+  auto src_spinor   = create_field<vector_tp, decltype(cs_param)>(cs_param);
+  auto accum_spinor = create_field<vector_tp, decltype(cs_param)>(cs_param);  
   auto dst_spinor = create_field<vector_tp, decltype(cs_param)>(cs_param);
   //
   const auto gauge_param = GaugeFieldArgs<nGaugeParity>{{X, T}, {0, 0}}; 
@@ -70,6 +71,7 @@ void run_dslash_test(auto params, const int X, const int T, const int niter) {
   //
   init_u1(gauge);
   init_spinor(src_spinor);  
+  init_spinor(accum_spinor);    
 
   auto &&u_ref   = gauge.View();
   using gauge_tp = decltype(gauge.View());
@@ -86,7 +88,7 @@ void run_dslash_test(auto params, const int X, const int T, const int niter) {
 
   auto transformer = [=](const auto &x, const auto &y) {return (s1*x-s2*y);};
   //
-  mat(dst_spinor, src_spinor, transformer, FieldParity::EvenFieldParity);        
+  mat(dst_spinor, src_spinor, accum_spinor, transformer, FieldParity::EvenFieldParity);        
 
   auto wall_start = std::chrono::high_resolution_clock::now();
 
@@ -107,6 +109,7 @@ void run_dslash_test(auto params, const int X, const int T, const int niter) {
   
   dst_spinor.destroy();
   src_spinor.destroy();   
+  accum_spinor.destroy();
 }
 
 template<int N, bool use_pmr_buffer = false>
@@ -135,9 +138,11 @@ void run_mrhs_dslash_test(auto params, const int X, const int T, const int niter
   //
   using spinor_t  = Field<vector_tp, decltype(cs_param)>;//
   //
-  auto src_block_spinor = create_block_spinor< spinor_t, decltype(cs_param), use_pmr_buffer>(cs_param, N); 
+  auto src_block_spinor   = create_block_spinor< spinor_t, decltype(cs_param), use_pmr_buffer>(cs_param, N); 
+  auto accum_block_spinor = create_block_spinor< spinor_t, decltype(cs_param), use_pmr_buffer>(cs_param, N);   
   //
   for (int i = 0; i < src_block_spinor.nComponents(); i++) init_spinor( src_block_spinor.v[i] );
+  for (int i = 0; i < src_block_spinor.nComponents(); i++) init_spinor( accum_block_spinor.v[i] );  
   
   auto dst_block_spinor = create_block_spinor< spinor_t, decltype(cs_param), use_pmr_buffer>(cs_param, N); 
 
@@ -146,12 +151,12 @@ void run_mrhs_dslash_test(auto params, const int X, const int T, const int niter
 
   auto transformer = [=](const auto &x, const auto &y) {return (s1*x-s2*y);}; 
   //
-  mat(dst_block_spinor, src_block_spinor, transformer, FieldParity::EvenFieldParity);  
+  mat(dst_block_spinor, src_block_spinor, accum_block_spinor, transformer, FieldParity::EvenFieldParity);  
 
   auto wall_start = std::chrono::high_resolution_clock::now(); 
 
   for(int i = 0; i < niter; i++) {
-    mat(dst_block_spinor, src_block_spinor, transformer, FieldParity::EvenFieldParity);
+    mat(dst_block_spinor, src_block_spinor, accum_block_spinor, transformer, FieldParity::EvenFieldParity);
   } 
 
   auto wall_stop = std::chrono::high_resolution_clock::now();
@@ -164,6 +169,7 @@ void run_mrhs_dslash_test(auto params, const int X, const int T, const int niter
 
   src_block_spinor.destroy();
   dst_block_spinor.destroy();  
+  accum_block_spinor.destroy();
   gauge.destroy();
 }
 

@@ -183,6 +183,7 @@ class Dslash{
     void apply(auto &&transformer,
                generic_spinor_field_view &out_spinor,
                generic_spinor_field_view &in_spinor,
+               generic_spinor_field_view &accum_spinor,               
                const auto cartesian_coords,
                const FieldParity parity) {	    
       // Take into account only internal points:
@@ -203,13 +204,14 @@ class Dslash{
              
 #pragma unroll
       for ( int i = 0; i < out_spinor.size(); i++ ){  	      
-        auto out      = out_spinor[i].ParityAccessor();
-        const auto in = in_spinor[i].template ParityAccessor<is_constant>();
+        auto out         = out_spinor[i].ParityAccessor();
+        const auto in    = in_spinor[i].template ParityAccessor<is_constant>();
+        const auto accum = accum_spinor[i].template ParityAccessor<is_constant>();        
 
         auto tmp = compute_parity_site_stencil<nDir, nSpin>(in, U, parity, {x,y});      
 #pragma unroll
         for (int s = 0; s < nSpin; s++){
-          out(x,y,s) = transformer(in(x,y,s), tmp[s]);
+          out(x,y,s) = transformer(accum(x,y,s), tmp[s]);
         }
       }//end of for loop
     }    
