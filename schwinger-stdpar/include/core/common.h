@@ -74,8 +74,6 @@ concept is_allocator_aware_type = requires{
     //requires std::same_as<decltype(std::declval<T>().get_allocator()), typename T::allocator_type>; //WHY this fails?..
 };
 
-template <typename T> constexpr bool is_allocator_aware_type_v = is_allocator_aware_type<T>;
-
 //Allocator aware container type:
 template <typename T>
 concept ContainerTp = GenericContainerTp<T> and is_allocator_aware_type<T>;
@@ -93,8 +91,8 @@ concept is_pmr_allocator_aware_type = requires {
     //requires std::same_as<decltype(std::declval<T>().get_allocator()), typename T::allocator_type>; //WHY this fails?..    
 };
 
-template <typename T> constexpr bool is_pmr_allocator_aware_type_v = is_pmr_allocator_aware_type<T>;
 
 template <typename T>
 concept PMRContainerTp = GenericContainerTp<T> and is_pmr_allocator_aware_type<T>;
+
 

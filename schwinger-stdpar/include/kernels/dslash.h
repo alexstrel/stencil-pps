@@ -110,7 +110,7 @@ class Dslash{
       auto is_local_boundary = [](const auto d, const auto coord, const auto bndry, const auto parity_bit){ 
 	      return ((coord == bndry) and (d != 0 or (d == 0 and parity_bit == 1)));};
 
-      const int parity_bit = parity == FieldParity::EvenFieldParity ? (site_coords[1] % 1) : 1 - (site_coords[1] % 1);
+      const int parity_bit = parity == FieldParity::EvenFieldParity ? (site_coords[1] & 1) : 1 - (site_coords[1] & 1);
       //
       const int my_parity    = parity == FieldParity::EvenFieldParity ? 0 : 1;
       const int other_parity = 1 - my_parity;

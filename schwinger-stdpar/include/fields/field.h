@@ -120,7 +120,7 @@ class Field{
     }
     
     void destroy() {
-      static_assert(is_allocator_aware_type_v<container_tp>, "Cannot resize a non-owner field!");
+      static_assert(is_allocator_aware_type<container_tp>, "Cannot resize a non-owner field!");
 
       v.resize(0ul);
       ghost.resize(0ul); 
@@ -143,13 +143,13 @@ class Field{
 
     //Return a reference to the object (data access via std::span )
     decltype(auto) View() {
-      static_assert(is_allocator_aware_type_v<container_tp>, "Cannot reference a non-owner field!");
+      static_assert(is_allocator_aware_type<container_tp>, "Cannot reference a non-owner field!");
 
       return Field<std::span<data_tp>, decltype(arg)>(std::span{v}, std::span{ghost}, arg);	    
     }
 
     decltype(auto) ParityView(const FieldParity parity ) {// return a reference to the parity component
-      static_assert(is_allocator_aware_type_v<container_tp>, "Cannot reference a non-owner field!");
+      static_assert(is_allocator_aware_type<container_tp>, "Cannot reference a non-owner field!");
       //
       if (nParity != 2) {
         std::cerr << "Cannot get a parity component from a non-full field, exiting...\n" << std::endl;
@@ -190,7 +190,16 @@ class Field{
     auto GetFieldOrder()   const { return arg.order; } 
     auto GetFieldParity()  const { return arg.parity; } 
 
-    auto GetFieldSubset()  const { return (nParity == 2 ? FieldSiteSubset::FullSiteSubset : (nParity == 1 ? FieldSiteSubset::ParitySiteSubset : FieldSiteSubset::InvalidSiteSubset)); }    
+    auto GetFieldSubset()  const { return (nParity == 2 ? FieldSiteSubset::FullSiteSubset : (nParity == 1 ? FieldSiteSubset::ParitySiteSubset : FieldSiteSubset::InvalidSiteSubset)); }  
+    
+    void Info() const {
+      std::cout << "Full field dimensions: " << std::endl;
+      int i = 0;
+      for(auto d : GetDims()) std::cout << i++ << " : " << d << std::endl;
+      std::cout << "Parity components dimensions: " << std::endl;
+      i = 0;
+      for(auto d : GetCBDims()) std::cout << i++ << " : " << d << std::endl;      
+    }  
     
     template<bool is_constant, std::size_t... dofs>
     inline decltype(auto) mdaccessor(std::array<std::size_t, (nDim + sizeof...(dofs))> strides) const {
@@ -199,13 +208,15 @@ class Field{
     
       using DynMDMap  = stdex::layout_stride::mapping<stdex::extents<dyn_indx_type, stdex::dynamic_extent, std::dynamic_extent, dofs...>>;
       using ExtentsMD = stdex::extents<dyn_indx_type, stdex::dynamic_extent, stdex::dynamic_extent, dofs...>;
-       
+      
+      const std::array X = GetCBDims();       
+      
       if constexpr (is_constant){
         return stdex::mdspan<const data_tp, ExtentsMD, stdex::layout_stride>{
-                    v.data(), DynMDMap{ExtentsMD{arg.X(0), arg.X(1)}, strides}} ;
+                    v.data(), DynMDMap{ExtentsMD{X[0], X[1]}, strides}} ;
       } else {
         return stdex::mdspan<data_tp, ExtentsMD, stdex::layout_stride>{
-                   v.data(), DynMDMap{ExtentsMD{arg.X(0), arg.X(1)}, strides}};
+                   v.data(), DynMDMap{ExtentsMD{X[0], X[1]}, strides}};
       }                 
     }      
 
@@ -239,16 +250,18 @@ class Field{
       static_assert(nColor == 1, "Only O(1) model is supported.");
 
       using dyn_indx_type     = std::size_t;
+      
+      const std::array X = GetCBDims();
 
       if constexpr (Arg::type == FieldType::VectorFieldType) {      
         constexpr int nDofs = 2;
         
-        auto StridesMD = std::array<dyn_indx_type, nDim+nDofs>{1, arg.X(0), arg.X(0)*arg.X(1), arg.X(0)*arg.X(1)*nDir};       
+        auto StridesMD = std::array<dyn_indx_type, nDim+nDofs>{1, X[0], X[0]*X[1], X[0]*X[1]*nDir};       
         return mdaccessor<is_constant, nDir, nParity>(StridesMD);       
       } else {
         constexpr int nDofs = 2;
         
-        auto StridesMD = std::array<dyn_indx_type, nDim+nDofs>{1, arg.X(0), arg.X(0)*arg.X(1), arg.X(0)*arg.X(1)*nSpin};       
+        auto StridesMD = std::array<dyn_indx_type, nDim+nDofs>{1, X[0], X[0]*X[1], X[0]*X[1]*nSpin};       
         return mdaccessor<is_constant, nSpin, nParity>(StridesMD);                        
       }
     }    
