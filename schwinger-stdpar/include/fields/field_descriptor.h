@@ -161,7 +161,7 @@ class FieldDescriptor {
 
     auto GetParityLatticeDims() const {
       std::array xcb{dir};
-      xcb[0] /= nParity;	    
+      xcb[0] = nParity == 2 ? xcb[0] / nParity : xcb[0];	    
       return xcb;
     }
     

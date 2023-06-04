@@ -7,32 +7,40 @@ using vector_tp     = std::vector<std::complex<Float>>;
 //FLOPS per cite : [2*(6 + (6 + 6 + 6 + 6) + 2) + (6 + 6 + 2)]
 
 template<typename Float>
-void DslashRef(auto &out_spinor, const auto &in_spinor, const auto &gauge_field, const Float mass, const Float r, const std::array<int, 2> n) {//const int nx, const int ny
+void DslashRef(auto &out_spinor, const auto &in_spinor, const auto &accum_spinor, const auto &gauge_field, const Float mass, const Float r, const std::array<int, 2> n, const int parity) {//const int nx, const int ny
   
   const Float constant = (mass + 2.0*r);
   
-  const int nx = n[0];
-  const int ny = n[1];
+  const int nxh = n[0];
+  const int ny  = n[1];
   //  
   std::complex<Float> tmp = std::complex<Float>(0.);
   
   auto I = [](auto x){ return Float(-x.imag(), x.real());};  
   
-  auto out          = out_spinor.Accessor();
-  const auto in     = in_spinor.Accessor();
-  const auto gauge  = gauge_field.Accessor();  
+  auto out          = out_spinor.ParityAccessor();
+  const auto in     = in_spinor.ParityAccessor();
+  //
+  const auto gauge  = gauge_field.Accessor(); 
   
-  for(int x = 0; x < nx; x++) {
-    const int xp1 = (x+1) == nx ? 0    : (x+1);
-    const int xm1 = (x-1) == -1 ? nx-1 : (x-1);
+  const int other_parity = 1 - parity; 
+  
+  for(int y = 0; y < ny; y++) {
+    const int yp1 = (y+1) == ny ? 0    : (y+1);
+    const int ym1 = (y-1) == -1 ? ny-1 : (y-1);
+
+    const Float fwd_bndr = yp1 == 0 ? -1.0 : 1.0;
+    const Float bwd_bndr = y   == 0 ? -1.0 : 1.0;
     
-    for(int y = 0; y < ny; y++) {
-      const int yp1 = (y+1) == ny ? 0    : (y+1);
-      const int ym1 = (y-1) == -1 ? ny-1 : (y-1);
-
-      const Float fwd_bndr = yp1 == 0 ? -1.0 : 1.0;
-      const Float bwd_bndr = y   == 0 ? -1.0 : 1.0;  
-
+    const int parity_bit = y & 1; 
+  
+    const int fwd_stride = parity_bit ? +1 :  0; 
+    const int bwd_stride = parity_bit ?  0 : +1;       
+  
+    for(int x = 0; x < nxh; x++) {
+      //      
+      const int xp1 = (x+fwd_stride) == nxh ? 0     : (x+fwd_stride);
+      const int xm1 = (x-bwd_stride) == -1  ? nxh-1 : (x-bwd_stride);      
       //
       tmp = constant * in(x,y,0)
 
@@ -94,7 +102,7 @@ void run_dslash_test(auto params, const int X, const int T, const int niter) {
 
   for(int i = 0; i < niter; i++) {
     // Apply dslash	  
-    mat(dst_spinor, src_spinor, transformer, FieldParity::EvenFieldParity);
+    mat(dst_spinor, src_spinor, accum_spinor, transformer, FieldParity::EvenFieldParity);
   } 
  
   auto wall_stop = std::chrono::high_resolution_clock::now();

@@ -7,32 +7,40 @@ using pmr_vector_tp         = impl::pmr::vector<std::complex<Float>>;
 using sloppy_pmr_vector_tp  = impl::pmr::vector<std::complex<float>>;
 
 template<typename Float>
-void DslashRef(auto &out_spinor, const auto &in_spinor, const auto &gauge_field, const Float mass, const Float r, const std::array<int, 2> n) {//const int nx, const int ny
+void DslashRef(auto &out_spinor, const auto &in_spinor, const auto &accum_spinor, const auto &gauge_field, const Float mass, const Float r, const std::array<int, 2> n, const int parity) {//const int nx, const int ny
   
   const Float constant = (mass + 2.0*r);
   
-  const int nx = n[0];
-  const int ny = n[1];
+  const int nxh = n[0];
+  const int ny  = n[1];
   //  
   std::complex<Float> tmp = std::complex<Float>(0.);
   
   auto I = [](auto x){ return Float(-x.imag(), x.real());};  
   
-  auto out          = out_spinor.Accessor();
-  const auto in     = in_spinor.Accessor();
-  const auto gauge  = gauge_field.Accessor();  
+  auto out          = out_spinor.ParityAccessor();
+  const auto in     = in_spinor.ParityAccessor();
+  //
+  const auto gauge  = gauge_field.Accessor(); 
   
-  for(int x = 0; x < nx; x++) {
-    const int xp1 = (x+1) == nx ? 0    : (x+1);
-    const int xm1 = (x-1) == -1 ? nx-1 : (x-1);
+  const int other_parity = 1 - parity; 
+  
+  for(int y = 0; y < ny; y++) {
+    const int yp1 = (y+1) == ny ? 0    : (y+1);
+    const int ym1 = (y-1) == -1 ? ny-1 : (y-1);
+
+    const Float fwd_bndr = yp1 == 0 ? -1.0 : 1.0;
+    const Float bwd_bndr = y   == 0 ? -1.0 : 1.0;
     
-    for(int y = 0; y < ny; y++) {
-      const int yp1 = (y+1) == ny ? 0    : (y+1);
-      const int ym1 = (y-1) == -1 ? ny-1 : (y-1);
-
-      const Float fwd_bndr = yp1 == 0 ? -1.0 : 1.0;
-      const Float bwd_bndr = y   == 0 ? -1.0 : 1.0;  
-
+    const int parity_bit = y & 1; 
+  
+    const int fwd_stride = parity_bit ? +1 :  0; 
+    const int bwd_stride = parity_bit ?  0 : +1;       
+  
+    for(int x = 0; x < nxh; x++) {
+      //      
+      const int xp1 = (x+fwd_stride) == nxh ? 0     : (x+fwd_stride);
+      const int xm1 = (x-bwd_stride) == -1  ? nxh-1 : (x-bwd_stride);      
       //
       tmp = constant * in(x,y,0)
 
@@ -54,6 +62,7 @@ void DslashRef(auto &out_spinor, const auto &in_spinor, const auto &gauge_field,
   }
 }
 
+
 void run_pmr_dslash_test(auto params, const int X, const int T, const int niter) {
   //
   constexpr int nSpinorParity = 1;
@@ -72,10 +81,12 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
   auto sloppy_gauge = create_field<decltype(gauge), sloppy_vector_tp, copy_gauge>(gauge);  
   //
   auto src_spinor  = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);
+  auto accum_spinor= create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);  
   auto dst_spinor  = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);
   auto chk_spinor  = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);  
   //
   init_spinor(src_spinor);  
+  init_spinor(accum_spinor);    
   
   // Setup dslash arguments:
   auto &&u_ref        = sloppy_gauge.View();
@@ -95,13 +106,13 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
 
   auto transformer = [=](const auto &x, const auto &y) {return (s1*x-s2*y);};
   //
-  //mat(dst_spinor, src_spinor, transformer, FieldParity::EvenFieldParity);        
+  //mat(dst_spinor, src_spinor, accum_spinor, transformer, FieldParity::EvenFieldParity);        
 
   auto wall_start = std::chrono::high_resolution_clock::now();   
 
   for(int i = 0; i < niter; i++) {
     // Apply dslash	  
-    mat(dst_spinor, src_spinor, transformer, FieldParity::EvenFieldParity);
+    mat(dst_spinor, src_spinor, accum_spinor, transformer, FieldParity::EvenFieldParity);
   }
   
   auto wall_stop = std::chrono::high_resolution_clock::now();
@@ -116,17 +127,19 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
   
   dst_spinor.destroy();
   src_spinor.destroy();
+  accum_spinor.destroy();  
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  auto src_spinor2 = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);
-  auto dst_spinor2 = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);
+  auto src_spinor2   = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);
+  auto dst_spinor2   = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);
+  auto accum_spinor2 = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);  
   
   auto wall_start2 = std::chrono::high_resolution_clock::now();   
 
   for(int i = 0; i < niter; i++) {
     // Apply dslash	  
-    mat(dst_spinor2, src_spinor2, transformer, FieldParity::EvenFieldParity);
+    mat(dst_spinor2, src_spinor2, accum_spinor2, transformer, FieldParity::EvenFieldParity);
   }
   
   auto wall_stop2 = std::chrono::high_resolution_clock::now();
@@ -143,7 +156,8 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
   src_spinor.show();  
   
   dst_spinor2.destroy();
-  src_spinor2.destroy();    
+  src_spinor2.destroy();  
+  accum_spinor2.destroy();    
 }
 
 template<int N>
@@ -176,7 +190,10 @@ void run_mrhs_pmr_dslash_test(auto params, const int X, const int T, const int n
   //
   auto src_block_spinor = create_block_spinor< pmr_spinor_t, decltype(cs_param), use_pmr_buffer >(cs_param, N); 
   //
+  auto accum_block_spinor = create_block_spinor< pmr_spinor_t, decltype(cs_param), use_pmr_buffer >(cs_param, N);   
+  //
   for (int i = 0; i < src_block_spinor.nComponents(); i++) init_spinor( src_block_spinor.v[i] );
+  for (int i = 0; i < src_block_spinor.nComponents(); i++) init_spinor( accum_block_spinor.v[i] );  
   
   auto dst_block_spinor = create_block_spinor< pmr_spinor_t, decltype(cs_param), use_pmr_buffer >(cs_param, N); 
   
@@ -185,12 +202,12 @@ void run_mrhs_pmr_dslash_test(auto params, const int X, const int T, const int n
 
   auto transformer = [=](const auto &x, const auto &y) {return (s1*x-s2*y);}; 
   //
-  mat(dst_block_spinor, src_block_spinor, transformer, FieldParity::EvenFieldParity);  
+  mat(dst_block_spinor, src_block_spinor, accum_block_spinor, transformer, FieldParity::EvenFieldParity);  
 
   auto wall_start = std::chrono::high_resolution_clock::now();   
  
   for(int i = 0; i < niter; i++) {
-    mat(dst_block_spinor, src_block_spinor, transformer, FieldParity::EvenFieldParity);
+    mat(dst_block_spinor, src_block_spinor, accum_block_spinor, transformer, FieldParity::EvenFieldParity);
   } 
 
   auto wall_stop = std::chrono::high_resolution_clock::now();
@@ -203,6 +220,7 @@ void run_mrhs_pmr_dslash_test(auto params, const int X, const int T, const int n
 
   src_block_spinor.destroy();
   dst_block_spinor.destroy();  
+  accum_block_spinor.destroy();
   gauge.destroy();  
 }
 
