@@ -216,7 +216,7 @@ class Field{
                     v.data(), DynMDMap{ExtentsMD{X[0], X[1]}, strides}} ;
       } else {
         return stdex::mdspan<data_tp, ExtentsMD, stdex::layout_stride>{
-                   v.data(), DynMDMap{ExtentsMD{X[0], X[1]}, strides}};
+                   const_cast<data_tp*>(v.data()), DynMDMap{ExtentsMD{X[0], X[1]}, strides}};
       }                 
     }      
 

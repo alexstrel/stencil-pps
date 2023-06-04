@@ -2,12 +2,14 @@
 
 #include <chrono>
 
-using vector_tp     = std::vector<std::complex<Float>>;
+using vector_tp = std::vector<std::complex<Float>>;
 
 //FLOPS per cite : [2*(6 + (6 + 6 + 6 + 6) + 2) + (6 + 6 + 2)]
 
 template<typename Float>
 void DslashRef(auto &out_spinor, const auto &in_spinor, const auto &accum_spinor, const auto &gauge_field, const Float mass, const Float r, const std::array<int, 2> n, const int parity) {//const int nx, const int ny
+  
+  constexpr bool is_constant = true;
   
   const Float constant = (mass + 2.0*r);
   
@@ -15,22 +17,24 @@ void DslashRef(auto &out_spinor, const auto &in_spinor, const auto &accum_spinor
   const int ny  = n[1];
   //  
   std::complex<Float> tmp = std::complex<Float>(0.);
+  std::complex<Float> hlf = std::complex<Float>(0.5, 0.);  
   
-  auto I = [](auto x){ return Float(-x.imag(), x.real());};  
+  auto I = [](auto x){ return std::complex<Float>(-x.imag(), x.real());};  
   
   auto out          = out_spinor.ParityAccessor();
-  const auto in     = in_spinor.ParityAccessor();
+  const auto in     = in_spinor.template ParityAccessor<is_constant>();
+  const auto accum  = accum_spinor.template ParityAccessor<is_constant>();  
   //
-  const auto gauge  = gauge_field.Accessor(); 
-  
+  const auto gauge  = gauge_field.template Accessor<is_constant>(); 
+
   const int other_parity = 1 - parity; 
   
   for(int y = 0; y < ny; y++) {
     const int yp1 = (y+1) == ny ? 0    : (y+1);
     const int ym1 = (y-1) == -1 ? ny-1 : (y-1);
 
-    const Float fwd_bndr = yp1 == 0 ? -1.0 : 1.0;
-    const Float bwd_bndr = y   == 0 ? -1.0 : 1.0;
+    const std::complex<Float> fwd_bndr = yp1 == 0 ? std::complex<Float>{-1.0, 0.0} : std::complex<Float>{+1.0, 0.0};
+    const std::complex<Float> bwd_bndr = y   == 0 ? std::complex<Float>{-1.0, 0.0} : std::complex<Float>{+1.0, 0.0};
     
     const int parity_bit = y & 1; 
   
@@ -42,20 +46,20 @@ void DslashRef(auto &out_spinor, const auto &in_spinor, const auto &accum_spinor
       const int xp1 = (x+fwd_stride) == nxh ? 0     : (x+fwd_stride);
       const int xm1 = (x-bwd_stride) == -1  ? nxh-1 : (x-bwd_stride);      
       //
-      tmp = constant * in(x,y,0)
+      tmp = constant * accum(x,y,0)
 
-	- 0.5*(gauge(x,y,0) * (in(xp1,y,0) - in(xp1,y,1)) + conj(gauge(xm1,y,0)) * (in(xm1,y,0) + in(xm1,y,1)))
+	- hlf*(gauge(x,y,0, parity) * (in(xp1,y,0) - in(xp1,y,1)) + conj(gauge(xm1,y,0, other_parity)) * (in(xm1,y,0) + in(xm1,y,1)))
 	
-	- 0.5*(gauge(x,y,1) * fwd_bndr*(in(x,yp1,0) + I(in(x,yp1,1))) + conj(gauge(x,ym1,1)) * bwd_bndr*(in(x,ym1,0) - I(in(x,ym1,1))));
+	- hlf*(gauge(x,y,1, parity) * fwd_bndr*(in(x,yp1,0) + I(in(x,yp1,1))) + conj(gauge(x,ym1,1, other_parity)) * bwd_bndr*(in(x,ym1,0) - I(in(x,ym1,1))));
       
       out(x,y,0) = tmp;
       
       //
-      tmp = constant * in(x,y,1) 
+      tmp = constant * accum(x,y,1) 
 
-	- 0.5*(gauge(x,y,0) * (in(xp1,y,1) - in(xp1,y,0)) + conj(gauge(xm1,y,0)) * (in(xm1,y,1) + in(xm1,y,0)))
+	- hlf*(gauge(x,y,0, parity) * (in(xp1,y,1) - in(xp1,y,0)) + conj(gauge(xm1,y,0, other_parity)) * (in(xm1,y,1) + in(xm1,y,0)))
 	
-	- 0.5*(gauge(x,y,1) * fwd_bndr*(in(x,yp1,1) - I(in(x,yp1,0))) + conj(gauge(x,ym1,1)) * bwd_bndr*(in(x,ym1,1) + I(in(x,ym1,0))));
+	- hlf*(gauge(x,y,1, parity) * fwd_bndr*(in(x,yp1,1) - I(in(x,yp1,0))) + conj(gauge(x,ym1,1, other_parity)) * bwd_bndr*(in(x,ym1,1) + I(in(x,ym1,0))));
       
       out(x,y,1) = tmp;
     }
@@ -72,6 +76,7 @@ void run_dslash_test(auto params, const int X, const int T, const int niter) {
   auto src_spinor   = create_field<vector_tp, decltype(cs_param)>(cs_param);
   auto accum_spinor = create_field<vector_tp, decltype(cs_param)>(cs_param);  
   auto dst_spinor = create_field<vector_tp, decltype(cs_param)>(cs_param);
+  auto chk_spinor = create_field<vector_tp, decltype(cs_param)>(cs_param);  
   //
   const auto gauge_param = GaugeFieldArgs<nGaugeParity>{{X, T}, {0, 0}}; 
   //
@@ -110,11 +115,16 @@ void run_dslash_test(auto params, const int X, const int T, const int niter) {
   auto wall_diff = wall_stop - wall_start;
   
   auto wall_time = (static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(wall_diff).count()) / 1e6)  / niter;
+  
+  DslashRef<Float>(chk_spinor, src_spinor, accum_spinor, gauge, params.M, params.r, {X/2, T}, 0); 
 
+  //check_field(chk_spinor, dst_spinor);
+  
   std::cout << "Done for EO version : time per iteration is > " << wall_time << "sec." << std::endl;
 
   gauge.destroy();
   
+  chk_spinor.destroy();  
   dst_spinor.destroy();
   src_spinor.destroy();   
   accum_spinor.destroy();

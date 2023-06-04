@@ -9,28 +9,32 @@ using sloppy_pmr_vector_tp  = impl::pmr::vector<std::complex<float>>;
 template<typename Float>
 void DslashRef(auto &out_spinor, const auto &in_spinor, const auto &accum_spinor, const auto &gauge_field, const Float mass, const Float r, const std::array<int, 2> n, const int parity) {//const int nx, const int ny
   
+  constexpr bool is_constant = true;
+  
   const Float constant = (mass + 2.0*r);
   
   const int nxh = n[0];
   const int ny  = n[1];
   //  
   std::complex<Float> tmp = std::complex<Float>(0.);
+  std::complex<Float> hlf = std::complex<Float>(0.5, 0.);  
   
-  auto I = [](auto x){ return Float(-x.imag(), x.real());};  
+  auto I = [](auto x){ return std::complex<Float>(-x.imag(), x.real());};  
   
   auto out          = out_spinor.ParityAccessor();
-  const auto in     = in_spinor.ParityAccessor();
+  const auto in     = in_spinor.template ParityAccessor<is_constant>();
+  const auto accum  = accum_spinor.template ParityAccessor<is_constant>();  
   //
-  const auto gauge  = gauge_field.Accessor(); 
-  
+  const auto gauge  = gauge_field.template Accessor<is_constant>(); 
+
   const int other_parity = 1 - parity; 
   
   for(int y = 0; y < ny; y++) {
     const int yp1 = (y+1) == ny ? 0    : (y+1);
     const int ym1 = (y-1) == -1 ? ny-1 : (y-1);
 
-    const Float fwd_bndr = yp1 == 0 ? -1.0 : 1.0;
-    const Float bwd_bndr = y   == 0 ? -1.0 : 1.0;
+    const std::complex<Float> fwd_bndr = yp1 == 0 ? std::complex<Float>{-1.0, 0.0} : std::complex<Float>{+1.0, 0.0};
+    const std::complex<Float> bwd_bndr = y   == 0 ? std::complex<Float>{-1.0, 0.0} : std::complex<Float>{+1.0, 0.0};
     
     const int parity_bit = y & 1; 
   
@@ -42,26 +46,25 @@ void DslashRef(auto &out_spinor, const auto &in_spinor, const auto &accum_spinor
       const int xp1 = (x+fwd_stride) == nxh ? 0     : (x+fwd_stride);
       const int xm1 = (x-bwd_stride) == -1  ? nxh-1 : (x-bwd_stride);      
       //
-      tmp = constant * in(x,y,0)
+      tmp = constant * accum(x,y,0)
 
-	- 0.5*(gauge(x,y,0) * (in(xp1,y,0) - in(xp1,y,1)) + conj(gauge(xm1,y,0)) * (in(xm1,y,0) + in(xm1,y,1)))
+	- hlf*(gauge(x,y,0, parity) * (in(xp1,y,0) - in(xp1,y,1)) + conj(gauge(xm1,y,0, other_parity)) * (in(xm1,y,0) + in(xm1,y,1)))
 	
-	- 0.5*(gauge(x,y,1) * fwd_bndr*(in(x,yp1,0) + I(in(x,yp1,1))) + conj(gauge(x,ym1,1)) * bwd_bndr*(in(x,ym1,0) - I(in(x,ym1,1))));
+	- hlf*(gauge(x,y,1, parity) * fwd_bndr*(in(x,yp1,0) + I(in(x,yp1,1))) + conj(gauge(x,ym1,1, other_parity)) * bwd_bndr*(in(x,ym1,0) - I(in(x,ym1,1))));
       
       out(x,y,0) = tmp;
       
       //
-      tmp = constant * in(x,y,1) 
+      tmp = constant * accum(x,y,1) 
 
-	- 0.5*(gauge(x,y,0) * (in(xp1,y,1) - in(xp1,y,0)) + conj(gauge(xm1,y,0)) * (in(xm1,y,1) + in(xm1,y,0)))
+	- hlf*(gauge(x,y,0, parity) * (in(xp1,y,1) - in(xp1,y,0)) + conj(gauge(xm1,y,0, other_parity)) * (in(xm1,y,1) + in(xm1,y,0)))
 	
-	- 0.5*(gauge(x,y,1) * fwd_bndr*(in(x,yp1,1) - I(in(x,yp1,0))) + conj(gauge(x,ym1,1)) * bwd_bndr*(in(x,ym1,1) + I(in(x,ym1,0))));
+	- hlf*(gauge(x,y,1, parity) * fwd_bndr*(in(x,yp1,1) - I(in(x,yp1,0))) + conj(gauge(x,ym1,1, other_parity)) * bwd_bndr*(in(x,ym1,1) + I(in(x,ym1,0))));
       
       out(x,y,1) = tmp;
     }
   }
 }
-
 
 void run_pmr_dslash_test(auto params, const int X, const int T, const int niter) {
   //
