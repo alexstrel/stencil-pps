@@ -13,7 +13,7 @@ constexpr std::size_t alignment_req = std::alignment_of_v<long double>;
 constexpr int max_n_buffers = 128;
 
 template <typename T>  consteval  T zero() { return static_cast<T>{0 }; }
-template <FloatTp  T>  consteval  T zero() { return static_cast<T>{0.}; }
+template <FloatTp  T>  consteval  T zero() { return static_cast<T>{0.f}; }
 template <ComplexTp T> consteval  T zero() { return T{static_cast<T::value_type>(0.f), static_cast<T::value_type>(0.f)};  }
 
 class UpstreamMemoryResource : public std::pmr::memory_resource {
@@ -132,7 +132,7 @@ enum class TargetMemorySpace { None = 0, Device = 1, Host = 2 };
 namespace impl {
   namespace pmr {
   
-  static TargetMemorySpace init_pmr_space = TargetMemorySpace::Device;
+  static TargetMemorySpace init_pmr_space = TargetMemorySpace::None;
 
   void SetDevicePMRSpace()  { init_pmr_space = TargetMemorySpace::Device; }
   void SetHostPMRSpace()    { init_pmr_space = TargetMemorySpace::Host;   }
@@ -167,18 +167,22 @@ namespace impl {
                                                                                          data_ = alloc_.allocate(numElements);
 											 //
 											 if (init_pmr_space != TargetMemorySpace::None ) {
-											   auto set_zero = [=](auto &x) { *x = zero<T>(); };
+											   auto zero_ = zero<T>();
+											   //
 											   if (init_pmr_space == TargetMemorySpace::Device) {
-											   //	
+											   //
+											   	
 											     std::fill(std::execution::par_unseq,
                                                                                                        this->begin(),
                                                                                                        this->end(),
-                                                                                                       set_zero());
+                                                                                                       zero_);
   	  
 											   } else if (init_pmr_space == TargetMemorySpace::Host) {
+											   
                                                                                              std::fill(this->begin(),
                                                                                                        this->end(),
-                                                                                                       set_zero());
+                                                                                                       zero_);
+                                                                                                       
 											   }
 											 }   
                                                                                        }
@@ -192,25 +196,31 @@ namespace impl {
       }
 
       // Iterators
-      iterator begin()                       noexcept { return data_; }
-      const_iterator begin()           const noexcept { return data_; }
-      const_iterator cbegin()          const noexcept { return data_; }
+      constexpr iterator begin()                       noexcept { return data_; }
+      constexpr const_iterator begin()           const noexcept { return data_; }
+      constexpr const_iterator cbegin()          const noexcept { return data_; }
     
-      iterator end()                         noexcept { return data_ + size_; }
-      const_iterator end()             const noexcept { return data_ + size_; }
-      const_iterator cend()            const noexcept { return data_ + size_; }
+      constexpr iterator end()                         noexcept { return data_ + size_; }
+      constexpr const_iterator end()             const noexcept { return data_ + size_; }
+      constexpr const_iterator cend()            const noexcept { return data_ + size_; }
 
-      reverse_iterator rbegin()              noexcept { return reverse_iterator(end()); }
-      const_reverse_iterator rbegin()  const noexcept { return const_reverse_iterator(end()); }
-      const_reverse_iterator crbegin() const noexcept { return const_reverse_iterator(cend()); }
+      constexpr reverse_iterator rbegin()              noexcept { return reverse_iterator(end()); }
+      constexpr const_reverse_iterator rbegin()  const noexcept { return const_reverse_iterator(end()); }
+      constexpr const_reverse_iterator crbegin() const noexcept { return const_reverse_iterator(cend()); }
 
-      reverse_iterator rend()                noexcept { return reverse_iterator(begin()); }
-      const_reverse_iterator rend()    const noexcept { return const_reverse_iterator(begin()); }
-      const_reverse_iterator crend()   const noexcept { return const_reverse_iterator(cbegin()); }
+      constexpr reverse_iterator rend()                noexcept { return reverse_iterator(begin()); }
+      constexpr const_reverse_iterator rend()    const noexcept { return const_reverse_iterator(begin()); }
+      constexpr const_reverse_iterator crend()   const noexcept { return const_reverse_iterator(cbegin()); }
 
-      pointer data() noexcept { return data_; }
+      constexpr pointer data() noexcept { return data_; }
 
-      const_pointer data() const noexcept { return data_; }
+      constexpr const_pointer data() const noexcept { return data_; }
+      
+      constexpr reference front() noexcept { return data_[0]; }      
+      constexpr const_reference front() const noexcept { return data_[0]; }            
+
+      constexpr reference back() noexcept { return data_[size_-1]; }      
+      constexpr const_reference back() const noexcept { return data_[size_-1]; }            
 
       void resize(size_type newSize) {
         value_type* newData = alloc_.allocate(newSize);
