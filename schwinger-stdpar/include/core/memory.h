@@ -12,9 +12,9 @@ constexpr std::size_t alignment_req = std::alignment_of_v<long double>;
 
 constexpr int max_n_buffers = 128;
 
-template <typename T>  consteval zero() { return static_cast<T>{0 }; }
-template <FloatTp  T>  consteval zero() { return static_cast<T>{0.}; }
-template <ComplexTp T> conateval zero() { return T{static_cast<T::value_type>(0.f), static_cast<T::value_type>(0.f)};  }
+template <typename T>  consteval  T zero() { return static_cast<T>{0 }; }
+template <FloatTp  T>  consteval  T zero() { return static_cast<T>{0.}; }
+template <ComplexTp T> consteval  T zero() { return T{static_cast<T::value_type>(0.f), static_cast<T::value_type>(0.f)};  }
 
 class UpstreamMemoryResource : public std::pmr::memory_resource {
   protected:
@@ -132,7 +132,7 @@ enum class TargetMemorySpace { None = 0, Device = 1, Host = 2 };
 namespace impl {
   namespace pmr {
   
-  static TargetMemorySpace init_pmr_space = TargetMemorySpace::None;
+  static TargetMemorySpace init_pmr_space = TargetMemorySpace::Device;
 
   void SetDevicePMRSpace()  { init_pmr_space = TargetMemorySpace::Device; }
   void SetHostPMRSpace()    { init_pmr_space = TargetMemorySpace::Host;   }
