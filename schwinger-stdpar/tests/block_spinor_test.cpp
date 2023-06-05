@@ -123,7 +123,7 @@ int main(int argc, char **argv)
   //
   auto src_spinor = create_field<vector_tp, decltype(sargs)>(sargs);  
 
-  using pmr_vector_tp = std::pmr::vector<std::complex<Float>>;
+  using pmr_vector_tp = impl::pmr::vector<std::complex<Float>>;
   
   std::cout << "Create PMR spinor" << std::endl;
   //
@@ -140,7 +140,7 @@ int main(int argc, char **argv)
   //
   Destroy(pmr_src_spinor);
 
-  using pmr_vector_lp_tp = std::pmr::vector<std::complex<float>>;
+  using pmr_vector_lp_tp = impl::pmr::vector<std::complex<float>>;
 
   std::cout << "New PMR spinor..." << std::endl;
 

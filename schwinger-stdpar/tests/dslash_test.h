@@ -118,7 +118,13 @@ void run_dslash_test(auto params, const int X, const int T, const int niter) {
   
   DslashRef<Float>(chk_spinor, src_spinor, accum_spinor, gauge, params.M, params.r, {X/2, T}, 0); 
 
-  //check_field(chk_spinor, dst_spinor);
+  {
+    //check_field(chk_spinor, dst_spinor);
+    auto &&chk_ = chk_spinor.ParityAccessor();
+    auto &&dst_ = dst_spinor.ParityAccessor();     
+    //
+    check_field(chk_, dst_, 1e-6);
+  }
   
   std::cout << "Done for EO version : time per iteration is > " << wall_time << "sec." << std::endl;
 

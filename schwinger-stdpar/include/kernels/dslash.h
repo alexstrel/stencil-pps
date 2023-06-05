@@ -117,7 +117,7 @@ class Dslash{
 
       Spinor res; 
 
-      constexpr std::array<DataTp, nDir> bndr_factor{DataTp(1.0),DataTp(-1.0)}; 
+      constexpr std::array<DataTp, nDir> bndr_factor{DataTp(1.0, 0.0),DataTp(-1.0, 0.0)}; 
 
       std::array X{site_coords};	 	      
 #pragma unroll
@@ -131,7 +131,7 @@ class Dslash{
           
 	  if ( do_halo ) {
 	    //	
-            const Link U_ = U(X,d, my_parity);
+            const Link U_ = bndr_factor[d]*U(X,d, my_parity);
 
 	    X[d] = 0;
 

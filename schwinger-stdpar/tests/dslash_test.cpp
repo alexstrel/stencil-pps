@@ -71,6 +71,7 @@ void convert_field(auto &dst_field, auto &src_field){
 
 }
 
+#if 0
 void check_field(auto &chk_field, auto &src_field){
 
    constexpr int nSpin = 2;
@@ -99,10 +100,30 @@ void check_field(auto &chk_field, auto &src_field){
 		                           for(int s = 0; s < nSpin; s++){
 		                             auto tmp = (chk_(x,y,s) - src_(x,y,s));
 		                             r = r + tmp.norm();
-		                            }
-		                            return r;  });
+		                           }
+		                           return r;  });
    std::cout << "NORM :: " << res.real() << " , " << res.imag() << std::endl;
 }
+#else
+void check_field(const auto &dst_field_accessor, const auto &src_field_accessor, const double tol){
+
+  const int mu = src_field_accessor.extent(2);
+  const int V  = src_field_accessor.extent(0) * src_field_accessor.extent(1); 
+  {
+    for(int i = 0; i < dst_field_accessor.extent(0); i++){
+      for(int j = 0; j < dst_field_accessor.extent(1); j++){
+#pragma unroll 
+        for(int k = 0; k < mu; k++){
+	  double diff_ = abs(dst_field_accessor(i,j,k) - src_field_accessor(i,j,k));     
+	  if(diff_ > tol) 
+	    std::cout << "Error found : diff = " << diff_ << " coords x=" << i << " y= " << j << "  check field " << dst_field_accessor(i,j,k).real() << " orig field " << src_field_accessor(i,j,k).real() << std::endl;
+        }	       
+      }
+    }
+  }
+  return;
+}
+#endif
 
 #include <dslash_test.h>
 
@@ -110,8 +131,8 @@ void check_field(auto &chk_field, auto &src_field){
 int main(int argc, char **argv)
 {
   //
-  constexpr int X = 2048;
-  constexpr int T = 2048;
+  constexpr int X = 1024;
+  constexpr int T = 1024;
 
   const Float mass = 0.05;
   const Float r    = 1.0;
