@@ -12,6 +12,10 @@ constexpr std::size_t alignment_req = std::alignment_of_v<long double>;
 
 constexpr int max_n_buffers = 128;
 
+template <typename T>  consteval zero() { return static_cast<T>{0 }; }
+template <FloatTp  T>  consteval zero() { return static_cast<T>{0.}; }
+template <ComplexTp T> conateval zero() { return T{static_cast<T::value_type>(0.f), static_cast<T::value_type>(0.f)};  }
+
 class UpstreamMemoryResource : public std::pmr::memory_resource {
   protected:
     //
@@ -123,9 +127,17 @@ class PMRBuffer{
 
 static PMRBuffer default_pmr_buffer = PMRBuffer();
 
+enum class TargetMemorySpace { None = 0, Device = 1, Host = 2 };
+
 namespace impl {
   namespace pmr {
   
+  static TargetMemorySpace init_pmr_space = TargetMemorySpace::None;
+
+  void SetDevicePMRSpace()  { init_pmr_space = TargetMemorySpace::Device; }
+  void SetHostPMRSpace()    { init_pmr_space = TargetMemorySpace::Host;   }
+  void SetDefaultPMRSpace() { init_pmr_space = TargetMemorySpace::None;   }  
+
   template <typename T>
   class vector {
     public:
@@ -150,10 +162,26 @@ namespace impl {
       
 
       explicit vector(size_type numElements, std::pmr::memory_resource* memResource) : data_(nullptr), 
-                                                                                        size_(numElements), 
-                                                                                        alloc_(memResource) {
-                                                                                          data_ = alloc_.allocate(numElements);
-                                                                                        }
+                                                                                       size_(numElements), 
+                                                                                       alloc_(memResource) {
+                                                                                         data_ = alloc_.allocate(numElements);
+											 //
+											 if (init_pmr_space != TargetMemorySpace::None ) {
+											   auto set_zero = [=](auto &x) { *x = zero<T>(); };
+											   if (init_pmr_space == TargetMemorySpace::Device) {
+											   //	
+											     std::fill(std::execution::par_unseq,
+                                                                                                       this->begin(),
+                                                                                                       this->end(),
+                                                                                                       set_zero());
+  	  
+											   } else if (init_pmr_space == TargetMemorySpace::Host) {
+                                                                                             std::fill(this->begin(),
+                                                                                                       this->end(),
+                                                                                                       set_zero());
+											   }
+											 }   
+                                                                                       }
       ~vector() {
         if(data_) {
           for(size_type i = 0; i < size_; ++i) {
