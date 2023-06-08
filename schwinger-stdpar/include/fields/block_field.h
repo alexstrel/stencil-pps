@@ -104,6 +104,12 @@ class BlockSpinor{
 
     auto ConvertToEvenView() { return ConvertToParityView(FieldParity::EvenFieldParity );}
     auto ConvertToOddView()  { return ConvertToParityView(FieldParity::OddFieldParity  );}
+    
+    auto EODecompose() {
+      assert(spinor_tp::nParity == 2);
+
+      return std::make_tuple(this->ConvertToEvenView(), this->ConvertToOddView());
+    }    
 
     auto& Get()  { return v; }
 

@@ -4,7 +4,7 @@
 #include <core/memory.h> 
 
 //
-using Float   = double;
+using Float = double;
 //
 std::random_device rd;  //Will be used to obtain a seed for the random number engine
 std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()s
@@ -70,6 +70,25 @@ void convert_field(auto &dst_field, auto &src_field){
 		      }
 		   });
 
+}
+
+void check_field(const auto &dst_field_accessor, const auto &src_field_accessor, const double tol){
+
+  const int mu = src_field_accessor.extent(2);
+  const int V  = src_field_accessor.extent(0) * src_field_accessor.extent(1); 
+  {
+    for(int i = 0; i < dst_field_accessor.extent(0); i++){
+      for(int j = 0; j < dst_field_accessor.extent(1); j++){
+#pragma unroll 
+        for(int k = 0; k < mu; k++){
+	  double diff_ = abs(dst_field_accessor(i,j,k) - src_field_accessor(i,j,k));     
+	  if(diff_ > tol) 
+	    std::cout << "Error found : diff = " << diff_ << " coords x=" << i << " y= " << j << "  check field " << dst_field_accessor(i,j,k).real() << " orig field " << src_field_accessor(i,j,k).real() << std::endl;
+        }	       
+      }
+    }
+  }
+  return;
 }
 
 #include <dslash_pmr_test.h>

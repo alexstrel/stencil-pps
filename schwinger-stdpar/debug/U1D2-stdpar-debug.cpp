@@ -198,7 +198,8 @@ int main(int argc, char **argv)
   auto&& eo_src_spinor_ref = eo_src_spinor.View();
   auto&& eo_dst_spinor_ref = eo_dst_spinor.View();    
   //
-  auto eo_view = eo_src_spinor_ref.Accessor();
+  auto eo_view = eo_src_spinor.Accessor();
+  //auto eo_view = eo_src_spinor_ref.Accessor();  
   auto in_view = in_ref.ParityAccessor();
   //
   convert_lex2eo(eo_view, in_view);         
@@ -212,16 +213,16 @@ int main(int argc, char **argv)
   //
   convert_lex2eo(eo_u, lex_u);     
   //  
-  auto&& e_dst_spinor_ref = eo_dst_spinor.Even();
+  auto&& o_dst_spinor_ref = eo_dst_spinor.Odd();
   //
-  Dpsi_parity(e_dst_spinor_ref, o_src_spinor_ref, e_src_spinor_ref, eo_u_ref, mass, r, ldim / 2, tdim, 0);  
+  Dpsi_parity(o_dst_spinor_ref, e_src_spinor_ref, o_src_spinor_ref, eo_u_ref, mass, r, ldim / 2, tdim, 1);  
   //
-  auto chk2__ = e_dst_spinor_ref.ParityAccessor(); 
+  auto chk2__ = o_dst_spinor_ref.ParityAccessor(); 
   //
   auto eo_check  = eo_dst_spinor_ref.Accessor();
   auto lex_check = chk_ref.ParityAccessor();
   //  
-  compare_lexeo(eo_check, lex_check, 1e-8, 0);
+  compare_lexeo(eo_check, lex_check, 1e-8, 1);
   // initialize the data
   bool verbose = true;
   

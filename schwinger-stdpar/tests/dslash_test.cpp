@@ -131,8 +131,8 @@ void check_field(const auto &dst_field_accessor, const auto &src_field_accessor,
 int main(int argc, char **argv)
 {
   //
-  constexpr int X = 1024;
-  constexpr int T = 1024;
+  constexpr int X = 2048;
+  constexpr int T = 2048;
 
   const Float mass = 0.05;
   const Float r    = 1.0;

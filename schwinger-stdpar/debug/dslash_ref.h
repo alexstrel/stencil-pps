@@ -1,5 +1,8 @@
 #pragma once
 
+#define TMP  gauge(xm1,y,0)
+#define TMP2 gauge(xm1,y,0,other_parity)
+
 template<typename Float>
 void Dpsi(auto &out_spinor, const auto &in_spinor, const auto &gauge_field, const Float mass, const Float r, const int nx, const int ny) {
   
@@ -47,7 +50,6 @@ void Dpsi(auto &out_spinor, const auto &in_spinor, const auto &gauge_field, cons
       //lower
       //(m0 + 2) * I_{X}
       tmp = constant * in(x,y,1)
-	// mu = 1
 	- H*(gauge(x,y,0) * (in(xp1,y,1) - in(xp1,y,0)) + conj(gauge(xm1,y,0)) * (in(xm1,y,1) + in(xm1,y,0)))
 	
 	// mu = 2
@@ -96,7 +98,7 @@ void Dpsi_parity(auto &out_spinor, const auto &in_spinor, const auto &in_spinor_
     if(yp1 == 0) fwd_bc = -1.0; 
     if(y   == 0) bwd_bc = -1.0;  
   
-    const int parity_bit = y & 1; 
+    const int parity_bit = parity ? (1 - y & 1) : y & 1;// (1 - y % 1) e1 o0
   
     const int fwd_stride = parity_bit ? +1 :  0; 
     const int bwd_stride = parity_bit ?  0 : +1;       
@@ -113,13 +115,11 @@ void Dpsi_parity(auto &out_spinor, const auto &in_spinor, const auto &in_spinor_
 	
 	// mu = 2
 	- H*(gauge(x,y,1, parity) * fwd_bc*(in(x,yp1,0) + I*in(x,yp1,1)) + conj(gauge(x,ym1,1,other_parity)) * bwd_bc*(in(x,ym1,0) - I*in(x,ym1,1)));
-
       out(x,y,0) = tmp;
       
       //lower
       //(m0 + 2) * I_{X}
       tmp = constant * in_par(x,y,1)
-
 	// mu = 1
 	- H*(gauge(x,y,0, parity) * (in(xp1,y,1) - in(xp1,y,0)) + conj(gauge(xm1,y,0, other_parity)) * (in(xm1,y,1) + in(xm1,y,0)))
 	
