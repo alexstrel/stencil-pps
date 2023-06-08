@@ -118,8 +118,8 @@ void run_dslash_test(auto params, const int X, const int T, const int niter) {
   
   auto [even_chk, odd_chk] = chk_spinor.EODecompose();    
   
-  DslashRef<Float>(even_chk, odd_src,  even_src, gauge, params.M, params.r, {X/2, T}, 0); 
-  DslashRef<Float>(odd_chk,  even_src, odd_src,  gauge, params.M, params.r, {X/2, T}, 1);   
+  DslashRef<Float>(even_chk, odd_src,  even_src, gauge, params.M, params.r, even_chk.GetCBDims(), 0); 
+  DslashRef<Float>(odd_chk,  even_src, odd_src,  gauge, params.M, params.r, odd_chk.GetCBDims(),  1);   
 
   {
     //check_field(chk_spinor, dst_spinor);
@@ -205,20 +205,17 @@ void run_mrhs_dslash_test(auto params, const int X, const int T, const int niter
   auto [even_chk_block, odd_chk_block] = chk_block_spinor.EODecompose();    
   
   for (int i = 0; i < chk_block_spinor.nComponents(); i++) {
-    DslashRef<Float>(even_chk_block[i], odd_src_block[i],  even_src_block[i], gauge, params.M, params.r, {X/2, T}, 0); 
-    DslashRef<Float>(odd_chk_block[i],  even_src_block[i], odd_src_block[i],  gauge, params.M, params.r, {X/2, T}, 1); 
-  }
+    DslashRef<Float>(even_chk_block[i], odd_src_block[i],  even_src_block[i], gauge, params.M, params.r, even_chk_block[i].GetCBDims(), 0); 
+    DslashRef<Float>(odd_chk_block[i],  even_src_block[i], odd_src_block[i],  gauge, params.M, params.r, odd_chk_block[i].GetCBDims(), 1); 
 
-  for (int i = 0; i < chk_block_spinor.nComponents(); i++) {
-    //check_field(chk_spinor, dst_spinor);
     auto &&chk_e = even_chk_block[i].ParityAccessor();
     auto &&dst_e = even_dst_block[i].ParityAccessor();     
-    //
+    
     check_field(chk_e, dst_e, 1e-6);
-    //
+    
     auto &&chk_o = odd_chk_block[i].ParityAccessor();
     auto &&dst_o = odd_dst_block[i].ParityAccessor();     
-    //
+    
     check_field(chk_o, dst_o, 1e-6);    
   }
 

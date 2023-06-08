@@ -33,8 +33,8 @@ void DslashRef(auto &out_spinor, const auto &in_spinor, const auto &accum_spinor
     const int yp1 = (y+1) == ny ? 0    : (y+1);
     const int ym1 = (y-1) == -1 ? ny-1 : (y-1);
 
-    const std::complex<Float> fwd_bndr = yp1 == 0 ? std::complex<Float>{-1.0, 0.0} : std::complex<Float>{+1.0, 0.0};
-    const std::complex<Float> bwd_bndr = y   == 0 ? std::complex<Float>{-1.0, 0.0} : std::complex<Float>{+1.0, 0.0};
+    const std::complex<Float_> fwd_bndr = yp1 == 0 ? std::complex<Float_>{-1.0, 0.0} : std::complex<Float_>{+1.0, 0.0};
+    const std::complex<Float_> bwd_bndr = y   == 0 ? std::complex<Float_>{-1.0, 0.0} : std::complex<Float_>{+1.0, 0.0};
     
     const int parity_bit = parity ? (1 - y & 1) : y & 1; 
   
@@ -47,21 +47,15 @@ void DslashRef(auto &out_spinor, const auto &in_spinor, const auto &accum_spinor
       const int xm1 = (x-bwd_stride) == -1  ? nxh-1 : (x-bwd_stride);      
       //
       tmp = constant * accum(x,y,0)
-      //tmp = conj(gauge(x,ym1,1, other_parity));
-#if 1
-	//- hlf*(gauge(x,y,0, parity) * (in(xp1,y,0) - in(xp1,y,1)) + conj(gauge(xm1,y,0, other_parity)) * (in(xm1,y,0) + in(xm1,y,1)))
+	- hlf*(gauge(x,y,0, parity) * (in(xp1,y,0) - in(xp1,y,1)) + conj(gauge(xm1,y,0, other_parity)) * (in(xm1,y,0) + in(xm1,y,1)))
 	
 	- hlf*(gauge(x,y,1, parity) * fwd_bndr*(in(x,yp1,0) + I(in(x,yp1,1))) + conj(gauge(x,ym1,1, other_parity)) * bwd_bndr*(in(x,ym1,0) - I(in(x,ym1,1))));
-#endif      
       out(x,y,0) = tmp;
       //
-      //tmp = constant * accum(x,y,1);
-      tmp = (in(x,ym1,1) + I(in(x,ym1,0)));
-#if 0      
+      tmp = constant * accum(x,y,1)
 	- hlf*(gauge(x,y,0, parity) * (in(xp1,y,1) - in(xp1,y,0)) + conj(gauge(xm1,y,0, other_parity)) * (in(xm1,y,1) + in(xm1,y,0)))
 	
 	- hlf*(gauge(x,y,1, parity) * fwd_bndr*(in(x,yp1,1) - I(in(x,yp1,0))) + conj(gauge(x,ym1,1, other_parity)) * bwd_bndr*(in(x,ym1,1) + I(in(x,ym1,0))));
-#endif      
       out(x,y,1) = tmp;
     }
   }
@@ -72,6 +66,8 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
   //
   constexpr int nSpinorParity = 2;
   constexpr int nGaugeParity  = 2;
+  //
+  constexpr bool clean_intermed_fields = true;
   //  
   const auto cs_param    = SpinorFieldArgs<nSpinorParity>{{X, T}, {0, 0, 0, 0}};
   //
@@ -82,7 +78,7 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
   //
   init_u1(gauge);
   
-  // Create low precision gauge field:  
+  // Create low precision gauge field (NOTE: by setting copy_gauge = true we migrate data on the device):  
   constexpr bool copy_gauge = true;
   //  
   auto sloppy_gauge = create_field<decltype(gauge), sloppy_vector_tp, copy_gauge>(gauge);  
@@ -109,16 +105,23 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
   const auto const2 = static_cast<float>(0.5);
 
   auto transformer = [=](const auto &x, const auto &y) {return (const1*x-const2*y);};
-  //  
-  auto wall_start = std::chrono::high_resolution_clock::now(); 
-  
+  //
   auto [even_src, odd_src] = src_spinor.EODecompose();
-  //auto [even_dst, odd_dst] = dst_spinor.EODecompose(); 
+  auto [even_dst, odd_dst] = dst_spinor.EODecompose();
+  //
+  constexpr bool do_warmup = false;
+  //
+  if constexpr (do_warmup) {
+    mat(even_dst, odd_src,  even_src, transformer, FieldParity::EvenFieldParity);
+    mat(odd_dst,  even_src, odd_src,  transformer, FieldParity::OddFieldParity);
+  }
+  //
+  auto wall_start = std::chrono::high_resolution_clock::now(); 
   
   for(int i = 0; i < niter; i++) {
     // Apply dslash	  
-    //mat(even_dst, odd_src,  even_src, transformer, FieldParity::EvenFieldParity);
-    //mat(odd_dst,  even_src, odd_src,  transformer, FieldParity::OddFieldParity); 
+    mat(even_dst, odd_src,  even_src, transformer, FieldParity::EvenFieldParity);
+    mat(odd_dst,  even_src, odd_src,  transformer, FieldParity::OddFieldParity); 
   }
   
   auto wall_stop = std::chrono::high_resolution_clock::now();
@@ -126,14 +129,15 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
   auto wall_diff = wall_stop - wall_start;
   
   auto wall_time = (static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(wall_diff).count()) / 1e6)  / niter;
+
+  constexpr bool do_check = false;  
+
+  if constexpr (do_check) { 
+    auto [even_chk, odd_chk] = chk_spinor.EODecompose();    
   
-  auto [even_chk, odd_chk] = chk_spinor.EODecompose();    
+    DslashRef<float>(even_chk, odd_src,  even_src, sloppy_gauge, params.M, params.r, even_chk.GetCBDims(), 0); 
+    DslashRef<float>(odd_chk,  even_src, odd_src,  sloppy_gauge, params.M, params.r, odd_chk.GetCBDims(), 1);   
   
-  DslashRef<float>(even_chk, odd_src,  even_src, sloppy_gauge, params.M, params.r, {X/2, T}, 0); 
-  //DslashRef<float>(odd_chk,  even_src, odd_src,  sloppy_gauge, params.M, params.r, {X/2, T}, 1);   
-#if 0
-  {
-    //check_field(chk_spinor, dst_spinor);
     auto &&chk_e = even_chk.ParityAccessor();
     auto &&dst_e = even_dst.ParityAccessor();     
     //
@@ -148,9 +152,12 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
   std::cout << "Done for EO version : time per iteration is > " << wall_time << "sec." << std::endl; 
   
   src_spinor.show();
-  
-  dst_spinor.destroy();
-  src_spinor.destroy();
+  if constexpr (clean_intermed_fields) {
+    dst_spinor.destroy();
+    src_spinor.destroy();
+  }
+  chk_spinor.destroy();
+
   ///////////////////////////////////////////////////////////////////////////////////////////////////
   ///////////////////////////////////////////////////////////////////////////////////////////////////
   ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -159,11 +166,10 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
   auto src_spinor_v2   = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);
   auto dst_spinor_v2   = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);
   auto chk_spinor_v2   = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);  
-  
-  wall_start = std::chrono::high_resolution_clock::now();   
-
   auto [even_src_v2, odd_src_v2] = src_spinor_v2.EODecompose();
-  auto [even_dst_v2, odd_dst_v2] = dst_spinor_v2.EODecompose();    
+  auto [even_dst_v2, odd_dst_v2] = dst_spinor_v2.EODecompose();
+
+  wall_start = std::chrono::high_resolution_clock::now();   
 
   for(int i = 0; i < niter; i++) {
     // Apply dslash	  
@@ -179,8 +185,8 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
   
   auto [even_chk_v2, odd_chk_v2] = chk_spinor_v2.EODecompose();    
   
-  DslashRef<float>(even_chk_v2, odd_src_v2,  even_src_v2, sloppy_gauge, params.M, params.r, {X/2, T}, 0); 
-  DslashRef<float>(odd_chk_v2,  even_src_v2, odd_src_v2,  sloppy_gauge, params.M, params.r, {X/2, T}, 1);   
+  DslashRef<float>(even_chk_v2, odd_src_v2,  even_src_v2, sloppy_gauge, params.M, params.r, even_chk_v2.GetCBDims(), 0); 
+  DslashRef<float>(odd_chk_v2,  even_src_v2, odd_src_v2,  sloppy_gauge, params.M, params.r, odd_chk_v2.GetCBDims(), 1);   
 
   {
     //check_field(chk_spinor, dst_spinor);
@@ -205,17 +211,20 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
   dst_spinor_v2.destroy();
   src_spinor_v2.destroy();  
   chk_spinor_v2.destroy();    
-#endif  
+
+  if constexpr (not clean_intermed_fields) {
+    dst_spinor.destroy();
+    src_spinor.destroy();
+  }
 }
 
 template<int N>
 void run_mrhs_pmr_dslash_test(auto params, const int X, const int T, const int niter) {
-  //
-#if 1 
-  constexpr int nSpinorParity = 1;
+  // 
+  constexpr int nSpinorParity = 2;
   constexpr int nGaugeParity  = 2;
   //  
-  const auto cs_param = SpinorFieldArgs<nSpinorParity>{{X/2, T}, {0, 0, 0, 0}, FieldParity::EvenFieldParity};
+  const auto cs_param = SpinorFieldArgs<nSpinorParity>{{X, T}, {0, 0, 0, 0}, FieldParity::EvenFieldParity};
   //
   const auto gauge_param = GaugeFieldArgs<nGaugeParity>{{X, T}, {0, 0}};
   //
@@ -238,25 +247,29 @@ void run_mrhs_pmr_dslash_test(auto params, const int X, const int T, const int n
   constexpr bool use_pmr_buffer = true;
   //
   auto src_block_spinor = create_block_spinor< pmr_spinor_t, decltype(cs_param), use_pmr_buffer >(cs_param, N); 
-  //
-  auto accum_block_spinor = create_block_spinor< pmr_spinor_t, decltype(cs_param), use_pmr_buffer >(cs_param, N);   
+  auto chk_block_spinor = create_block_spinor< pmr_spinor_t, decltype(cs_param), use_pmr_buffer >(cs_param, N);
   //
   for (int i = 0; i < src_block_spinor.nComponents(); i++) init_spinor( src_block_spinor.v[i] );
-  for (int i = 0; i < src_block_spinor.nComponents(); i++) init_spinor( accum_block_spinor.v[i] );  
   
   auto dst_block_spinor = create_block_spinor< pmr_spinor_t, decltype(cs_param), use_pmr_buffer >(cs_param, N); 
   
-  const auto s1 = params.M + static_cast<Float>(2.0)*params.r;
-  const auto s2 = static_cast<Float>(0.5);
+  const auto const1 = params.M + static_cast<Float>(2.0)*params.r;
+  const auto const2 = static_cast<Float>(0.5);
 
-  auto transformer = [=](const auto &x, const auto &y) {return (s1*x-s2*y);}; 
+  auto [even_src_block, odd_src_block] = src_block_spinor.EODecompose();
+  auto [even_dst_block, odd_dst_block] = dst_block_spinor.EODecompose();
+
+  auto transformer = [=](const auto &x, const auto &y) {return (const1*x-const2*y);}; 
   //
-  mat(dst_block_spinor, src_block_spinor, accum_block_spinor, transformer, FieldParity::EvenFieldParity);  
+  mat(even_dst_block, odd_src_block,  even_src_block, transformer, FieldParity::EvenFieldParity);  
+  mat(odd_dst_block,  even_src_block, odd_src_block,  transformer, FieldParity::OddFieldParity);
 
   auto wall_start = std::chrono::high_resolution_clock::now();   
  
   for(int i = 0; i < niter; i++) {
-    mat(dst_block_spinor, src_block_spinor, accum_block_spinor, transformer, FieldParity::EvenFieldParity);
+  //
+    mat(even_dst_block, odd_src_block,  even_src_block, transformer, FieldParity::EvenFieldParity);   
+    mat(odd_dst_block,  even_src_block, odd_src_block,  transformer, FieldParity::OddFieldParity);  
   } 
 
   auto wall_stop = std::chrono::high_resolution_clock::now();
@@ -267,10 +280,28 @@ void run_mrhs_pmr_dslash_test(auto params, const int X, const int T, const int n
 
   std::cout << "Done for MRHS version (N =  " << N << ") : time per iteration is > " << wall_time << "sec." << std::endl;
 
+  auto [even_chk_block, odd_chk_block] = chk_block_spinor.EODecompose();
+
+  for (int i = 0; i < chk_block_spinor.nComponents(); i++) {
+    //
+    DslashRef<Float>(even_chk_block[i], odd_src_block[i],  even_src_block[i], gauge, params.M, params.r, even_chk_block[i].GetCBDims(), 0);   
+    DslashRef<Float>(odd_chk_block[i],  even_src_block[i], odd_src_block[i],  gauge, params.M, params.r, odd_chk_block[i].GetCBDims(), 1);
+
+    auto &&chk_e = even_chk_block[i].ParityAccessor();
+    auto &&dst_e = even_dst_block[i].ParityAccessor();
+    
+    check_field(chk_e, dst_e, 1e-6);
+    
+    auto &&chk_o = odd_chk_block[i].ParityAccessor();
+    auto &&dst_o = odd_dst_block[i].ParityAccessor();
+    
+    check_field(chk_o, dst_o, 1e-6);
+  }
+
   src_block_spinor.destroy();
   dst_block_spinor.destroy();  
-  accum_block_spinor.destroy();
+  chk_block_spinor.destroy();
+
   gauge.destroy();  
-#endif  
 }
 

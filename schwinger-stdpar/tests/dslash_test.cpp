@@ -71,40 +71,6 @@ void convert_field(auto &dst_field, auto &src_field){
 
 }
 
-#if 0
-void check_field(auto &chk_field, auto &src_field){
-
-   constexpr int nSpin = 2;
-
-   const auto [Nx, Ny] = src_field.GetCBDims();
-
-   auto X = std::views::iota(0, Nx);
-   auto Y = std::views::iota(0, Ny);
-
-   auto idx = std::views::cartesian_product(Y, X);//Y is the slowest index, X is the fastest
-
-   auto &&chk = chk_field.View();
-   auto &&src = src_field.View(); 
-
-   std::complex<Float> res = std::reduce(std::execution::par_unseq,
-                                         idx.begin(),
-                                         idx.end(), 
-                                         std::complex<Float>(0.0, 0.0),
-                                         [=](const auto i) {
-		                           auto [y, x] = i;
-		                           // 
-		                           auto chk_ = chk.template ParityAccessor<true>();
-		                           auto src_ = src.template ParityAccessor<true>();
-		                           std::complex<Float> r{0.0, 0.0};
-#pragma unroll
-		                           for(int s = 0; s < nSpin; s++){
-		                             auto tmp = (chk_(x,y,s) - src_(x,y,s));
-		                             r = r + tmp.norm();
-		                           }
-		                           return r;  });
-   std::cout << "NORM :: " << res.real() << " , " << res.imag() << std::endl;
-}
-#else
 void check_field(const auto &dst_field_accessor, const auto &src_field_accessor, const double tol){
 
   const int mu = src_field_accessor.extent(2);
@@ -123,7 +89,6 @@ void check_field(const auto &dst_field_accessor, const auto &src_field_accessor,
   }
   return;
 }
-#endif
 
 #include <dslash_test.h>
 
@@ -144,8 +109,6 @@ int main(int argc, char **argv)
   run_dslash_test(dslash_param, X, T, niter);
   //
   constexpr int  N = 8; 
-  //
-  constexpr bool use_pmr_buffer = false;
   //
   run_mrhs_dslash_test<N>(dslash_param, X, T, niter);
 

@@ -116,7 +116,7 @@ class Field{
     }        
     //
     void show() {
-      printf("PMR buffer pointer: %p, PMR buffer use count %d\n", this->arg.pmr_buffer.get(), this->arg.pmr_buffer.use_count());
+      printf("PMR buffer pointer:\t %p\nPMR buffer size:\t %ld (alinged size: %ld )\nPMR buffer use count:\t %d\n", this->arg.pmr_buffer->Get(), this->arg.pmr_buffer->BaseBytes(), this->arg.pmr_buffer->Bytes(), this->arg.pmr_buffer.use_count());
     }
     
     void destroy() {

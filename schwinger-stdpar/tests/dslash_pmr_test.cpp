@@ -97,15 +97,15 @@ void check_field(const auto &dst_field_accessor, const auto &src_field_accessor,
 int main(int argc, char **argv)
 {
   //
-  constexpr int X = 1024;
-  constexpr int T = 1024;
+  constexpr int X = 2048;
+  constexpr int T = 2048;
 
   const Float mass = 0.05;
   const Float r    = 1.0;
 
   DslashParam<Float> dslash_param{mass, r};
 
-  const int niter = 10;
+  const int niter = 1;
   
   run_pmr_dslash_test(dslash_param, X, T, niter);
   //
