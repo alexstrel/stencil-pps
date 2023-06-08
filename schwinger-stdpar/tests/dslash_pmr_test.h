@@ -80,9 +80,9 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
   
   // Create low precision gauge field (NOTE: by setting copy_gauge = true we migrate data on the device):  
   constexpr bool copy_gauge = true;
-  //  
+    
   auto sloppy_gauge = create_field<decltype(gauge), sloppy_vector_tp, copy_gauge>(gauge);  
-  //
+  
   auto src_spinor  = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);
   auto dst_spinor  = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);
   auto chk_spinor  = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);  
@@ -101,7 +101,7 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
   // Create dslash matrix
   auto mat = Mat<decltype(dslash_args), Dslash>{dslash_args};   
   
-  const auto const1 = static_cast<float>(params.M) + static_cast<float>(2.0)*static_cast<float>(params.r);
+  const auto const1 = static_cast<float>(params.M + 2.0*params.r);
   const auto const2 = static_cast<float>(0.5);
 
   auto transformer = [=](const auto &x, const auto &y) {return (const1*x-const2*y);};
@@ -223,7 +223,9 @@ void run_mrhs_pmr_dslash_test(auto params, const int X, const int T, const int n
   // 
   constexpr int nSpinorParity = 2;
   constexpr int nGaugeParity  = 2;
-  //  
+  // 
+  constexpr bool do_warmup = false; 
+  //
   const auto cs_param = SpinorFieldArgs<nSpinorParity>{{X, T}, {0, 0, 0, 0}, FieldParity::EvenFieldParity};
   //
   const auto gauge_param = GaugeFieldArgs<nGaugeParity>{{X, T}, {0, 0}};
@@ -231,43 +233,48 @@ void run_mrhs_pmr_dslash_test(auto params, const int X, const int T, const int n
   auto gauge = create_field<vector_tp, decltype(gauge_param)>(gauge_param);    
   //  
   init_u1(gauge);
-  //
-  auto &&u_ref        = gauge.View();
-  using gauge_tp      = decltype(gauge.View());
 
-  std::unique_ptr<DslashArgs<gauge_tp, decltype(cs_param)::nspin>> dslash_args_ptr(new DslashArgs{u_ref});
+  constexpr bool copy_gauge = true;
+     
+  auto sloppy_gauge = create_field<decltype(gauge), sloppy_vector_tp, copy_gauge>(gauge);
+  //
+  auto &&u_ref          = sloppy_gauge.View();
+  using sloppy_gauge_tp = decltype(sloppy_gauge.View());
+
+  std::unique_ptr<DslashArgs<sloppy_gauge_tp, decltype(cs_param)::nspin>> dslash_args_ptr(new DslashArgs{u_ref});
 
   auto &dslash_args = *dslash_args_ptr;
 
   // Create dslash matrix
   auto mat = Mat<decltype(dslash_args), Dslash>{dslash_args};    
   //
-  using pmr_spinor_t  = Field<pmr_vector_tp, decltype(cs_param)>;//
+  using sloppy_pmr_spinor_t  = Field<sloppy_pmr_vector_tp, decltype(cs_param)>;//
   //
   constexpr bool use_pmr_buffer = true;
   //
-  auto src_block_spinor = create_block_spinor< pmr_spinor_t, decltype(cs_param), use_pmr_buffer >(cs_param, N); 
-  auto chk_block_spinor = create_block_spinor< pmr_spinor_t, decltype(cs_param), use_pmr_buffer >(cs_param, N);
-  //
+  auto src_block_spinor = create_block_spinor< sloppy_pmr_spinor_t, decltype(cs_param), use_pmr_buffer >(cs_param, N); 
+  auto chk_block_spinor = create_block_spinor< sloppy_pmr_spinor_t, decltype(cs_param), use_pmr_buffer >(cs_param, N);
+
   for (int i = 0; i < src_block_spinor.nComponents(); i++) init_spinor( src_block_spinor.v[i] );
   
-  auto dst_block_spinor = create_block_spinor< pmr_spinor_t, decltype(cs_param), use_pmr_buffer >(cs_param, N); 
+  auto dst_block_spinor = create_block_spinor< sloppy_pmr_spinor_t, decltype(cs_param), use_pmr_buffer >(cs_param, N); 
   
-  const auto const1 = params.M + static_cast<Float>(2.0)*params.r;
-  const auto const2 = static_cast<Float>(0.5);
+  const auto const1 = static_cast<float>(params.M + 2.0*params.r);
+  const auto const2 = static_cast<float>(0.5);
 
   auto [even_src_block, odd_src_block] = src_block_spinor.EODecompose();
   auto [even_dst_block, odd_dst_block] = dst_block_spinor.EODecompose();
 
   auto transformer = [=](const auto &x, const auto &y) {return (const1*x-const2*y);}; 
   //
-  mat(even_dst_block, odd_src_block,  even_src_block, transformer, FieldParity::EvenFieldParity);  
-  mat(odd_dst_block,  even_src_block, odd_src_block,  transformer, FieldParity::OddFieldParity);
+  if constexpr (do_warmup) {
+    mat(even_dst_block, odd_src_block,  even_src_block, transformer, FieldParity::EvenFieldParity);  
+    mat(odd_dst_block,  even_src_block, odd_src_block,  transformer, FieldParity::OddFieldParity);
+  }
 
   auto wall_start = std::chrono::high_resolution_clock::now();   
  
   for(int i = 0; i < niter; i++) {
-  //
     mat(even_dst_block, odd_src_block,  even_src_block, transformer, FieldParity::EvenFieldParity);   
     mat(odd_dst_block,  even_src_block, odd_src_block,  transformer, FieldParity::OddFieldParity);  
   } 
@@ -280,28 +287,87 @@ void run_mrhs_pmr_dslash_test(auto params, const int X, const int T, const int n
 
   std::cout << "Done for MRHS version (N =  " << N << ") : time per iteration is > " << wall_time << "sec." << std::endl;
 
-  auto [even_chk_block, odd_chk_block] = chk_block_spinor.EODecompose();
+  constexpr bool do_check = false;
+  
+  if constexpr (do_check) {
+    auto [even_chk_block, odd_chk_block] = chk_block_spinor.EODecompose();
 
-  for (int i = 0; i < chk_block_spinor.nComponents(); i++) {
-    //
-    DslashRef<Float>(even_chk_block[i], odd_src_block[i],  even_src_block[i], gauge, params.M, params.r, even_chk_block[i].GetCBDims(), 0);   
-    DslashRef<Float>(odd_chk_block[i],  even_src_block[i], odd_src_block[i],  gauge, params.M, params.r, odd_chk_block[i].GetCBDims(), 1);
+    for (int i = 0; i < chk_block_spinor.nComponents(); i++) {
 
-    auto &&chk_e = even_chk_block[i].ParityAccessor();
-    auto &&dst_e = even_dst_block[i].ParityAccessor();
+      DslashRef<float>(even_chk_block[i], odd_src_block[i],  even_src_block[i], sloppy_gauge, params.M, params.r, even_chk_block[i].GetCBDims(), 0);   
+      DslashRef<float>(odd_chk_block[i],  even_src_block[i], odd_src_block[i],  sloppy_gauge, params.M, params.r, odd_chk_block[i].GetCBDims(), 1);
+
+      auto &&chk_e = even_chk_block[i].ParityAccessor();
+      auto &&dst_e = even_dst_block[i].ParityAccessor();
     
-    check_field(chk_e, dst_e, 1e-6);
+      check_field(chk_e, dst_e, 1e-6);
     
-    auto &&chk_o = odd_chk_block[i].ParityAccessor();
-    auto &&dst_o = odd_dst_block[i].ParityAccessor();
+      auto &&chk_o = odd_chk_block[i].ParityAccessor();
+      auto &&dst_o = odd_dst_block[i].ParityAccessor();
     
-    check_field(chk_o, dst_o, 1e-6);
+      check_field(chk_o, dst_o, 1e-6);
+    }
   }
 
+  src_block_spinor[0].show();
+  //
   src_block_spinor.destroy();
   dst_block_spinor.destroy();  
   chk_block_spinor.destroy();
+  /////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////
+
+  auto src_block_spinor_v2 = create_block_spinor< sloppy_pmr_spinor_t, decltype(cs_param), use_pmr_buffer >(cs_param, N);
+  auto chk_block_spinor_v2 = create_block_spinor< sloppy_pmr_spinor_t, decltype(cs_param), use_pmr_buffer >(cs_param, N);
+
+  auto dst_block_spinor_v2 = create_block_spinor< sloppy_pmr_spinor_t, decltype(cs_param), use_pmr_buffer >(cs_param, N);
+
+  auto [even_src_block_v2, odd_src_block_v2] = src_block_spinor_v2.EODecompose();
+  auto [even_dst_block_v2, odd_dst_block_v2] = dst_block_spinor_v2.EODecompose();
+  
+  wall_start = std::chrono::high_resolution_clock::now();
+
+  for(int i = 0; i < niter; i++) {
+    mat(even_dst_block_v2, odd_src_block_v2,  even_src_block_v2, transformer, FieldParity::EvenFieldParity);
+    mat(odd_dst_block_v2,  even_src_block_v2, odd_src_block_v2,  transformer, FieldParity::OddFieldParity);
+  }
+
+  wall_stop = std::chrono::high_resolution_clock::now();
+
+  wall_diff = wall_stop - wall_start;
+
+  wall_time = (static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(wall_diff).count()) / 1e6)  / niter;
+
+  std::cout << "Done for MRHS version (N =  " << N << ") : time per iteration is > " << wall_time << "sec." << std::endl;
+
+  if constexpr (do_check) {
+    auto [even_chk_block_v2, odd_chk_block_v2] = chk_block_spinor_v2.EODecompose();
+
+    for (int i = 0; i < chk_block_spinor_v2.nComponents(); i++) {
+
+      DslashRef<float>(even_chk_block_v2[i], odd_src_block_v2[i],  even_src_block_v2[i], sloppy_gauge, params.M, params.r, even_chk_block_v2[i].GetCBDims(), 0);
+      DslashRef<float>(odd_chk_block_v2[i],  even_src_block_v2[i], odd_src_block_v2[i],  sloppy_gauge, params.M, params.r, odd_chk_block_v2[i].GetCBDims(), 1);
+
+      auto &&chk_e = even_chk_block_v2[i].ParityAccessor();
+      auto &&dst_e = even_dst_block_v2[i].ParityAccessor();
+
+      check_field(chk_e, dst_e, 1e-6);
+
+      auto &&chk_o = odd_chk_block_v2[i].ParityAccessor();
+      auto &&dst_o = odd_dst_block_v2[i].ParityAccessor();
+
+      check_field(chk_o, dst_o, 1e-6);
+    }
+  }
+
+  src_block_spinor_v2[0].show();
+
+  src_block_spinor_v2.destroy();
+  dst_block_spinor_v2.destroy();
+  chk_block_spinor_v2.destroy();
 
   gauge.destroy();  
+  sloppy_gauge.destroy();
 }
 
