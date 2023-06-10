@@ -29,6 +29,11 @@ class DslashArgs{
 template <typename Arg>
 class Dslash{
   public:
+    using ArgTp = typename std::remove_cvref_t<Arg>;
+
+    using DataTp = ArgTp::gauge_data_tp;
+    
+    using Link   = DataTp; 
 
     const Arg &args;
 
@@ -38,7 +43,6 @@ class Dslash{
     inline decltype(auto) proj(const auto &in, const int dir){
 
       using Spinor = typename std::remove_cvref_t<decltype(in)>;
-      using DataTp = typename std::remove_cvref_t<Arg>::gauge_data_tp;
       
       Spinor res;	    
 
@@ -90,11 +94,7 @@ class Dslash{
 
     template<int nDir, int nSpin>
     inline decltype(auto) compute_parity_site_stencil(const auto &in_accessor, const auto &U_accessor, const FieldParity parity, const std::array<int, nDir> site_coords){
-      using ArgTp = typename std::remove_cvref_t<Arg>;
-
-      using DataTp = ArgTp::gauge_data_tp;
-      //
-      using Link   = DataTp; 
+       
       using Spinor = std::array<DataTp, nSpin>; 
       
       using Indices = std::make_index_sequence<nDir>;      
@@ -191,7 +191,6 @@ class Dslash{
       //
       // gamma_{1/2} -> sigma_{1/2}, gamma_{5} -> sigma_{3}
       //
-      using ArgTp = typename std::remove_cvref_t<Arg>;
 
       constexpr auto nSpin = ArgTp::nSpin;      
       constexpr auto nDir  = ArgTp::nDir;       
