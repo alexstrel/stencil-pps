@@ -29,11 +29,16 @@ class DslashArgs{
 template <typename Arg>
 class Dslash{
   public:
-    using ArgTp = typename std::remove_cvref_t<Arg>;
-
+    using ArgTp  = typename std::remove_cvref_t<Arg>;
     using DataTp = ArgTp::gauge_data_tp;
-    
+
+    static constexpr std::size_t nSpin = ArgTp::nSpin;
+    static constexpr std::size_t nDir  = ArgTp::nDir;
+
     using Link   = DataTp; 
+    using Spinor = std::array<DataTp, nSpin>;
+    //
+    using Indices = std::make_index_sequence<nDir>;
 
     const Arg &args;
 
@@ -92,12 +97,7 @@ class Dslash{
       return field_accessor(x[Idxs]..., d, parity);
     }    
 
-    template<int nDir, int nSpin>
     inline decltype(auto) compute_parity_site_stencil(const auto &in_accessor, const auto &U_accessor, const FieldParity parity, const std::array<int, nDir> site_coords){
-       
-      using Spinor = std::array<DataTp, nSpin>; 
-      
-      using Indices = std::make_index_sequence<nDir>;      
       //Define accessor wrappers:
       auto in = [&in_=in_accessor, this](const std::array<int, nDir> &x, const int &s){ 
         return accessor(Indices{}, in_, x, s);
@@ -192,9 +192,6 @@ class Dslash{
       // gamma_{1/2} -> sigma_{1/2}, gamma_{5} -> sigma_{3}
       //
 
-      constexpr auto nSpin = ArgTp::nSpin;      
-      constexpr auto nDir  = ArgTp::nDir;       
-
       auto [y, x] = cartesian_coords;
 
       // Define accessors:
@@ -207,7 +204,7 @@ class Dslash{
         const auto in    = in_spinor[i].template ParityAccessor<is_constant>();
         const auto accum = accum_spinor[i].template ParityAccessor<is_constant>();        
 
-        auto tmp = compute_parity_site_stencil<nDir, nSpin>(in, U, parity, {x,y});      
+        auto tmp = compute_parity_site_stencil(in, U, parity, {x,y});      
 #pragma unroll
         for (int s = 0; s < nSpin; s++){
           out(x,y,s) = transformer(accum(x,y,s), tmp[s]);
