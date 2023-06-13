@@ -87,24 +87,24 @@ class Dslash{
     }  
     
 
-    template<std::size_t... Idxs, std::size_t nDir>
-    inline decltype(auto) accessor(std::index_sequence<Idxs...>, const auto& field_accessor, const std::array<int, nDir>& x, const int &s){
-      return field_accessor(x[Idxs]..., s);
+    template<std::size_t... Idxs>
+    inline decltype(auto) spinor_accessor(std::index_sequence<Idxs...>, const auto& field_accessor, const std::array<int, nDir>& x){
+      return Spinor{field_accessor(x[Idxs]..., 0), field_accessor(x[Idxs]..., 1)};//2-component spinor
     }
     
-    template<std::size_t... Idxs, std::size_t nDir>
-    inline decltype(auto) parity_accessor(std::index_sequence<Idxs...>, const auto& field_accessor, const std::array<int, nDir>& x, const int &d, const int &parity){
+    template<std::size_t... Idxs>
+    inline decltype(auto) gauge_parity_accessor(std::index_sequence<Idxs...>, const auto& field_accessor, const std::array<int, nDir>& x, const int &d, const int &parity){
       return field_accessor(x[Idxs]..., d, parity);
     }    
 
     inline decltype(auto) compute_parity_site_stencil(const auto &in_accessor, const auto &U_accessor, const FieldParity parity, const std::array<int, nDir> site_coords){
       //Define accessor wrappers:
-      auto in = [&in_=in_accessor, this](const std::array<int, nDir> &x, const int &s){ 
-        return accessor(Indices{}, in_, x, s);
+      auto in = [&in_=in_accessor, this](const std::array<int, nDir> &x){ 
+        return spinor_accessor(Indices{}, in_, x);
       };
 
       auto U  = [&U_=U_accessor, this](const std::array<int, nDir> &x, const int &d, const int &p){ 
-        return parity_accessor(Indices{}, U_, x, d, p);
+        return gauge_parity_accessor(Indices{}, U_, x, d, p);
       };         
     
       auto is_local_boundary = [](const auto d, const auto coord, const auto bndry, const auto parity_bit){ 
@@ -131,19 +131,19 @@ class Dslash{
           
 	  if ( do_halo ) {
 	    //	
-            const Link U_ = bndr_factor[d]*U(X,d, my_parity);
+            const Link U_    = bndr_factor[d]*U(X,d, my_parity);
 
 	    X[d] = 0;
 
-            const Spinor in_{in(X,0), in(X,1)};
+            const Spinor in_ = in(X);
 	    //
             res += U_*proj<+1>(in_, d);		      
 	  } else {
-            const Link U_ = U(X,d, my_parity);
+            const Link U_    = U(X,d, my_parity);
 
 	    X[d] = X[d] + (d == 0 ? parity_bit : 1);
 
-            const Spinor in_{in(X,0), in(X,1)};
+            const Spinor in_ = in(X);
 	    //
             res += U_*proj<+1>(in_, d);		  
 	  }	  
@@ -158,16 +158,16 @@ class Dslash{
             //  
 	    X[d] = (in_accessor.extent(d)-1);	  
 
-	    const Link U_ = bndr_factor[d]*U(X, d, other_parity);
-	    const Spinor in_{in(X,0), in(X,1)};
+	    const Link U_    = bndr_factor[d]*U(X, d, other_parity);
+	    const Spinor in_ = in(X);
             //
 	    res += conj(U_)*proj<-1>(in_, d);              
           } else {  		
 	    
 	    X[d] = X[d] - (d == 0 ? (1- parity_bit) : 1);
 
-	    const Link U_ = U(X,d, other_parity);
-	    const Spinor in_{in(X,0), in(X,1)};
+	    const Link U_    = U(X,d, other_parity);
+	    const Spinor in_ = in(X);
             //
 	    res += conj(U_)*proj<-1>(in_, d);	 
 	  }
