@@ -56,7 +56,7 @@ class PMRBuffer{
     //
     PMRBuffer(const std::size_t nbytes, const PMRState state = PMRState::Vacant) : pmr_base_bytes(nbytes),
                                                                                    pmr_bytes(((nbytes + alignment_req - 1) / alignment_req ) *  alignment_req), 
-                                                                                   pmr_ptr(std::make_shared<std::byte[]>(pmr_bytes)),
+                                                                                   pmr_ptr(static_cast<std::byte*>(std::aligned_alloc(alignment_req, pmr_bytes)), [](std::byte* p){std::free(p);}),
                                                                                    pmr_pool(std::make_shared<std::pmr::monotonic_buffer_resource>(pmr_ptr.get(), pmr_bytes)),                          
                                                                                    pmr_state(state) { } 
 

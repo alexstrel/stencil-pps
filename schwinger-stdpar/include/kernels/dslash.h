@@ -29,6 +29,16 @@ class DslashArgs{
 template <typename Arg>
 class Dslash{
   public:
+    using ArgTp  = typename std::remove_cvref_t<Arg>;
+    using DataTp = ArgTp::gauge_data_tp;
+
+    static constexpr std::size_t nSpin = ArgTp::nSpin;
+    static constexpr std::size_t nDir  = ArgTp::nDir;
+
+    using Link   = DataTp; 
+    using Spinor = std::array<DataTp, nSpin>;
+    //
+    using Indices = std::make_index_sequence<nDir>;
 
     const Arg &args;
 
@@ -38,7 +48,6 @@ class Dslash{
     inline decltype(auto) proj(const auto &in, const int dir){
 
       using Spinor = typename std::remove_cvref_t<decltype(in)>;
-      using DataTp = typename std::remove_cvref_t<Arg>::gauge_data_tp;
       
       Spinor res;	    
 
@@ -78,33 +87,24 @@ class Dslash{
     }  
     
 
-    template<std::size_t... Idxs, std::size_t nDir>
-    inline decltype(auto) accessor(std::index_sequence<Idxs...>, const auto& field_accessor, const std::array<int, nDir>& x, const int &s){
-      return field_accessor(x[Idxs]..., s);
+    template<std::size_t... Idxs>
+    inline decltype(auto) load_spinor(std::index_sequence<Idxs...>, const auto& field_accessor, const std::array<int, nDir>& x){
+      return Spinor{field_accessor(x[Idxs]..., 0), field_accessor(x[Idxs]..., 1)};//2-component spinor
     }
     
-    template<std::size_t... Idxs, std::size_t nDir>
-    inline decltype(auto) parity_accessor(std::index_sequence<Idxs...>, const auto& field_accessor, const std::array<int, nDir>& x, const int &d, const int &parity){
+    template<std::size_t... Idxs>
+    inline decltype(auto) load_parity_link(std::index_sequence<Idxs...>, const auto& field_accessor, const std::array<int, nDir>& x, const int &d, const int &parity){
       return field_accessor(x[Idxs]..., d, parity);
     }    
 
-    template<int nDir, int nSpin>
     inline decltype(auto) compute_parity_site_stencil(const auto &in_accessor, const auto &U_accessor, const FieldParity parity, const std::array<int, nDir> site_coords){
-      using ArgTp = typename std::remove_cvref_t<Arg>;
-
-      using DataTp = ArgTp::gauge_data_tp;
-      //
-      using Link   = DataTp; 
-      using Spinor = std::array<DataTp, nSpin>; 
-      
-      using Indices = std::make_index_sequence<nDir>;      
       //Define accessor wrappers:
-      auto in = [&in_=in_accessor, this](const std::array<int, nDir> &x, const int &s){ 
-        return accessor(Indices{}, in_, x, s);
+      auto in = [&in_=in_accessor, this](const std::array<int, nDir> &x){ 
+        return load_spinor(Indices{}, in_, x);
       };
 
       auto U  = [&U_=U_accessor, this](const std::array<int, nDir> &x, const int &d, const int &p){ 
-        return parity_accessor(Indices{}, U_, x, d, p);
+        return load_parity_link(Indices{}, U_, x, d, p);
       };         
     
       auto is_local_boundary = [](const auto d, const auto coord, const auto bndry, const auto parity_bit){ 
@@ -131,19 +131,19 @@ class Dslash{
           
 	  if ( do_halo ) {
 	    //	
-            const Link U_ = bndr_factor[d]*U(X,d, my_parity);
+            const Link U_    = bndr_factor[d]*U(X,d, my_parity);
 
 	    X[d] = 0;
 
-            const Spinor in_{in(X,0), in(X,1)};
+            const Spinor in_ = in(X);
 	    //
             res += U_*proj<+1>(in_, d);		      
 	  } else {
-            const Link U_ = U(X,d, my_parity);
+            const Link U_    = U(X,d, my_parity);
 
 	    X[d] = X[d] + (d == 0 ? parity_bit : 1);
 
-            const Spinor in_{in(X,0), in(X,1)};
+            const Spinor in_ = in(X);
 	    //
             res += U_*proj<+1>(in_, d);		  
 	  }	  
@@ -158,16 +158,16 @@ class Dslash{
             //  
 	    X[d] = (in_accessor.extent(d)-1);	  
 
-	    const Link U_ = bndr_factor[d]*U(X, d, other_parity);
-	    const Spinor in_{in(X,0), in(X,1)};
+	    const Link U_    = bndr_factor[d]*U(X, d, other_parity);
+	    const Spinor in_ = in(X);
             //
 	    res += conj(U_)*proj<-1>(in_, d);              
           } else {  		
 	    
 	    X[d] = X[d] - (d == 0 ? (1- parity_bit) : 1);
 
-	    const Link U_ = U(X,d, other_parity);
-	    const Spinor in_{in(X,0), in(X,1)};
+	    const Link U_    = U(X,d, other_parity);
+	    const Spinor in_ = in(X);
             //
 	    res += conj(U_)*proj<-1>(in_, d);	 
 	  }
@@ -191,10 +191,6 @@ class Dslash{
       //
       // gamma_{1/2} -> sigma_{1/2}, gamma_{5} -> sigma_{3}
       //
-      using ArgTp = typename std::remove_cvref_t<Arg>;
-
-      constexpr auto nSpin = ArgTp::nSpin;      
-      constexpr auto nDir  = ArgTp::nDir;       
 
       auto [y, x] = cartesian_coords;
 
@@ -208,7 +204,7 @@ class Dslash{
         const auto in    = in_spinor[i].template ParityAccessor<is_constant>();
         const auto accum = accum_spinor[i].template ParityAccessor<is_constant>();        
 
-        auto tmp = compute_parity_site_stencil<nDir, nSpin>(in, U, parity, {x,y});      
+        auto tmp = compute_parity_site_stencil(in, U, parity, {x,y});      
 #pragma unroll
         for (int s = 0; s < nSpin; s++){
           out(x,y,s) = transformer(accum(x,y,s), tmp[s]);
