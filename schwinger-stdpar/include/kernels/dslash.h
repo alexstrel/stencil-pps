@@ -88,23 +88,23 @@ class Dslash{
     
 
     template<std::size_t... Idxs>
-    inline decltype(auto) spinor_accessor(std::index_sequence<Idxs...>, const auto& field_accessor, const std::array<int, nDir>& x){
+    inline decltype(auto) load_spinor(std::index_sequence<Idxs...>, const auto& field_accessor, const std::array<int, nDir>& x){
       return Spinor{field_accessor(x[Idxs]..., 0), field_accessor(x[Idxs]..., 1)};//2-component spinor
     }
     
     template<std::size_t... Idxs>
-    inline decltype(auto) gauge_parity_accessor(std::index_sequence<Idxs...>, const auto& field_accessor, const std::array<int, nDir>& x, const int &d, const int &parity){
+    inline decltype(auto) load_parity_link(std::index_sequence<Idxs...>, const auto& field_accessor, const std::array<int, nDir>& x, const int &d, const int &parity){
       return field_accessor(x[Idxs]..., d, parity);
     }    
 
     inline decltype(auto) compute_parity_site_stencil(const auto &in_accessor, const auto &U_accessor, const FieldParity parity, const std::array<int, nDir> site_coords){
       //Define accessor wrappers:
       auto in = [&in_=in_accessor, this](const std::array<int, nDir> &x){ 
-        return spinor_accessor(Indices{}, in_, x);
+        return load_spinor(Indices{}, in_, x);
       };
 
       auto U  = [&U_=U_accessor, this](const std::array<int, nDir> &x, const int &d, const int &p){ 
-        return gauge_parity_accessor(Indices{}, U_, x, d, p);
+        return load_parity_link(Indices{}, U_, x, d, p);
       };         
     
       auto is_local_boundary = [](const auto d, const auto coord, const auto bndry, const auto parity_bit){ 
