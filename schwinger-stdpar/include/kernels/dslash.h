@@ -12,46 +12,41 @@ class DslashParam{
     const T r;    
 };
 
+
 template <GaugeFieldViewTp gauge_tp, int nSpin_ = 2>
-class DslashArgs{
+class DslashArgs {
   public:
     using gauge_data_tp  = typename gauge_tp::data_tp;	  
 
     static constexpr std::size_t nDir   = gauge_tp::nDir;
     static constexpr std::size_t nColor = gauge_tp::nColor;
-    static constexpr std::size_t nSpin  = nSpin_; 
+    static constexpr std::size_t nSpin  = nSpin_;
+    
+    using LinkTp   = gauge_data_tp; 
+    using SpinorTp = std::array<gauge_data_tp, nSpin>;     
 
     const gauge_tp  gauge;
     
-    DslashArgs( const gauge_tp &gauge) : gauge(gauge) {}
-};
-
-template <typename Arg>
-class Dslash{
-  public:
-    using ArgTp  = typename std::remove_cvref_t<Arg>;
-    using DataTp = ArgTp::gauge_data_tp;
-
-    static constexpr std::size_t nSpin = ArgTp::nSpin;
-    static constexpr std::size_t nDir  = ArgTp::nDir;
-
-    using Link   = DataTp; 
-    using Spinor = std::array<DataTp, nSpin>;
-    //
-    using Indices = std::make_index_sequence<nDir>;
-
-    const Arg &args;
-
-    Dslash(const Arg &args) : args(args) {}     
-
+    DslashArgs( const gauge_tp &gauge) : gauge(gauge) {}        
+    
+    template<std::size_t... Idxs>
+    static inline decltype(auto) load_spinor(std::index_sequence<Idxs...>, const auto& field_accessor, const std::array<int, nDir>& x){
+      return SpinorTp{field_accessor(x[Idxs]..., 0), field_accessor(x[Idxs]..., 1)};//2-component spinor
+    }
+    
+    template<std::size_t... Idxs>
+    static inline decltype(auto) load_parity_link(std::index_sequence<Idxs...>, const auto& field_accessor, const std::array<int, nDir>& x, const int &d, const int &parity){
+      return field_accessor(x[Idxs]..., d, parity);
+    } 
+    
     template<int sign>
-    inline decltype(auto) proj(const auto &in, const int dir){
+    static inline decltype(auto) proj(const auto &in, const int dir){
 
       using Spinor = typename std::remove_cvref_t<decltype(in)>;
       
       Spinor res;	    
 
-      auto ic = [](auto c){ return DataTp(-c.imag(), c.real());};
+      auto ic = [](auto c){ return gauge_data_tp(-c.imag(), c.real());};
 
       if constexpr (sign == +1) {
        switch (dir) {
@@ -84,27 +79,35 @@ class Dslash{
       }
 
       return res;
-    }  
-    
-
-    template<std::size_t... Idxs>
-    inline decltype(auto) load_spinor(std::index_sequence<Idxs...>, const auto& field_accessor, const std::array<int, nDir>& x){
-      return Spinor{field_accessor(x[Idxs]..., 0), field_accessor(x[Idxs]..., 1)};//2-component spinor
-    }
-    
-    template<std::size_t... Idxs>
-    inline decltype(auto) load_parity_link(std::index_sequence<Idxs...>, const auto& field_accessor, const std::array<int, nDir>& x, const int &d, const int &parity){
-      return field_accessor(x[Idxs]..., d, parity);
     }    
+};
+
+template <typename Arg>
+class Dslash{
+  public:
+    using ArgTp  = typename std::remove_cvref_t<Arg>;
+
+    static constexpr std::size_t nSpin = ArgTp::nSpin;
+    static constexpr std::size_t nDir  = ArgTp::nDir;
+
+    using Link   = ArgTp::LinkTp; 
+    using Spinor = ArgTp::SpinorTp;
+    
+    using Indices = std::make_index_sequence<nDir>;    
+
+    const Arg &args;
+
+    Dslash(const Arg &args) : args(args) {}     
+
 
     inline decltype(auto) compute_parity_site_stencil(const auto &in_accessor, const auto &U_accessor, const FieldParity parity, const std::array<int, nDir> site_coords){
       //Define accessor wrappers:
       auto in = [&in_=in_accessor, this](const std::array<int, nDir> &x){ 
-        return load_spinor(Indices{}, in_, x);
+        return ArgTp::load_spinor(Indices{}, in_, x);
       };
 
       auto U  = [&U_=U_accessor, this](const std::array<int, nDir> &x, const int &d, const int &p){ 
-        return load_parity_link(Indices{}, U_, x, d, p);
+        return ArgTp::load_parity_link(Indices{}, U_, x, d, p);
       };         
     
       auto is_local_boundary = [](const auto d, const auto coord, const auto bndry, const auto parity_bit){ 
@@ -117,7 +120,7 @@ class Dslash{
 
       Spinor res; 
 
-      constexpr std::array<DataTp, nDir> bndr_factor{DataTp(1.0, 0.0),DataTp(-1.0, 0.0)}; 
+      constexpr std::array<typename ArgTp::gauge_data_tp, nDir> bndr_factor{ArgTp::gauge_data_tp(1.0, 0.0),ArgTp::gauge_data_tp(-1.0, 0.0)}; 
 
       std::array X{site_coords};	 	      
 #pragma unroll
@@ -137,7 +140,7 @@ class Dslash{
 
             const Spinor in_ = in(X);
 	    //
-            res += U_*proj<+1>(in_, d);		      
+            res += U_*ArgTp::proj<+1>(in_, d);		      
 	  } else {
             const Link U_    = U(X,d, my_parity);
 
@@ -145,7 +148,7 @@ class Dslash{
 
             const Spinor in_ = in(X);
 	    //
-            res += U_*proj<+1>(in_, d);		  
+            res += U_*ArgTp::proj<+1>(in_, d);		  
 	  }	  
           //
           X[d] = Xd;	  
@@ -161,7 +164,7 @@ class Dslash{
 	    const Link U_    = bndr_factor[d]*U(X, d, other_parity);
 	    const Spinor in_ = in(X);
             //
-	    res += conj(U_)*proj<-1>(in_, d);              
+	    res += conj(U_)*ArgTp::proj<-1>(in_, d);              
           } else {  		
 	    
 	    X[d] = X[d] - (d == 0 ? (1- parity_bit) : 1);
@@ -169,7 +172,7 @@ class Dslash{
 	    const Link U_    = U(X,d, other_parity);
 	    const Spinor in_ = in(X);
             //
-	    res += conj(U_)*proj<-1>(in_, d);	 
+	    res += conj(U_)*ArgTp::proj<-1>(in_, d);	 
 	  }
           //
           X[d] = Xd;	  

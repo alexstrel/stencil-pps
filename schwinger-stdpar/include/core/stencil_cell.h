@@ -51,9 +51,9 @@ class StencilCell {
          return MDView(const_cast<T*>(v.data()));        
        }
      } 
-#if 0     
+#if 1     
      // naive load method:
-     decltype(auto) load() const {
+     inline decltype(auto) load() const {
        if constexpr (cell_size == 1) {
          exit(-1);
        }
@@ -61,7 +61,7 @@ class StencilCell {
      }    
 
      // naive store method:
-     void store( const std::array<T, cell_size> &u) {
+     inline void store( const std::array<T, cell_size> &u) {
 #pragma unroll     
        for(int i = 0; i < cell_size; i++) v[i] = u[i];
      }    
