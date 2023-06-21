@@ -11,7 +11,8 @@ template<typename T>
 class DslashParam{
   public:
     const T M;
-    const T r;    
+    const T r;
+    const bool dagger;    
 };
 
 
@@ -149,11 +150,10 @@ class Dslash{
       return res;
     }     
     
-    template<GenericSpinorFieldViewTp generic_spinor_field_view>
     void apply(auto &&transformer,
-               generic_spinor_field_view &out_spinor,
-               generic_spinor_field_view &in_spinor,
-               generic_spinor_field_view &accum_spinor,               
+               GenericSpinorFieldViewTp auto &out_spinor,
+               const GenericSpinorFieldViewTp auto &in_spinor,
+               const GenericSpinorFieldViewTp auto &accum_spinor,
                const auto cartesian_coords,
                const FieldParity parity) {	    
       // Take into account only internal points:

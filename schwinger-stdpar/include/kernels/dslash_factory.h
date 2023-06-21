@@ -16,7 +16,7 @@ class Mat{
 
     Mat(const KernelArgs &args) : dslash_kernel_ptr(new Kernel<KernelArgs>(args)) {}
     
-    inline void launch_dslash(GenericSpinorFieldViewTp auto &out_view, GenericSpinorFieldViewTp auto &in_view, GenericSpinorFieldViewTp auto &accum_view, auto&& transformer, const FieldParity parity, const auto ids) {
+    inline void launch_dslash(GenericSpinorFieldViewTp auto &out_view, const GenericSpinorFieldViewTp auto &in_view, const GenericSpinorFieldViewTp auto &accum_view, auto&& transformer, const FieldParity parity, const auto ids) {
       
       auto DslashKernel = [=, &dslash_kernel   = *dslash_kernel_ptr] (const auto coords) { 
                             //
@@ -29,7 +29,7 @@ class Mat{
                     DslashKernel);    
     }
 
-    void operator()(GenericSpinorFieldTp auto &out, GenericSpinorFieldTp auto &in, GenericSpinorFieldTp auto &accum, auto&& transformer, const FieldParity parity){
+    void operator()(GenericSpinorFieldTp auto &out, const GenericSpinorFieldTp auto &in, const GenericSpinorFieldTp auto &accum, auto&& transformer, const FieldParity parity){
       
       if ( in.GetFieldOrder() != FieldOrder::EOFieldOrder and in.GetFieldSubset() != FieldSiteSubset::ParitySiteSubset ) { 
         std::cerr << "Only parity field is allowed." << std::endl; 
@@ -49,8 +49,8 @@ class Mat{
       
       if constexpr (is_allocator_aware_type<container_tp>) {
         auto&& out_view    = out.View();
-        auto&& in_view     = in.View();
-        auto&& accum_view  = accum.View();         
+        const auto&& in_view     = in.View();
+        const auto&& accum_view  = accum.View();         
         
         launch_dslash(out_view, in_view, accum_view, transformer, parity, ids);      
       } else {
