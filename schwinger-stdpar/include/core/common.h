@@ -96,3 +96,14 @@ concept is_pmr_allocator_aware_type = requires {
 template <typename T>
 concept PMRContainerTp = GenericContainerTp<T> and is_pmr_allocator_aware_type<T>;
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+template<typename T>
+class is_mdspan : public std::false_type {};
+
+template<typename T, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
+class is_mdspan<stdex::mdspan<T, Extents, LayoutPolicy, AccessorPolicy>> : public std::true_type {};
+
+// MDspan concept:
+template <typename T>
+concept MDViewTp = is_mdspan<std::remove_cvref_t<T>>::value;
+

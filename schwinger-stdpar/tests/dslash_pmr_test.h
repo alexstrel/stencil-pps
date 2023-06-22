@@ -21,9 +21,9 @@ void DslashRef(auto &out_spinor, const auto &in_spinor, const auto &accum_spinor
   
   auto I = [](auto x){ return std::complex<Float_>(-x.imag(), x.real());};  
   
-  auto out          = out_spinor.ParityAccessor();
-  const auto in     = in_spinor.template ParityAccessor<is_constant>();
-  const auto accum  = accum_spinor.template ParityAccessor<is_constant>();  
+  auto out          = out_spinor.Accessor();
+  const auto in     = in_spinor.template Accessor<is_constant>();
+  const auto accum  = accum_spinor.template Accessor<is_constant>();  
   //
   const auto gauge  = gauge_field.template Accessor<is_constant>(); 
 
@@ -138,13 +138,13 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
     DslashRef<float>(even_chk, odd_src,  even_src, sloppy_gauge, params.M, params.r, even_chk.GetCBDims(), 0); 
     DslashRef<float>(odd_chk,  even_src, odd_src,  sloppy_gauge, params.M, params.r, odd_chk.GetCBDims(), 1);   
   
-    auto &&chk_e = even_chk.ParityAccessor();
-    auto &&dst_e = even_dst.ParityAccessor();     
+    auto &&chk_e = even_chk.Accessor();
+    auto &&dst_e = even_dst.Accessor();     
     //
     check_field(chk_e, dst_e, 1e-6);
     //
-    auto &&chk_o = odd_chk.ParityAccessor();
-    auto &&dst_o = odd_dst.ParityAccessor();     
+    auto &&chk_o = odd_chk.Accessor();
+    auto &&dst_o = odd_dst.Accessor();     
     //
     check_field(chk_o, dst_o, 1e-6);    
   }
@@ -190,13 +190,13 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
 
   {
     //check_field(chk_spinor, dst_spinor);
-    auto &&chk_e = even_chk_v2.ParityAccessor();
-    auto &&dst_e = even_dst_v2.ParityAccessor();     
+    auto &&chk_e = even_chk_v2.Accessor();
+    auto &&dst_e = even_dst_v2.Accessor();     
     //
     check_field(chk_e, dst_e, 1e-6);
     //
-    auto &&chk_o = odd_chk_v2.ParityAccessor();
-    auto &&dst_o = odd_dst_v2.ParityAccessor();     
+    auto &&chk_o = odd_chk_v2.Accessor();
+    auto &&dst_o = odd_dst_v2.Accessor();     
     //
     check_field(chk_o, dst_o, 1e-6);    
   }  
@@ -297,13 +297,13 @@ void run_mrhs_pmr_dslash_test(auto params, const int X, const int T, const int n
       DslashRef<float>(even_chk_block[i], odd_src_block[i],  even_src_block[i], sloppy_gauge, params.M, params.r, even_chk_block[i].GetCBDims(), 0);   
       DslashRef<float>(odd_chk_block[i],  even_src_block[i], odd_src_block[i],  sloppy_gauge, params.M, params.r, odd_chk_block[i].GetCBDims(), 1);
 
-      auto &&chk_e = even_chk_block[i].ParityAccessor();
-      auto &&dst_e = even_dst_block[i].ParityAccessor();
+      auto &&chk_e = even_chk_block[i].Accessor();
+      auto &&dst_e = even_dst_block[i].Accessor();
     
       check_field(chk_e, dst_e, 1e-6);
     
-      auto &&chk_o = odd_chk_block[i].ParityAccessor();
-      auto &&dst_o = odd_dst_block[i].ParityAccessor();
+      auto &&chk_o = odd_chk_block[i].Accessor();
+      auto &&dst_o = odd_dst_block[i].Accessor();
     
       check_field(chk_o, dst_o, 1e-6);
     }
@@ -349,13 +349,13 @@ void run_mrhs_pmr_dslash_test(auto params, const int X, const int T, const int n
       DslashRef<float>(even_chk_block_v2[i], odd_src_block_v2[i],  even_src_block_v2[i], sloppy_gauge, params.M, params.r, even_chk_block_v2[i].GetCBDims(), 0);
       DslashRef<float>(odd_chk_block_v2[i],  even_src_block_v2[i], odd_src_block_v2[i],  sloppy_gauge, params.M, params.r, odd_chk_block_v2[i].GetCBDims(), 1);
 
-      auto &&chk_e = even_chk_block_v2[i].ParityAccessor();
-      auto &&dst_e = even_dst_block_v2[i].ParityAccessor();
+      auto &&chk_e = even_chk_block_v2[i].Accessor();
+      auto &&dst_e = even_dst_block_v2[i].Accessor();
 
       check_field(chk_e, dst_e, 1e-6);
 
-      auto &&chk_o = odd_chk_block_v2[i].ParityAccessor();
-      auto &&dst_o = odd_dst_block_v2[i].ParityAccessor();
+      auto &&chk_o = odd_chk_block_v2[i].Accessor();
+      auto &&dst_o = odd_dst_block_v2[i].Accessor();
 
       check_field(chk_o, dst_o, 1e-6);
     }

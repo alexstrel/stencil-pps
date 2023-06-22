@@ -10,7 +10,7 @@
 namespace impl{
 
   template<int nSpin> concept TwoComponentSpinor  = (nSpin == 2);
-
+  //
   template<int nSpin> concept FourComponentSpinor = (nSpin == 4);  
 
   template <ComplexTp T, int Nc, int Ns, int bSize>

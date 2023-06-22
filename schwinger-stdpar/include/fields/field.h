@@ -108,6 +108,8 @@ class Field{
     // Needed for block-la operations
     constexpr std::size_t size() const { return 1ul; } 
     
+    static constexpr FieldType type() { return Arg::type; }
+    
     // Needed for block-la operations
     decltype(auto) operator[](int i) const { 
       if(i != 0) exit(-1); 
@@ -221,31 +223,40 @@ class Field{
     }      
 
     //Direct field accessors (note that ncolor always 1, so no slicing for this dof):
-    template<bool is_constant = false>
-    auto ParityAccessor() const {
+    template<bool is_constant = false>    
+    auto Accessor() const {
       //
       static_assert(nColor == 1, "Only O(1) model is supported.");
 
       using dyn_indx_type     = std::size_t;
       
-      //constexpr dyn_indx_type nDoF = Arg::type == FieldType::VectorFieldType ? nDir*nColor*nColor : nSpin*nColor;
-      
-      if constexpr (Arg::type == FieldType::VectorFieldType) {
-        constexpr int nDofs = 1;
-        
-        auto StridesMD = std::array<dyn_indx_type, nDim+nDofs>{1, arg.X(0), arg.X(0)*arg.X(1)};       
-        return mdaccessor<is_constant, nDir>(StridesMD);            
+      const std::array X = GetCBDims();
+
+      if constexpr (Arg::type == FieldType::VectorFieldType) {      
+        constexpr int nDofs = (nParity == 1) ? 1 : 2;
+        if constexpr (nParity == 1) {
+          auto StridesMD = std::array<dyn_indx_type, nDim+nDofs>{1, X[0], X[0]*X[1]};       
+          return mdaccessor<is_constant, nDir>(StridesMD);       
+        } else {
+          auto StridesMD = std::array<dyn_indx_type, nDim+nDofs>{1, X[0], X[0]*X[1], X[0]*X[1]*nDir};       
+          return mdaccessor<is_constant, nDir, nParity>(StridesMD);               
+        }
       } else {
-        constexpr int nDofs = 1;
+        constexpr int nDofs = (nParity == 1) ? 1 : 2;
         
-        auto StridesMD = std::array<dyn_indx_type, nDim+nDofs>{1, arg.X(0), arg.X(0)*arg.X(1)};       
-        return mdaccessor<is_constant, nSpin>(StridesMD);                  
+        if constexpr (nParity == 1) {
+          auto StridesMD = std::array<dyn_indx_type, nDim+nDofs>{1, X[0], X[0]*X[1]};       
+          return mdaccessor<is_constant, nDir>(StridesMD);       
+        } else {
+          auto StridesMD = std::array<dyn_indx_type, nDim+nDofs>{1, X[0], X[0]*X[1], X[0]*X[1]*nSpin};       
+          return mdaccessor<is_constant, nDir, nParity>(StridesMD);               
+        }        
       }
-    }
+    }    
     
     //Direct field accessors (note that ncolor always 1, so no slicing for this dof):
     template<bool is_constant = false>    
-    auto Accessor() const {
+    auto GhostAccessor() const {
       //
       static_assert(nColor == 1, "Only O(1) model is supported.");
 
@@ -264,28 +275,6 @@ class Field{
         auto StridesMD = std::array<dyn_indx_type, nDim+nDofs>{1, X[0], X[0]*X[1], X[0]*X[1]*nSpin};       
         return mdaccessor<is_constant, nSpin, nParity>(StridesMD);                        
       }
-    }    
-    
-    template<bool is_constant = false>
-    auto FlatAccessor(const std::size_t stride = 1) const {
-      //
-      static_assert(nColor == 1, "Currently only O(1) model is supported.");
-    
-      using dyn_indx_type = std::size_t;
-
-      using Dyn1DMap  = stdex::layout_stride::mapping<stdex::extents<dyn_indx_type, stdex::dynamic_extent>>;
-      using Extents1D = stdex::extents<dyn_indx_type, stdex::dynamic_extent>;
-      using Strides1D = std::array<dyn_indx_type, 1>;       
-       
-      const dyn_indx_type len = GetLength() / stride;
-       
-      if constexpr (is_constant){
-        return stdex::mdspan<const data_tp, stdex::extents<dyn_indx_type, stdex::dynamic_extent>, stdex::layout_stride>{
-                    v.data(), Dyn1DMap{Extents1D{len}, Strides1D{stride}}} ;
-      } else {
-        return stdex::mdspan<data_tp, stdex::extents<dyn_indx_type, stdex::dynamic_extent>, stdex::layout_stride>{
-                    v.data(), Dyn1DMap{Extents1D{len}, Strides1D{stride}}} ;       
-      }    
     }    
     
 };
