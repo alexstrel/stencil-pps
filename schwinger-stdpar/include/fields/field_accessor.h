@@ -20,6 +20,8 @@ class FieldAccessor {
     
     FieldAccessor(const F &field ) : field_accessor(field.template Accessor<is_constant>()), 
                                      ghost_accessor(field.template Accessor<is_constant>()) {}        
+
+    inline constexpr decltype(auto) Extent(int d) const { return field_accessor.extent(d); }              
       
     /**
        @brief 2-d accessor functor
@@ -96,7 +98,7 @@ class FieldAccessor {
       return load_spinor(Indices{}, x);    
     }  
     
-    inline decltype(auto) Extent(int d) const { return field_accessor.extent(d); }              
+
 };
 
 

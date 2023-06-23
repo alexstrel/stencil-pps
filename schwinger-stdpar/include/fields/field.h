@@ -172,13 +172,14 @@ class Field{
     }
 
     auto Even() { return ParityView(FieldParity::EvenFieldParity );}
+    //
     auto Odd()  { return ParityView(FieldParity::OddFieldParity  );}
 
     auto EODecompose() {
       static_assert(Nparity() == 2);
 
       return std::make_tuple(this->Even(), this->Odd());
-    }
+    }   
 
     auto GetLength()       const { return v.size(); }
     auto GetBytes()        const { return v.size()*sizeof(data_tp); }

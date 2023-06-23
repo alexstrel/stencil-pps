@@ -3,7 +3,6 @@
 #include <execution>
 //
 #include <core/cartesian_product.hpp>
-#include <kernels/dslash_helpers.h>
 //
 #include <fields/field_accessor.h>
 
@@ -127,10 +126,10 @@ class Dslash{
       return res;
     }     
     
-    void apply(auto &&transformer,
-               GenericSpinorFieldViewTp auto &out_spinor,
+    void apply(GenericSpinorFieldViewTp auto &out_spinor,
                const GenericSpinorFieldViewTp auto &in_spinor,
                const GenericSpinorFieldViewTp auto &accum_spinor,
+               auto &&post_transformer,               
                const auto cartesian_coords,
                const FieldParity parity) {	    
       // Take into account only internal points:
@@ -152,7 +151,7 @@ class Dslash{
     
 #pragma unroll
         for (int s = 0; s < S::Nspin(); s++){
-          out(x,y,s) = transformer(accum(x,y,s), tmp(s));//FIXME : works only for bSize = 1
+          out(x,y,s) = post_transformer(accum(x,y,s), tmp(s));//FIXME : works only for bSize = 1
         }
       }//end of for loop
     }    

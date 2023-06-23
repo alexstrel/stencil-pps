@@ -92,7 +92,7 @@ void run_dslash_test(auto params, const int X, const int T, const int niter) {
   auto &dslash_args = *dslash_args_ptr;
 
   // Create dslash matrix
-  auto mat = Mat<decltype(dslash_args), Dslash>{dslash_args};
+  auto mat = MatTransform<decltype(dslash_args), Dslash>{dslash_args};
   //
   const auto const1 = params.M + static_cast<Float>(2.0)*params.r;
   const auto const2 = static_cast<Float>(0.5);
@@ -165,7 +165,7 @@ void run_mrhs_dslash_test(auto params, const int X, const int T, const int niter
   auto &dslash_args = *dslash_args_ptr;
 
   // Create dslash matrix
-  auto mat = Mat<decltype(dslash_args), Dslash>{dslash_args};    
+  auto mat = MatTransform<decltype(dslash_args), Dslash>{dslash_args};    
   //
   using spinor_t  = Field<vector_tp, decltype(cs_param)>;//
   //
