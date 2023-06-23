@@ -8,20 +8,20 @@
 template <typename T>
 concept GenericSpinorFieldTp = requires{
   requires GenericContainerTp<typename T::container_tp>;
-  requires (T::nSpin   == 1ul or T::nSpin  == 2ul or T::nSpin  == 4ul);
-  requires (T::nColor  == 1ul or T::nColor == 3ul);
-  requires (T::nDir    == invalid_dir); 
-  requires (T::nParity == invalid_parity or T::nParity == 1 or T::nParity == 2);   
+  requires (T::Nspin()   == 1ul or T::Nspin()  == 2ul or T::Nspin()  == 4ul);
+  requires (T::Ncolor()  == 1ul or T::Ncolor() == 3ul);
+  requires (T::Ndir()    == invalid_dir); 
+  requires (T::Nparity() == invalid_parity or T::Nparity() == 1 or T::Nparity() == 2);     
 };
 
 // Generic Gauge Field type:
 template <typename T>
 concept GenericGaugeFieldTp = requires{
   requires GenericContainerTp<typename T::container_tp>;
-  requires (T::nSpin   == invalid_spin);
-  requires (T::nColor  == 1ul or T::nColor == 3ul);
-  requires (T::nDir    >= 2ul and T::nDir  <= 4ul);
-  requires (T::nParity == invalid_parity or T::nParity == 1 or T::nParity == 2);     
+  requires (T::Nspin()   == invalid_spin);
+  requires (T::Ncolor()  == 1ul or T::Ncolor() == 3ul);
+  requires (T::Ndir()    >= 2ul and T::Ndir()  <= 4ul);
+  requires (T::Nparity() == invalid_parity or T::Nparity() == 1 or T::Nparity() == 2);       
 };
 
 // Generic Field type :

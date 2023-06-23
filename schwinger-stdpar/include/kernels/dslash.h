@@ -5,7 +5,6 @@
 #include <core/cartesian_product.hpp>
 #include <kernels/dslash_helpers.h>
 //
-//#include <core/color_spinor.h>
 #include <fields/field_accessor.h>
 
 template<typename T>
@@ -24,10 +23,9 @@ class DslashArgs {
   public:
     using gauge_data_tp  = typename gauge_tp::data_tp;	  
 
-    static constexpr std::size_t nDir   = gauge_tp::nDir;
-    static constexpr std::size_t nDim   = gauge_tp::nDim;    
-    static constexpr std::size_t nColor = gauge_tp::nColor;
-    static constexpr std::size_t nSpin  = nSpin_;
+    static constexpr std::size_t nDir   = gauge_tp::Ndir();
+    static constexpr std::size_t nDim   = gauge_tp::Ndim();    
+    
 //    static constexpr std::size_t bSize  = bSize_;    
 
     static constexpr std::size_t bSize  = 1;    
@@ -46,14 +44,12 @@ class Dslash{
   public:
     using ArgTp  = typename std::remove_cvref_t<Arg>;
 
-    static constexpr std::size_t nDim   = ArgTp::nDim;    
-
     const Arg &args;
 
     Dslash(const Arg &args) : args(args) {}     
 
 
-    inline decltype(auto) compute_parity_site_stencil(const auto &in, const FieldParity parity, const std::array<int, nDim> site_coords){
+    inline decltype(auto) compute_parity_site_stencil(const auto &in, const FieldParity parity, const std::array<int, ArgTp::nDim> site_coords){
     
       using Link   = ArgTp::LinkTp; 
       using Spinor = typename std::remove_cvref_t<decltype(in)>::SpinorTp;
@@ -155,7 +151,7 @@ class Dslash{
         auto tmp = compute_parity_site_stencil(in, parity, {x,y}); 
     
 #pragma unroll
-        for (int s = 0; s < ArgTp::nSpin; s++){
+        for (int s = 0; s < S::Nspin(); s++){
           out(x,y,s) = transformer(accum(x,y,s), tmp(s));//FIXME : works only for bSize = 1
         }
       }//end of for loop

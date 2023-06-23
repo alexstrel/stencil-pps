@@ -21,11 +21,11 @@ void DslashRef(auto &out_spinor, const auto &in_spinor, const auto &accum_spinor
   
   auto I = [](auto x){ return std::complex<Float>(-x.imag(), x.real());};  
   
-  auto out          = out_spinor.Accessor();
-  const auto in     = in_spinor.template Accessor<is_constant>();
-  const auto accum  = accum_spinor.template Accessor<is_constant>();  
+  MDViewTp auto out          = out_spinor.Accessor();
+  const MDViewTp auto in     = in_spinor.template Accessor<is_constant>();
+  const MDViewTp auto accum  = accum_spinor.template Accessor<is_constant>();  
   //
-  const auto gauge  = gauge_field.template Accessor<is_constant>(); 
+  const MDViewTp auto gauge  = gauge_field.template Accessor<is_constant>(); 
 
   const int other_parity = 1 - parity; 
   

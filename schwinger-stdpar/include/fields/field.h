@@ -68,11 +68,11 @@ class Field{
     using container_tp  = generic_container_tp;        
     using data_tp       = typename container_tp::value_type;
 
-    static constexpr std::size_t nDim    = Arg::ndim;
-    static constexpr std::size_t nDir    = Arg::ndir;
-    static constexpr std::size_t nSpin   = Arg::nspin;                    
-    static constexpr std::size_t nColor  = Arg::ncolor;                    
-    static constexpr std::size_t nParity = Arg::nparity;                        
+    static consteval std::size_t Ndim()    { return Arg::ndim;    }    
+    static consteval std::size_t Ndir()    { return Arg::ndir;    }    
+    static consteval std::size_t Nspin()   { return Arg::nspin;   }                        
+    static consteval std::size_t Ncolor()  { return Arg::ncolor;  }    
+    static consteval std::size_t Nparity() { return Arg::nparity; }                         
 
   private: 
     container_tp v;
@@ -153,14 +153,14 @@ class Field{
     decltype(auto) ParityView(const FieldParity parity ) {// return a reference to the parity component
       static_assert(is_allocator_aware_type<container_tp>, "Cannot reference a non-owner field!");
       //
-      if (nParity != 2) {
+      if constexpr (Nparity() != 2) {
         std::cerr << "Cannot get a parity component from a non-full field, exiting...\n" << std::endl;
 	std::quick_exit( EXIT_FAILURE );
       }
       //           
       constexpr std::size_t other_parity = 1;
       
-      auto parity_arg = FieldDescriptor<nDim, nDir, nSpin, nColor, other_parity>(this->arg, parity);
+      auto parity_arg = FieldDescriptor<Ndim(), Ndir(), Nspin(), Ncolor(), other_parity>(this->arg, parity);
       //
       const auto parity_length = GetParityLength();
       const auto parity_offset = parity == FieldParity::EvenFieldParity ? 0 : parity_length;
@@ -175,16 +175,16 @@ class Field{
     auto Odd()  { return ParityView(FieldParity::OddFieldParity  );}
 
     auto EODecompose() {
-      assert(nParity == 2);
+      static_assert(Nparity() == 2);
 
       return std::make_tuple(this->Even(), this->Odd());
     }
 
     auto GetLength()       const { return v.size(); }
     auto GetBytes()        const { return v.size()*sizeof(data_tp); }
-    auto GetParityLength() const { return v.size() / nParity; }
+    auto GetParityLength() const { return v.size() / Nparity(); }
 
-    auto GetGhostParityLength() const { return ghost.size() / nParity; }
+    auto GetGhostParityLength() const { return ghost.size() / Nparity(); }
 
     auto GetDims()         const { return arg.GetLatticeDims(); }
     auto GetCBDims()       const { return arg.GetParityLatticeDims(); }
@@ -192,7 +192,7 @@ class Field{
     auto GetFieldOrder()   const { return arg.order; } 
     auto GetFieldParity()  const { return arg.parity; } 
 
-    auto GetFieldSubset()  const { return (nParity == 2 ? FieldSiteSubset::FullSiteSubset : (nParity == 1 ? FieldSiteSubset::ParitySiteSubset : FieldSiteSubset::InvalidSiteSubset)); }  
+    auto GetFieldSubset()  const { return (Nparity() == 2 ? FieldSiteSubset::FullSiteSubset : (Nparity() == 1 ? FieldSiteSubset::ParitySiteSubset : FieldSiteSubset::InvalidSiteSubset)); }  
     
     void Info() const {
       std::cout << "Full field dimensions: " << std::endl;
@@ -204,7 +204,7 @@ class Field{
     }  
     
     template<bool is_constant, std::size_t... dofs>
-    inline decltype(auto) mdaccessor(std::array<std::size_t, (nDim + sizeof...(dofs))> strides) const {
+    inline decltype(auto) mdaccessor(std::array<std::size_t, (Ndim() + sizeof...(dofs))> strides) const {
            
       using dyn_indx_type = std::size_t;
     
@@ -226,7 +226,11 @@ class Field{
     template<bool is_constant = false>    
     auto Accessor() const {
       //
-      static_assert(nColor == 1, "Only O(1) model is supported.");
+      constexpr std::size_t nDir  = Ndir();
+      constexpr std::size_t nSpin = Nspin();            
+      constexpr int nParity       = Nparity(); 
+      //
+      static_assert(Ncolor() == 1, "Only O(1) model is supported.");
 
       using dyn_indx_type     = std::size_t;
       
@@ -235,21 +239,21 @@ class Field{
       if constexpr (Arg::type == FieldType::VectorFieldType) {      
         constexpr int nDofs = (nParity == 1) ? 1 : 2;
         if constexpr (nParity == 1) {
-          auto StridesMD = std::array<dyn_indx_type, nDim+nDofs>{1, X[0], X[0]*X[1]};       
+          auto StridesMD = std::array<dyn_indx_type, Ndim()+nDofs>{1, X[0], X[0]*X[1]};       
           return mdaccessor<is_constant, nDir>(StridesMD);       
         } else {
-          auto StridesMD = std::array<dyn_indx_type, nDim+nDofs>{1, X[0], X[0]*X[1], X[0]*X[1]*nDir};       
+          auto StridesMD = std::array<dyn_indx_type, Ndim()+nDofs>{1, X[0], X[0]*X[1], X[0]*X[1]*nDir};       
           return mdaccessor<is_constant, nDir, nParity>(StridesMD);               
         }
       } else {
         constexpr int nDofs = (nParity == 1) ? 1 : 2;
         
         if constexpr (nParity == 1) {
-          auto StridesMD = std::array<dyn_indx_type, nDim+nDofs>{1, X[0], X[0]*X[1]};       
-          return mdaccessor<is_constant, nDir>(StridesMD);       
+          auto StridesMD = std::array<dyn_indx_type, Ndim()+nDofs>{1, X[0], X[0]*X[1]};       
+          return mdaccessor<is_constant, nSpin>(StridesMD);       
         } else {
-          auto StridesMD = std::array<dyn_indx_type, nDim+nDofs>{1, X[0], X[0]*X[1], X[0]*X[1]*nSpin};       
-          return mdaccessor<is_constant, nDir, nParity>(StridesMD);               
+          auto StridesMD = std::array<dyn_indx_type, Ndim()+nDofs>{1, X[0], X[0]*X[1], X[0]*X[1]*nSpin};       
+          return mdaccessor<is_constant, nSpin, nParity>(StridesMD);               
         }        
       }
     }    
@@ -258,7 +262,10 @@ class Field{
     template<bool is_constant = false>    
     auto GhostAccessor() const {
       //
-      static_assert(nColor == 1, "Only O(1) model is supported.");
+      constexpr std::size_t nDir = Ndir();      
+      constexpr int nParity      = Nparity(); 
+      //      
+      static_assert(Ncolor() == 1, "Only O(1) model is supported.");
 
       using dyn_indx_type     = std::size_t;
       
@@ -267,12 +274,12 @@ class Field{
       if constexpr (Arg::type == FieldType::VectorFieldType) {      
         constexpr int nDofs = 2;
         
-        auto StridesMD = std::array<dyn_indx_type, nDim+nDofs>{1, X[0], X[0]*X[1], X[0]*X[1]*nDir};       
+        auto StridesMD = std::array<dyn_indx_type, Ndim()+nDofs>{1, X[0], X[0]*X[1], X[0]*X[1]*nDir};       
         return mdaccessor<is_constant, nDir, nParity>(StridesMD);       
       } else {
         constexpr int nDofs = 2;
         
-        auto StridesMD = std::array<dyn_indx_type, nDim+nDofs>{1, X[0], X[0]*X[1], X[0]*X[1]*nSpin};       
+        auto StridesMD = std::array<dyn_indx_type, Ndim()+nDofs>{1, X[0], X[0]*X[1], X[0]*X[1]*nSpin};       
         return mdaccessor<is_constant, nSpin, nParity>(StridesMD);                        
       }
     }    
