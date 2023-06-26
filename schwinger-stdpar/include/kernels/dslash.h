@@ -11,7 +11,7 @@ class DslashParam{
   public:
     const T M;
     const T r;
-    const bool dagger;    
+    //const bool dagger;    
 };
 
 constexpr bool is_constant = true;
@@ -33,8 +33,8 @@ class DslashArgs {
     using LinkTp       = LinkAccessor::LinkTp;
 
     const LinkAccessor U;
-    
-    DslashArgs( const gauge_tp &gauge) : U(gauge) {}          
+
+    DslashArgs( const gauge_tp &gauge) : U(gauge) {}
 };
 
 
@@ -48,6 +48,7 @@ class Dslash{
     Dslash(const Arg &args) : args(args) {}     
 
 
+    template<bool dagger>
     inline decltype(auto) compute_parity_site_stencil(const auto &in, const FieldParity parity, const std::array<int, ArgTp::nDim> site_coords){
     
       using Link   = ArgTp::LinkTp; 
@@ -74,6 +75,8 @@ class Dslash{
 	// Fwd gather:
 	{  
 
+          constexpr int sign = dagger ? -1 : +1;
+
 	  const bool do_halo = is_local_boundary(d, X[d], (in.Extent(d) - 1), parity_bit); 
           
 	  if ( do_halo ) {
@@ -84,7 +87,7 @@ class Dslash{
 
             const Spinor in_ = in(X);
 	    //
-            res += U_*in_.project<+1>(d);		                  
+            res += U_*in_.project<sign>(d);		                  
 	  } else {
             const Link U_    = args.U(X,d, my_parity);
 
@@ -92,7 +95,7 @@ class Dslash{
 
             const Spinor in_ = in(X);
 	    //		  
-            res += U_*in_.project<+1>(d);		  
+            res += U_*in_.project<sign>(d);		  
 	  }	  
           //
           X[d] = Xd;	  
@@ -101,6 +104,8 @@ class Dslash{
 	{
 	  const bool do_galo = is_local_boundary(d, X[d], 0, (1-parity_bit));
 
+          constexpr int sign = dagger ? +1 : -1;
+
           if ( do_galo ) {
             //  
 	    X[d] = (in.Extent(d)-1);	  
@@ -108,7 +113,7 @@ class Dslash{
 	    const Link U_    = bndr_factor[d]*args.U(X, d, other_parity);
 	    const Spinor in_ = in(X);
             //
-            res += conj(U_)*in_.project<-1>(d);              	    
+            res += conj(U_)*in_.project<sign>(d);              	    
           } else {  		
 	    
 	    X[d] = X[d] - (d == 0 ? (1- parity_bit) : 1);
@@ -116,7 +121,7 @@ class Dslash{
 	    const Link U_    = args.U(X,d, other_parity);
 	    const Spinor in_ = in(X);
             //
-	    res += conj(U_)*in_.project<-1>(d);	 
+	    res += conj(U_)*in_.project<sign>(d);	 
 	  }
           //
           X[d] = Xd;	            
@@ -125,7 +130,8 @@ class Dslash{
 
       return res;
     }     
-    
+ 
+    template <bool dagger>   
     void apply(GenericSpinorFieldViewTp auto &out_spinor,
                const GenericSpinorFieldViewTp auto &in_spinor,
                const GenericSpinorFieldViewTp auto &accum_spinor,
@@ -146,8 +152,8 @@ class Dslash{
         auto out         = FieldAccessor<S>{out_spinor[i]};
         const auto in    = FieldAccessor<S, is_constant>{in_spinor[i]};
         const auto accum = FieldAccessor<S, is_constant>{accum_spinor[i]};        
-
-        auto tmp = compute_parity_site_stencil(in, parity, {x,y}); 
+        //
+        auto tmp = compute_parity_site_stencil<dagger>(in, parity, {x,y});
     
 #pragma unroll
         for (int s = 0; s < S::Nspin(); s++){
