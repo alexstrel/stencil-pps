@@ -134,11 +134,10 @@ class Dslash{
     template <bool dagger>   
     void apply(GenericSpinorFieldViewTp auto &out_spinor,
                const GenericSpinorFieldViewTp auto &in_spinor,
-               const GenericSpinorFieldViewTp auto &accum_spinor,
+               const GenericSpinorFieldViewTp auto &aux_spinor,
                auto &&post_transformer,               
                const auto cartesian_coords,
                const FieldParity parity) {	    
-      // Take into account only internal points:
       // Dslash_nm = (M + 2r) \delta_nm - 0.5 * \sum_\mu  ((r - \gamma_\mu)*U_(x){\mu}*\delta_{m,n+\mu} + (r + \gamma_\mu)U^*(x-mu)_{\mu}\delta_{m,n-\mu})
       //
       // gamma_{1/2} -> sigma_{1/2}, gamma_{5} -> sigma_{3}
@@ -151,16 +150,44 @@ class Dslash{
       
         auto out         = FieldAccessor<S>{out_spinor[i]};
         const auto in    = FieldAccessor<S, is_constant>{in_spinor[i]};
-        const auto accum = FieldAccessor<S, is_constant>{accum_spinor[i]};        
+        const auto aux   = FieldAccessor<S, is_constant>{aux_spinor[i]};        
         //
         auto tmp = compute_parity_site_stencil<dagger>(in, parity, {x,y});
     
 #pragma unroll
         for (int s = 0; s < S::Nspin(); s++){
-          out(x,y,s) = post_transformer(accum(x,y,s), tmp(s));//FIXME : works only for bSize = 1
+          out(x,y,s) = post_transformer(aux(x,y,s), tmp(s));//FIXME : works only for bSize = 1
         }
       }//end of for loop
     }    
+
+    template <bool dagger>   
+    void apply(GenericSpinorFieldViewTp auto &out_spinor,
+               const GenericSpinorFieldViewTp auto &in_spinor,
+               const auto cartesian_coords,
+               const FieldParity parity) {	    
+      // Dslash_nm = \sum_\mu  ((r - \gamma_\mu)*U_(x){\mu}*\delta_{m,n+\mu} + (r + \gamma_\mu)U^*(x-mu)_{\mu}\delta_{m,n-\mu})
+      //
+      // gamma_{1/2} -> sigma_{1/2}, gamma_{5} -> sigma_{3}
+      //
+      using S = typename std::remove_cvref_t<decltype(out_spinor[0])>; 
+
+      auto [y, x] = cartesian_coords;
+#pragma unroll
+      for ( int i = 0; i < out_spinor.size(); i++ ){  	      
+      
+        auto out         = FieldAccessor<S>{out_spinor[i]};
+        const auto in    = FieldAccessor<S, is_constant>{in_spinor[i]};
+        //
+        auto tmp = compute_parity_site_stencil<dagger>(in, parity, {x,y});
+    
+#pragma unroll
+        for (int s = 0; s < S::Nspin(); s++){
+          out(x,y,s) = tmp(s);//FIXME : works only for bSize = 1
+        }
+      }//end of for loop
+    }    
+
     
 };
 
