@@ -10,6 +10,44 @@ decltype(auto) create_field(const Arg &arg) {
   return Field<alloc_container_tp, Arg>(arg);
 }
 
+template <PMRContainerTp pmr_alloc_container_tp, typename Arg>
+decltype(auto) create_field(const Arg &arg) {
+  return Field<pmr_alloc_container_tp, Arg>(arg);
+}
+
+template <PMRSpinorFieldTp field_tp, PMRContainerTp dst_container_tp = field_tp::container_tp, bool do_copy = false, bool is_exclusive = true>
+decltype(auto) create_field_with_buffer(field_tp &src) {
+  //
+  using src_container_tp = field_tp::container_tp;
+  
+  using src_data_tp      = field_tp::data_tp;  
+  using dst_data_tp      = dst_container_tp::value_type; 
+  
+  using ArgTp = decltype(src.ExportArg());   
+  //
+  auto arg = ArgTp{src.ExportArg()};//need new arg structure
+  
+  arg.template RegisterPMRBuffer<dst_data_tp, is_exclusive>();  
+  
+  auto& pmr_pool_handle = *arg.pmr_buffer->Pool();//?
+  //
+  auto dst = Field<dst_container_tp, decltype(arg)>(pmr_pool_handle, arg);
+  
+  if constexpr (do_copy){
+    //
+    auto &&dst_view = dst.View();
+    auto &&src_view = src.View();
+    //    
+    if constexpr (std::is_same_v< src_container_tp, dst_container_tp >) {
+      std::copy( std::execution::par_unseq, dst_view.Begin(), dst_view.End(), src_view.Begin());
+    } else {
+      std::transform(std::execution::par_unseq, src_view.Begin(), src_view.End(), dst_view.Begin(), [=](const auto &in) { return static_cast<dst_data_tp>(in); } );
+    }
+  }
+  //
+  return dst;
+}
+
 template <FieldTp field_tp, ContainerTp dst_container_tp = field_tp::container_tp, bool do_copy = false>
 decltype(auto) create_field(field_tp &src) {
   //
@@ -75,35 +113,70 @@ class Field{
     static consteval std::size_t Nparity() { return Arg::nparity; }                         
 
   private: 
+    const Arg arg;//copy of the arguments  
+    
     container_tp v;
     container_tp ghost;
 
-    const Arg arg;//copy of the arguments
+    template<ContainerTp T = container_tp>
+    explicit Field(const Arg &arg_) : arg(arg_),
+                                      v(arg.GetFieldSize()),
+                                      ghost(arg.GetGhostZoneSize()){ }
 
-    Field(const Arg &arg) : v(arg.GetFieldSize()),
-                            ghost(arg.GetGhostZoneSize()),
-                            arg(arg){ }
+    template<PMRContainerTp T = container_tp>
+    explicit Field(const Arg &arg_) : arg( [src_arg = arg_]()->Arg {
+                                             auto dst_arg = Arg{src_arg};
+                                             dst_arg.template RegisterPMRBuffer<data_tp, true>();
+                                             return dst_arg;}() ),
+                                      v(arg.GetFieldSize(), &(*arg.pmr_buffer->Pool())),
+                                      ghost(arg.GetGhostZoneSize(), &(*arg.pmr_buffer->Pool())){ }
+
     // 
     template <PMRContainerTp T = container_tp>
-    explicit Field(std::pmr::monotonic_buffer_resource &pmr_pool, const Arg &arg) : v(arg.GetFieldSize(), &pmr_pool), arg(arg) { }
+    explicit Field(std::pmr::monotonic_buffer_resource &pmr_pool, const Arg &arg) : arg(arg),
+    										    v(arg.GetFieldSize(), &pmr_pool), 
+                                                                                    ghost(arg.GetGhostZoneSize(), &pmr_pool) { }
 
     template <ContainerTp alloc_container_tp, typename ArgTp>
     friend decltype(auto) create_field(const ArgTp &arg);    
+    
+    template <PMRContainerTp pmr_alloc_container_tp, typename ArgTp>
+    friend decltype(auto) create_field(const ArgTp &arg);
     //    
     template <FieldTp field_tp, ContainerTp container_tp, bool do_copy>
     friend decltype(auto) create_field(field_tp &src);
 
     template <PMRContainerTp pmr_container_tp, typename ArgTp, bool is_exclusive>
     friend decltype(auto) create_field_with_buffer(const ArgTp &arg_, const bool use_reserved);
+    
+    template <PMRSpinorFieldTp field_tp, PMRContainerTp container_tp, bool do_copy>
+    friend decltype(auto) create_field_with_buffer(field_tp &src);    
 
   public:
 
     Field()              = default;
     Field(const Field &) = default;
     Field(Field &&)      = default;    
-    // 
+#if 0    
+    template<ContainerTp T = container_tp>
+    explicit
+    Field(const Arg &arg_) : arg(arg_),
+                            v(arg.GetFieldSize()),
+                            ghost(arg.GetGhostZoneSize()){ }
+
+    template<PMRContainerTp T = container_tp>
+    explicit
+    Field(const Arg &arg_) : arg( [src_arg = arg_]()->Arg {
+                                     auto dst_arg = Arg{src_arg};
+                                     dst_arg.template RegisterPMRBuffer<data_tp, true>();
+                                     return dst_arg;}() ),
+                            v(arg.GetFieldSize(), &(*arg.pmr_buffer->Pool())),
+                            ghost(arg.GetGhostZoneSize(), &(*arg.pmr_buffer->Pool())){ }    
+#endif
+
+    //
     template <ContainerViewTp T>    
-    explicit Field(const T &src, const T &ghost_src, const Arg &arg) : v{src}, ghost{ghost_src}, arg(arg) {}
+    explicit Field(const T &src, const T &ghost_src, const Arg &arg) : arg(arg), v{src}, ghost{ghost_src} {}
     
     // Needed for block-la operations
     constexpr std::size_t size() const { return 1ul; } 
@@ -122,7 +195,7 @@ class Field{
     }
     
     void destroy() {
-      static_assert(is_allocator_aware_type<container_tp>, "Cannot resize a non-owner field!");
+      static_assert(is_allocator_aware_type<container_tp> or is_pmr_allocator_aware_type<container_tp>, "Cannot resize a non-owner field!");
 
       v.resize(0ul);
       ghost.resize(0ul); 
@@ -132,7 +205,7 @@ class Field{
       }
     }
 
-    decltype(auto) ExportArg() { return Arg{arg}; }
+    decltype(auto) ExportArg() const { return Arg{arg}; }
 
     auto Begin() { return v.begin(); }
     auto End()   { return v.end();   }
@@ -145,22 +218,22 @@ class Field{
 
     //Return a reference to the object (data access via std::span )
     decltype(auto) View() {
-      static_assert(is_allocator_aware_type<container_tp>, "Cannot reference a non-owner field!");
+      static_assert(is_allocator_aware_type<container_tp> or is_pmr_allocator_aware_type<container_tp>, "Cannot reference a non-owner field!");
 
       return Field<std::span<data_tp>, decltype(arg)>(std::span{v}, std::span{ghost}, arg);	    
     }
 
     decltype(auto) ParityView(const FieldParity parity ) {// return a reference to the parity component
-      static_assert(is_allocator_aware_type<container_tp>, "Cannot reference a non-owner field!");
+      static_assert(is_allocator_aware_type<container_tp> or is_pmr_allocator_aware_type<container_tp>, "Cannot reference a non-owner field!");
       //
       if constexpr (Nparity() != 2) {
         std::cerr << "Cannot get a parity component from a non-full field, exiting...\n" << std::endl;
 	std::quick_exit( EXIT_FAILURE );
       }
       //           
-      constexpr std::size_t other_parity = 1;
+      constexpr std::size_t nparity = 1;
       
-      auto parity_arg = FieldDescriptor<Ndim(), Ndir(), Nspin(), Ncolor(), other_parity>(this->arg, parity);
+      auto parity_arg = FieldDescriptor<Ndim(), Ndir(), Nspin(), Ncolor(), nparity>(this->arg, parity);
       //
       const auto parity_length = GetParityLength();
       const auto parity_offset = parity == FieldParity::EvenFieldParity ? 0 : parity_length;
@@ -193,7 +266,7 @@ class Field{
     auto GetFieldOrder()   const { return arg.order; } 
     auto GetFieldParity()  const { return arg.parity; } 
 
-    auto GetFieldSubset()  const { return (Nparity() == 2 ? FieldSiteSubset::FullSiteSubset : (Nparity() == 1 ? FieldSiteSubset::ParitySiteSubset : FieldSiteSubset::InvalidSiteSubset)); }  
+    auto GetFieldSubset()  const { return arg.GetFieldSubset(); }  
     
     void Info() const {
       std::cout << "Full field dimensions: " << std::endl;

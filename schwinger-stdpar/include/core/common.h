@@ -73,6 +73,10 @@ template<typename T>
 concept is_allocator_aware_type = requires{
     typename T::allocator_type;
     //requires std::same_as<decltype(std::declval<T>().get_allocator()), typename T::allocator_type>; //WHY this fails?..
+} 
+and not requires { 
+  requires std::same_as<typename T::allocator_type, std::pmr::polymorphic_allocator<typename T::value_type>>;
+  //{std::declval<typename T::allocator_type>().template new_object<typename T::value>()}; 
 };
 
 //Allocator aware container type:

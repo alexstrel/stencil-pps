@@ -240,7 +240,10 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
   auto sloppy_gauge = create_field<decltype(gauge), sloppy_vector_tp, copy_gauge>(gauge);  
   
   auto src_spinor  = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);
-  auto dst_spinor  = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);
+  
+  using cs_param_tp = decltype(src_spinor.ExportArg());
+  
+  auto dst_spinor  = create_field_with_buffer<sloppy_pmr_vector_tp, cs_param_tp>(cs_param);
   auto chk_spinor  = create_field_with_buffer<sloppy_pmr_vector_tp, decltype(cs_param)>(cs_param);  
   //
   init_spinor(src_spinor);  
@@ -255,12 +258,19 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
   auto &dslash_args = *dslash_args_ptr;
 
   // Create dslash matrix
-  auto mat = Mat<decltype(dslash_args), Dslash, decltype(params)>{dslash_args, params};     
+  auto mat = Mat<decltype(dslash_args), Dslash, decltype(params)>{dslash_args, params};
+  
+  using spinor_tp = std::remove_cvref<decltype(src_spinor)>;
+  
+  auto mat_precon = PreconMat< decltype(dslash_args), Dslash, decltype(params), decltype(src_spinor) >{dslash_args, params, src_spinor}; 
+  using arg_tp = decltype(src_spinor.Even().ExportArg());
+  auto tmp     = create_field<sloppy_pmr_vector_tp, arg_tp>(src_spinor.Even().ExportArg());       
   //
   constexpr bool do_warmup = false;
   //
   if constexpr (do_warmup) {
     mat(dst_spinor, src_spinor);
+    mat_precon(dst_spinor, src_spinor);    
   }
   //
   auto wall_start = std::chrono::high_resolution_clock::now(); 
@@ -522,7 +532,7 @@ void run_mrhs_pmr_dslash_test(auto params, const int X, const int T, const int n
   // 
   constexpr bool do_warmup = false; 
   //
-  const auto cs_param = SpinorFieldArgs<nSpinorParity>{{X, T}, {0, 0, 0, 0}, FieldParity::EvenFieldParity};
+  const auto cs_param = SpinorFieldArgs<nSpinorParity>{{X, T}, {0, 0, 0, 0}, FieldParity::InvalidFieldParity};
   //
   const auto gauge_param = GaugeFieldArgs<nGaugeParity>{{X, T}, {0, 0}};
   //
@@ -547,7 +557,7 @@ void run_mrhs_pmr_dslash_test(auto params, const int X, const int T, const int n
   using sloppy_pmr_spinor_t  = Field<sloppy_pmr_vector_tp, decltype(cs_param)>;//
   //
   constexpr bool use_pmr_buffer = true;
-  //
+
   auto src_block_spinor = create_block_spinor< sloppy_pmr_spinor_t, decltype(cs_param), use_pmr_buffer >(cs_param, N); 
   auto chk_block_spinor = create_block_spinor< sloppy_pmr_spinor_t, decltype(cs_param), use_pmr_buffer >(cs_param, N);
 

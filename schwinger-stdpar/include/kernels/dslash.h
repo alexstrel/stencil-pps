@@ -11,7 +11,6 @@ class DslashParam{
   public:
     const T M;
     const T r;
-    //const bool dagger;    
 };
 
 constexpr bool is_constant = true;

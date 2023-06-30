@@ -4,6 +4,8 @@
 //
 #include <kernels/dslash.h>
 #include <core/cartesian_product.hpp>
+//
+#include <fields/field.h>
 
 #include <typeinfo>
 
@@ -216,17 +218,29 @@ class Mat : public MatTransform<KernelArgs, Kernel> {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////    
 };
 
-template<typename KernelArgs, template <typename Args> class Kernel, typename TransformParams>
+template<typename KernelArgs, template <typename Args> class Kernel, typename TransformParams, typename Spinor>
 class PreconMat : public MatTransform<KernelArgs, Kernel> {
   private:
     const TransformParams param;
     
+    Spinor tmp;    
+    
     const FieldParity parity;
  
-    bool base_dagger;    
+    bool base_dagger; 
+       
   public:
 
-    PreconMat(const KernelArgs &args, const TransformParams &param, const FieldParity parity = FieldParity::InvalidFieldParity, const bool dagger = false) : MatTransform<KernelArgs, Kernel>(args), param(param), parity(parity), base_dagger(dagger) {}
+    using ArgTp        = decltype(std::declval<Spinor>().ExportArg());
+    using container_tp = Spinor::container_tp;
+
+    PreconMat(const KernelArgs &args, const TransformParams &param, const Spinor &spinor,  const FieldParity parity = FieldParity::InvalidFieldParity, const bool dagger = false) : 
+                                            MatTransform<KernelArgs, Kernel>(args), 
+                                            param(param), 
+                                            tmp{create_field<container_tp, ArgTp>(spinor.ExportArg())},
+                                            parity(parity), 
+                                            base_dagger(dagger) { }
+   
     
     inline void flip() { base_dagger = not base_dagger; }
 
@@ -242,7 +256,7 @@ class PreconMat : public MatTransform<KernelArgs, Kernel> {
       
       auto transformer = [=](const auto &x, const auto &y) {return (const1*x-const2*y);};      
       //
-      MatTransform<KernelArgs, Kernel>::operator()(out, in,  aux, transformer, parity, base_dagger);
+      MatTransform<KernelArgs, Kernel>::operator()(out, in,  tmp, transformer, parity, base_dagger);
     }
     
     void operator()(GenericSpinorFieldTp auto &out, GenericSpinorFieldTp auto &in){//FIXME: in argument must be constant
