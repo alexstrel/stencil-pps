@@ -260,9 +260,6 @@ class PreconMat : public MatTransform<KernelArgs, Kernel> {
       //
       auto other_parity = parity == EvenFieldParity ? FieldParity::OddFieldParity : FieldParity::EvenFieldParity;
       //
-      MatTransform<KernelArgs, Kernel>::operator()(tmp,  in, parity, base_dagger);
-      MatTransform<KernelArgs, Kernel>::operator()(out,  tmp, in,  transformer, other_parity, base_dagger);       
-
       if constexpr (do_normal) {
         MatTransform<KernelArgs, Kernel>::operator()(tmp,  in, parity, base_dagger);
         MatTransform<KernelArgs, Kernel>::operator()(tmp2,  tmp, in,  transformer, other_parity, base_dagger);
