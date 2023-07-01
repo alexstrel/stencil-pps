@@ -182,7 +182,7 @@ class Mat : public MatTransform<KernelArgs, Kernel> {
     void operator()(GenericBlockSpinorFieldTp auto &out_block_spinor, const GenericBlockSpinorFieldTp auto &in_block_spinor, const GenericBlockSpinorFieldTp auto &aux_block_spinor){ 
       //
       // Check all arguments!
-      if( out_block_spinor.GetFieldSubset() == FieldSiteSubset::ParitySiteSubset ) { 
+      if( out_block_spinor.GetFieldSubset() != FieldSiteSubset::ParitySiteSubset ) { 
         std::cerr << "Error: undefined parity.. exiting\n";
         std::quick_exit( EXIT_FAILURE );
       }       
@@ -198,7 +198,7 @@ class Mat : public MatTransform<KernelArgs, Kernel> {
  void operator()(GenericBlockSpinorFieldTp auto &out_block_spinor, GenericBlockSpinorFieldTp auto &in_block_spinor){ 
       //
       // Check all arguments!
-      if(out_block_spinor.GetFieldSubset() == FieldSiteSubset::FullSiteSubset) { 
+      if(out_block_spinor.GetFieldSubset() != FieldSiteSubset::FullSiteSubset) { 
         std::cerr << "This operation is supported for full fields only...\n";
         std::quick_exit( EXIT_FAILURE );
       }      
@@ -218,12 +218,13 @@ class Mat : public MatTransform<KernelArgs, Kernel> {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////    
 };
 
-template<typename KernelArgs, template <typename Args> class Kernel, typename TransformParams, typename Spinor>
+template<typename KernelArgs, template <typename Args> class Kernel, typename TransformParams, typename Spinor, bool do_normal = false>
 class PreconMat : public MatTransform<KernelArgs, Kernel> {
   private:
     const TransformParams param;
     
     Spinor tmp;    
+    Spinor tmp2;
     
     const FieldParity parity;
  
@@ -238,15 +239,18 @@ class PreconMat : public MatTransform<KernelArgs, Kernel> {
                                             MatTransform<KernelArgs, Kernel>(args), 
                                             param(param), 
                                             tmp{create_field<container_tp, ArgTp>(spinor.ExportArg())},
+                                            tmp2{create_field<container_tp, ArgTp>(spinor.ExportArg())},
                                             parity(parity), 
-                                            base_dagger(dagger) { }
+                                            base_dagger(dagger) { 
+                                              assert(tmp.GetFieldSubset() == FieldSiteSubset::ParitySiteSubset);
+                                            }
    
     
     inline void flip() { base_dagger = not base_dagger; }
 
     void operator()(GenericSpinorFieldTp auto &out, GenericSpinorFieldTp auto &in){//FIXME: in argument must be constant
       // Check all arguments!
-      if(out.GetFieldSubset() == FieldSiteSubset::ParitySiteSubset) { 
+      if(out.GetFieldSubset() != FieldSiteSubset::ParitySiteSubset) { 
         std::cerr << "This operation is supported for parity fields only...\n";
         std::quick_exit( EXIT_FAILURE );
       }            
@@ -254,11 +258,23 @@ class PreconMat : public MatTransform<KernelArgs, Kernel> {
       
       auto transformer = [=](const auto &x, const auto &y) {return (x - c*y);};      
       //
-      MatTransform<KernelArgs, Kernel>::operator()(tmp,  in, parity, base_dagger);
-
       auto other_parity = parity == EvenFieldParity ? FieldParity::OddFieldParity : FieldParity::EvenFieldParity;
-
+      //
+      MatTransform<KernelArgs, Kernel>::operator()(tmp,  in, parity, base_dagger);
       MatTransform<KernelArgs, Kernel>::operator()(out,  tmp, in,  transformer, other_parity, base_dagger);       
+
+      if constexpr (do_normal) {
+        MatTransform<KernelArgs, Kernel>::operator()(tmp,  in, parity, base_dagger);
+        MatTransform<KernelArgs, Kernel>::operator()(tmp2,  tmp, in,  transformer, other_parity, base_dagger);
+
+        flip();
+        MatTransform<KernelArgs, Kernel>::operator()(tmp,  tmp2, parity, base_dagger);
+        MatTransform<KernelArgs, Kernel>::operator()(out,  tmp, tmp2,  transformer, other_parity, base_dagger);
+        flip();
+      } else {
+        MatTransform<KernelArgs, Kernel>::operator()(tmp,  in, parity, base_dagger);
+        MatTransform<KernelArgs, Kernel>::operator()(out,  tmp, in,  transformer, other_parity, base_dagger);
+      }
     }    
     
 };
