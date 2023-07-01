@@ -2,17 +2,15 @@
 
 #include <fields/field_descriptor.h>
 
+template<typename T>
+concept AllocatorAwareContainerTp = ContainerTp<T> or PMRContainerTp<T>;
+
 template<GenericContainerTp Ct, typename Arg>
 class Field; // forward declare to make function definition possible
  
-template <ContainerTp alloc_container_tp, typename Arg>
+template <AllocatorAwareContainerTp alloc_container_tp, typename Arg>
 decltype(auto) create_field(const Arg &arg) {
   return Field<alloc_container_tp, Arg>(arg);
-}
-
-template <PMRContainerTp pmr_alloc_container_tp, typename Arg>
-decltype(auto) create_field(const Arg &arg) {
-  return Field<pmr_alloc_container_tp, Arg>(arg);
 }
 
 template <PMRSpinorFieldTp field_tp, PMRContainerTp dst_container_tp = field_tp::container_tp, bool do_copy = false, bool is_exclusive = true>
@@ -88,7 +86,7 @@ decltype(auto) create_field_with_buffer(const Arg &arg_, const bool use_reserved
   // arg must have a valid pmr_buffer with PMRStatus::Reserved
     if ( not arg.template IsReservedPMR<data_tp>() ) {
       std::cerr << "Incorrect PMR buffer state, check reservation." << std::endl;
-      exit(-1);    
+      std::quick_exit( EXIT_FAILURE );   
     }
   }
   
@@ -137,12 +135,9 @@ class Field{
     										    v(arg.GetFieldSize(), &pmr_pool), 
                                                                                     ghost(arg.GetGhostZoneSize(), &pmr_pool) { }
 
-    template <ContainerTp alloc_container_tp, typename ArgTp>
+    template <AllocatorAwareContainerTp alloc_container_tp, typename ArgTp>
     friend decltype(auto) create_field(const ArgTp &arg);    
     
-    template <PMRContainerTp pmr_alloc_container_tp, typename ArgTp>
-    friend decltype(auto) create_field(const ArgTp &arg);
-    //    
     template <FieldTp field_tp, ContainerTp container_tp, bool do_copy>
     friend decltype(auto) create_field(field_tp &src);
 
@@ -157,23 +152,6 @@ class Field{
     Field()              = default;
     Field(const Field &) = default;
     Field(Field &&)      = default;    
-#if 0    
-    template<ContainerTp T = container_tp>
-    explicit
-    Field(const Arg &arg_) : arg(arg_),
-                            v(arg.GetFieldSize()),
-                            ghost(arg.GetGhostZoneSize()){ }
-
-    template<PMRContainerTp T = container_tp>
-    explicit
-    Field(const Arg &arg_) : arg( [src_arg = arg_]()->Arg {
-                                     auto dst_arg = Arg{src_arg};
-                                     dst_arg.template RegisterPMRBuffer<data_tp, true>();
-                                     return dst_arg;}() ),
-                            v(arg.GetFieldSize(), &(*arg.pmr_buffer->Pool())),
-                            ghost(arg.GetGhostZoneSize(), &(*arg.pmr_buffer->Pool())){ }    
-#endif
-
     //
     template <ContainerViewTp T>    
     explicit Field(const T &src, const T &ghost_src, const Arg &arg) : arg(arg), v{src}, ghost{ghost_src} {}

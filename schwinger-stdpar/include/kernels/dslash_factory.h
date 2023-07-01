@@ -148,7 +148,7 @@ class Mat : public MatTransform<KernelArgs, Kernel> {
 
     void operator()(GenericSpinorFieldTp auto &out, const GenericSpinorFieldTp auto &in, const GenericSpinorFieldTp auto &aux){
       // Check all arguments!
-      if(parity == FieldParity::InvalidFieldParity) { 
+      if(out.GetFieldSubset() != FieldSiteSubset::ParitySiteSubset) { 
         std::cerr << "Error: undefined parity.. exiting\n";
         std::quick_exit( EXIT_FAILURE );
       }       
@@ -163,7 +163,7 @@ class Mat : public MatTransform<KernelArgs, Kernel> {
     
     void operator()(GenericSpinorFieldTp auto &out, GenericSpinorFieldTp auto &in){//FIXME: in argument must be constant
       // Check all arguments!
-      if(parity != FieldParity::InvalidFieldParity) { 
+      if( out.GetFieldSubset() != FieldSiteSubset::FullSiteSubset ) { 
         std::cerr << "This operation is supported for full fields only...\n";
         std::quick_exit( EXIT_FAILURE );
       }            
@@ -182,7 +182,7 @@ class Mat : public MatTransform<KernelArgs, Kernel> {
     void operator()(GenericBlockSpinorFieldTp auto &out_block_spinor, const GenericBlockSpinorFieldTp auto &in_block_spinor, const GenericBlockSpinorFieldTp auto &aux_block_spinor){ 
       //
       // Check all arguments!
-      if(parity == FieldParity::InvalidFieldParity) { 
+      if( out_block_spinor.GetFieldSubset() == FieldSiteSubset::ParitySiteSubset ) { 
         std::cerr << "Error: undefined parity.. exiting\n";
         std::quick_exit( EXIT_FAILURE );
       }       
@@ -198,7 +198,7 @@ class Mat : public MatTransform<KernelArgs, Kernel> {
  void operator()(GenericBlockSpinorFieldTp auto &out_block_spinor, GenericBlockSpinorFieldTp auto &in_block_spinor){ 
       //
       // Check all arguments!
-      if(parity != FieldParity::InvalidFieldParity) { 
+      if(out_block_spinor.GetFieldSubset() == FieldSiteSubset::FullSiteSubset) { 
         std::cerr << "This operation is supported for full fields only...\n";
         std::quick_exit( EXIT_FAILURE );
       }      
@@ -244,75 +244,22 @@ class PreconMat : public MatTransform<KernelArgs, Kernel> {
     
     inline void flip() { base_dagger = not base_dagger; }
 
-    void operator()(GenericSpinorFieldTp auto &out, const GenericSpinorFieldTp auto &in, const GenericSpinorFieldTp auto &aux){
-      // Check all arguments!
-      if(parity == FieldParity::InvalidFieldParity) { 
-        std::cerr << "Error: undefined parity.. exiting\n";
-        std::quick_exit( EXIT_FAILURE );
-      }       
-      
-      const auto const1 = static_cast<MatTransform<KernelArgs, Kernel>::kernel_data_tp>(param.M + 2.0*param.r);
-      const auto const2 = static_cast<MatTransform<KernelArgs, Kernel>::kernel_data_tp>(0.5);                
-      
-      auto transformer = [=](const auto &x, const auto &y) {return (const1*x-const2*y);};      
-      //
-      MatTransform<KernelArgs, Kernel>::operator()(out, in,  tmp, transformer, parity, base_dagger);
-    }
-    
     void operator()(GenericSpinorFieldTp auto &out, GenericSpinorFieldTp auto &in){//FIXME: in argument must be constant
       // Check all arguments!
-      if(parity != FieldParity::InvalidFieldParity) { 
-        std::cerr << "This operation is supported for full fields only...\n";
+      if(out.GetFieldSubset() == FieldSiteSubset::ParitySiteSubset) { 
+        std::cerr << "This operation is supported for parity fields only...\n";
         std::quick_exit( EXIT_FAILURE );
       }            
-      const auto const1 = static_cast<MatTransform<KernelArgs, Kernel>::kernel_data_tp>(param.M + 2.0*param.r);
-      const auto const2 = static_cast<MatTransform<KernelArgs, Kernel>::kernel_data_tp>(0.5);                
+      const auto c = static_cast<MatTransform<KernelArgs, Kernel>::kernel_data_tp>( 1.0 / (2.0 * ( param.M + 2.0*param.r)));
       
-      auto transformer = [=](const auto &x, const auto &y) {return (const1*x-const2*y);};      
+      auto transformer = [=](const auto &x, const auto &y) {return (x - c*y);};      
       //
-      auto [even_in,   odd_in] = in.EODecompose();
-      auto [even_out, odd_out] = out.EODecompose();      
-      //
-      MatTransform<KernelArgs, Kernel>::operator()(even_out, odd_in,  even_in, transformer, FieldParity::EvenFieldParity, base_dagger);
-      MatTransform<KernelArgs, Kernel>::operator()(odd_out,  even_in, odd_in,  transformer, FieldParity::OddFieldParity, base_dagger);       
+      MatTransform<KernelArgs, Kernel>::operator()(tmp,  in, parity, base_dagger);
+
+      auto other_parity = parity == EvenFieldParity ? FieldParity::OddFieldParity : FieldParity::EvenFieldParity;
+
+      MatTransform<KernelArgs, Kernel>::operator()(out,  tmp, in,  transformer, other_parity, base_dagger);       
     }    
     
-    void operator()(GenericBlockSpinorFieldTp auto &out_block_spinor, const GenericBlockSpinorFieldTp auto &in_block_spinor, const GenericBlockSpinorFieldTp auto &aux_block_spinor){ 
-      //
-      // Check all arguments!
-      if(parity == FieldParity::InvalidFieldParity) { 
-        std::cerr << "Error: undefined parity.. exiting\n";
-        std::quick_exit( EXIT_FAILURE );
-      }       
-      
-      const auto const1 = static_cast<MatTransform<KernelArgs, Kernel>::kernel_data_tp>(param.M + 2.0*param.r);
-      const auto const2 = static_cast<MatTransform<KernelArgs, Kernel>::kernel_data_tp>(0.5);                
-      
-      auto transformer = [=](const auto &x, const auto &y) {return (const1*x-const2*y);};      
-      //
-      MatTransform<KernelArgs, Kernel>::operator()(out_block_spinor, in_block_spinor, aux_block_spinor, transformer, parity, base_dagger);         
-    }   
-    
-    void operator()(GenericBlockSpinorFieldTp auto &out_block_spinor, GenericBlockSpinorFieldTp auto &in_block_spinor){ 
-      //
-      // Check all arguments!
-      if(parity != FieldParity::InvalidFieldParity) { 
-        std::cerr << "This operation is supported for full fields only...\n";
-        std::quick_exit( EXIT_FAILURE );
-      }      
-      
-      const auto const1 = static_cast<MatTransform<KernelArgs, Kernel>::kernel_data_tp>(param.M + 2.0*param.r);
-      const auto const2 = static_cast<MatTransform<KernelArgs, Kernel>::kernel_data_tp>(0.5);                
-      
-      auto transformer = [=](const auto &x, const auto &y) {return (const1*x-const2*y);};      
-      //
-      auto [even_in_block,   odd_in_block] = in_block_spinor.EODecompose();
-      auto [even_out_block, odd_out_block] = out_block_spinor.EODecompose();      
-      //
-      MatTransform<KernelArgs, Kernel>::operator()(even_out_block, odd_in_block,  even_in_block, transformer, FieldParity::EvenFieldParity, base_dagger);
-      MatTransform<KernelArgs, Kernel>::operator()(odd_out_block,  even_in_block, odd_in_block,  transformer, FieldParity::OddFieldParity, base_dagger);       
-    }    
-     
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////    
 };
 
