@@ -260,9 +260,7 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
   // Create dslash matrix
   auto mat = Mat<decltype(dslash_args), Dslash, decltype(params)>{dslash_args, params};
   
-  using spinor_tp = std::remove_cvref<decltype(src_spinor)>;
-  
-  auto mat_precon = PreconMat< decltype(dslash_args), Dslash, decltype(params), decltype(src_spinor) >{dslash_args, params, src_spinor}; 
+  //auto mat_precon = PreconMat< decltype(dslash_args), Dslash, decltype(params), decltype(src_spinor.Even()) >{dslash_args, params, src_spinor.Even()}; 
   using arg_tp = decltype(src_spinor.Even().ExportArg());
   auto tmp     = create_field<sloppy_pmr_vector_tp, arg_tp>(src_spinor.Even().ExportArg());       
   //
@@ -270,7 +268,7 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
   //
   if constexpr (do_warmup) {
     mat(dst_spinor, src_spinor);
-    mat_precon(dst_spinor, src_spinor);    
+   // mat_precon(dst_spinor.Even(), src_spinor.Even());    
   }
   //
   auto wall_start = std::chrono::high_resolution_clock::now(); 

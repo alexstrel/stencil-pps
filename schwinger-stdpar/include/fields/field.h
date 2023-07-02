@@ -2,8 +2,8 @@
 
 #include <fields/field_descriptor.h>
 
-template<typename T>
-concept AllocatorAwareContainerTp = ContainerTp<T> or PMRContainerTp<T>;
+// Create generic concept of allocator aware containers: 
+template<typename T> concept AllocatorAwareContainerTp = ContainerTp<T> or PMRContainerTp<T>;
 
 template<GenericContainerTp Ct, typename Arg>
 class Field; // forward declare to make function definition possible
