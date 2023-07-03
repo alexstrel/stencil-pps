@@ -99,7 +99,7 @@ void run_direct_pmr_dslash_test(auto params, const int X, const int T, const int
   auto &dslash_args = *dslash_args_ptr;
 
   // Create dslash matrix
-  auto mat = MatTransform<decltype(dslash_args), Dslash>{dslash_args};   
+  auto mat = DslashTransform<decltype(dslash_args), Dslash>{dslash_args};   
   
   const auto const1 = static_cast<float>(params.M + 2.0*params.r);
   const auto const2 = static_cast<float>(0.5);
@@ -414,7 +414,7 @@ void run_direct_mrhs_pmr_dslash_test(auto params, const int X, const int T, cons
   auto &dslash_args = *dslash_args_ptr;
 
   // Create dslash matrix
-  auto mat = MatTransform<decltype(dslash_args), Dslash>{dslash_args};    
+  auto mat = DslashTransform<decltype(dslash_args), Dslash>{dslash_args};    
   //
   using sloppy_pmr_spinor_t  = Field<sloppy_pmr_vector_tp, decltype(cs_param)>;//
   //
