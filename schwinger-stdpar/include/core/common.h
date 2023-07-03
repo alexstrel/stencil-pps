@@ -96,9 +96,13 @@ concept is_pmr_allocator_aware_type = requires {
 template <typename T>
 concept PMRContainerTp = GenericContainerTp<T> and is_pmr_allocator_aware_type<T>;
 
+//
+template <typename T>
+concept is_memory_non_owning_type = not (is_allocator_aware_type<T> or is_pmr_allocator_aware_type<T>);
+
 //Non-owning container type:
 template <typename T>
-concept ContainerViewTp = GenericContainerTp<T> and (not (is_allocator_aware_type<T> or is_pmr_allocator_aware_type<T>));
+concept ContainerViewTp = GenericContainerTp<T> and is_memory_non_owning_type<T>;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<typename T>

@@ -12,16 +12,16 @@
 // Custom concept for both single and block spinors:
 template<typename T> concept SpinorField = GenericSpinorFieldTp<T> or GenericBlockSpinorFieldTp<T>;
 
-//MatTransform
+//DslashTransform
 template<typename KernelArgs, template <typename Args> class Kernel>
-class MatTransform{
+class DslashTransform{
   private:
     std::unique_ptr<Kernel<KernelArgs>> dslash_kernel_ptr;
      
   public:
     using kernel_data_tp = typename std::remove_cvref_t<KernelArgs>::gauge_data_tp;
 
-    MatTransform(const KernelArgs &args) : dslash_kernel_ptr(new Kernel<KernelArgs>(args)) {}
+    DslashTransform(const KernelArgs &args) : dslash_kernel_ptr(new Kernel<KernelArgs>(args)) {}
     
     KernelArgs& ExportKernelArgs() const { return dslash_kernel_ptr->args; }
     
@@ -136,7 +136,7 @@ class MatTransform{
 };
 
 template<typename KernelArgs, template <typename Args> class Kernel, typename TransformParams>
-class Mat : public MatTransform<KernelArgs, Kernel> {
+class Mat : public DslashTransform<KernelArgs, Kernel> {
   private:
     const TransformParams param;
     
@@ -145,7 +145,7 @@ class Mat : public MatTransform<KernelArgs, Kernel> {
     bool base_dagger;    
   public:
 
-    Mat(const KernelArgs &args, const TransformParams &param, const FieldParity parity = FieldParity::InvalidFieldParity, const bool dagger = false) : MatTransform<KernelArgs, Kernel>(args), param(param), parity(parity), base_dagger(dagger) {}
+    Mat(const KernelArgs &args, const TransformParams &param, const FieldParity parity = FieldParity::InvalidFieldParity, const bool dagger = false) : DslashTransform<KernelArgs, Kernel>(args), param(param), parity(parity), base_dagger(dagger) {}
     
     inline void flip() { base_dagger = not base_dagger; }
 
@@ -156,12 +156,12 @@ class Mat : public MatTransform<KernelArgs, Kernel> {
         std::quick_exit( EXIT_FAILURE );
       }       
       
-      const auto const1 = static_cast<MatTransform<KernelArgs, Kernel>::kernel_data_tp>(param.M + 2.0*param.r);
-      const auto const2 = static_cast<MatTransform<KernelArgs, Kernel>::kernel_data_tp>(0.5);                
+      const auto const1 = static_cast<DslashTransform<KernelArgs, Kernel>::kernel_data_tp>(param.M + 2.0*param.r);
+      const auto const2 = static_cast<DslashTransform<KernelArgs, Kernel>::kernel_data_tp>(0.5);                
       
       auto transformer = [=](const auto &x, const auto &y) {return (const1*x-const2*y);};      
       //
-      MatTransform<KernelArgs, Kernel>::operator()(out, in,  aux, transformer, parity, base_dagger);
+      DslashTransform<KernelArgs, Kernel>::operator()(out, in,  aux, transformer, parity, base_dagger);
     }
     
     void operator()(SpinorField auto &out, SpinorField auto &in){//FIXME: in argument must be constant
@@ -170,24 +170,24 @@ class Mat : public MatTransform<KernelArgs, Kernel> {
         std::cerr << "This operation is supported for full fields only...\n";
         std::quick_exit( EXIT_FAILURE );
       }            
-      const auto const1 = static_cast<MatTransform<KernelArgs, Kernel>::kernel_data_tp>(param.M + 2.0*param.r);
-      const auto const2 = static_cast<MatTransform<KernelArgs, Kernel>::kernel_data_tp>(0.5);                
+      const auto const1 = static_cast<DslashTransform<KernelArgs, Kernel>::kernel_data_tp>(param.M + 2.0*param.r);
+      const auto const2 = static_cast<DslashTransform<KernelArgs, Kernel>::kernel_data_tp>(0.5);                
       
       auto transformer = [=](const auto &x, const auto &y) {return (const1*x-const2*y);};      
       //
       auto [even_in,   odd_in] = in.EODecompose();
       auto [even_out, odd_out] = out.EODecompose();      
       //
-      MatTransform<KernelArgs, Kernel>::operator()(even_out, odd_in,  even_in, transformer, FieldParity::EvenFieldParity, base_dagger);
-      MatTransform<KernelArgs, Kernel>::operator()(odd_out,  even_in, odd_in,  transformer, FieldParity::OddFieldParity, base_dagger);       
+      DslashTransform<KernelArgs, Kernel>::operator()(even_out, odd_in,  even_in, transformer, FieldParity::EvenFieldParity, base_dagger);
+      DslashTransform<KernelArgs, Kernel>::operator()(odd_out,  even_in, odd_in,  transformer, FieldParity::OddFieldParity, base_dagger);       
     }    
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////    
 };
 
 template<typename KernelArgs, template <typename Args> class Kernel, typename TransformParams, typename SpinorArg, bool do_normal = false>
-class PreconMat : public MatTransform<KernelArgs, Kernel> {
+class PreconMat : public DslashTransform<KernelArgs, Kernel> {
   private:
-    using data_tp      = typename MatTransform<KernelArgs, Kernel>::kernel_data_tp;
+    using data_tp      = typename DslashTransform<KernelArgs, Kernel>::kernel_data_tp;
     using container_tp = impl::pmr::vector<data_tp>; 
 
     using ParitySpinor = Field<container_tp, SpinorArg>; 
@@ -203,7 +203,7 @@ class PreconMat : public MatTransform<KernelArgs, Kernel> {
        
   public:
     PreconMat(const KernelArgs &args, const TransformParams &param, const SpinorArg &arg,  const FieldParity parity = FieldParity::InvalidFieldParity, const bool dagger = false) : 
-                                            MatTransform<KernelArgs, Kernel>(args), 
+                                            DslashTransform<KernelArgs, Kernel>(args), 
                                             param(param), 
                                             tmp{create_field<container_tp, SpinorArg>(arg)},
                                             tmp2{create_field<container_tp, SpinorArg>(arg)},
@@ -224,7 +224,7 @@ class PreconMat : public MatTransform<KernelArgs, Kernel> {
 
       using T = std::remove_cvref<typename decltype(out)::container_tp>;
 
-      const auto c = static_cast<MatTransform<KernelArgs, Kernel>::kernel_data_tp>( 1.0 / (2.0 * ( param.M + 2.0*param.r)));
+      const auto c = static_cast<DslashTransform<KernelArgs, Kernel>::kernel_data_tp>( 1.0 / (2.0 * ( param.M + 2.0*param.r)));
       
       auto transformer = [=](const auto &x, const auto &y) {return (x - c*y);};      
       //
@@ -238,23 +238,23 @@ class PreconMat : public MatTransform<KernelArgs, Kernel> {
           auto &&in_view   = in.View();
           auto &&out_view  = out.View(); 
  
-          MatTransform<KernelArgs, Kernel>::operator()(tmp_view,   in_view,  parity, base_dagger);
-          MatTransform<KernelArgs, Kernel>::operator()(tmp2_View,  tmp_view, in_view,  transformer, other_parity, base_dagger);
+          DslashTransform<KernelArgs, Kernel>::operator()(tmp_view,   in_view,  parity, base_dagger);
+          DslashTransform<KernelArgs, Kernel>::operator()(tmp2_View,  tmp_view, in_view,  transformer, other_parity, base_dagger);
 
           flip();
-          MatTransform<KernelArgs, Kernel>::operator()(tmp_view,  tmp2_view, parity, base_dagger);
-          MatTransform<KernelArgs, Kernel>::operator()(out_view,  tmp_view, tmp2_view,  transformer, other_parity, base_dagger);
+          DslashTransform<KernelArgs, Kernel>::operator()(tmp_view,  tmp2_view, parity, base_dagger);
+          DslashTransform<KernelArgs, Kernel>::operator()(out_view,  tmp_view, tmp2_view,  transformer, other_parity, base_dagger);
           flip();
         } else {
           auto &&tmp_view  = tmp.View();
           auto &&tmp2_view = tmp2.View();
 
-          MatTransform<KernelArgs, Kernel>::operator()(tmp_view,   in, parity, base_dagger);
-          MatTransform<KernelArgs, Kernel>::operator()(tmp2_view,  tmp_view, in,  transformer, other_parity, base_dagger);
+          DslashTransform<KernelArgs, Kernel>::operator()(tmp_view,   in, parity, base_dagger);
+          DslashTransform<KernelArgs, Kernel>::operator()(tmp2_view,  tmp_view, in,  transformer, other_parity, base_dagger);
 
           flip();
-          MatTransform<KernelArgs, Kernel>::operator()(tmp_view,  tmp2_view, parity, base_dagger);
-          MatTransform<KernelArgs, Kernel>::operator()(out,  tmp_view, tmp2_view,  transformer, other_parity, base_dagger);
+          DslashTransform<KernelArgs, Kernel>::operator()(tmp_view,  tmp2_view, parity, base_dagger);
+          DslashTransform<KernelArgs, Kernel>::operator()(out,  tmp_view, tmp2_view,  transformer, other_parity, base_dagger);
           flip();
         }
       } else {
@@ -264,17 +264,136 @@ class PreconMat : public MatTransform<KernelArgs, Kernel> {
           auto &&in_view   = in.View();
           auto &&out_view  = out.View();
 
-          MatTransform<KernelArgs, Kernel>::operator()(tmp_view,  in_view, parity, base_dagger);
-          MatTransform<KernelArgs, Kernel>::operator()(out_view,  tmp_view, in_view,  transformer, other_parity, base_dagger);
+          DslashTransform<KernelArgs, Kernel>::operator()(tmp_view,  in_view, parity, base_dagger);
+          DslashTransform<KernelArgs, Kernel>::operator()(out_view,  tmp_view, in_view,  transformer, other_parity, base_dagger);
 
         } else {
           auto &&tmp_view  = tmp.View();
 
-          MatTransform<KernelArgs, Kernel>::operator()(tmp_view,  in, parity, base_dagger);
-          MatTransform<KernelArgs, Kernel>::operator()(out,  tmp_view, in,  transformer, other_parity, base_dagger);
+          DslashTransform<KernelArgs, Kernel>::operator()(tmp_view,  in, parity, base_dagger);
+          DslashTransform<KernelArgs, Kernel>::operator()(out,  tmp_view, in,  transformer, other_parity, base_dagger);
         }
       }
     }    
     
 };
+
+template<typename KernelArgs, template <typename Args> class Kernel, typename TransformParams, typename SpinorArg, bool do_normal = false>
+class PreconBlockMat : public DslashTransform<KernelArgs, Kernel> {
+  private:
+    using data_tp      = typename DslashTransform<KernelArgs, Kernel>::kernel_data_tp;
+    using container_tp = impl::pmr::vector<data_tp>;
+
+    using ParitySpinor = BlockSpinor<container_tp, SpinorArg>; 
+
+    const TransformParams param;
+    
+    ParitySpinor tmp;    
+    ParitySpinor tmp2;
+    
+    const FieldParity parity;
+ 
+    bool base_dagger; 
+       
+  public:
+    PreconBlockMat(const KernelArgs &args, const TransformParams &param, const SpinorArg &arg,  const FieldParity parity = FieldParity::InvalidFieldParity, const bool dagger = false) : 
+                                            DslashTransform<KernelArgs, Kernel>(args), 
+                                            param(param), 
+                                            tmp{create_field<container_tp, SpinorArg>(arg)},
+                                            tmp2{create_field<container_tp, SpinorArg>(arg)},
+                                            parity(parity), 
+                                            base_dagger(dagger) { 
+                                              assert(tmp.GetFieldSubset() == FieldSiteSubset::ParitySiteSubset);
+                                            }
+   
+    
+    inline void flip() { base_dagger = not base_dagger; }
+
+    void operator()(GenericBlockSpinorFieldTp auto &out, GenericBlockSpinorFieldTp auto &in){//FIXME: in argument must be constant
+      // Check all arguments!
+      if(out.GetFieldSubset() != FieldSiteSubset::ParitySiteSubset) { 
+        std::cerr << "This operation is supported for parity fields only...\n";
+        std::quick_exit( EXIT_FAILURE );
+      }            
+
+      using block_spinor_tp        = typename std::remove_cvref_t<decltype(out)>;
+      using component_container_tp = block_spinor_tp::container_tp;      
+
+      const auto c = static_cast<DslashTransform<KernelArgs, Kernel>::kernel_data_tp>( 1.0 / (2.0 * ( param.M + 2.0*param.r)));
+      
+      auto transformer = [=](const auto &x, const auto &y) {return (x - c*y);};      
+      //
+      auto other_parity = parity == EvenFieldParity ? FieldParity::OddFieldParity : FieldParity::EvenFieldParity;
+      //
+      if constexpr (do_normal) {
+        if constexpr (is_allocator_aware_type<component_container_tp> or is_pmr_allocator_aware_type<component_container_tp>) {
+          //First, we need to convert to views all components in the block
+          auto &&tmp_block_spinor_view    = tmp_block_spinor.ConvertToView();
+          auto &&tmp2_block_spinor_view   = tmp2_block_spinor.ConvertToView();       
+          
+          auto &&out_block_spinor_view    = out_block_spinor.ConvertToView();
+          auto &&in_block_spinor_view     = in_block_spinor.ConvertToView();       
+
+          auto &&tmp_view    = tmp_block_spinor_view.BlockView();
+          auto &&tmp2_view   = tmp2_block_spinor_view.BlockView(); 
+
+          auto &&out_view    = out_block_spinor_view.BlockView();
+          auto &&in_view     = in_block_spinor_view.BlockView(); 
+        
+          DslashTransform<KernelArgs, Kernel>::operator()(tmp_view,   in_view,  parity, base_dagger);
+          DslashTransform<KernelArgs, Kernel>::operator()(tmp2_View,  tmp_view, in_view,  transformer, other_parity, base_dagger);
+
+          flip();
+          DslashTransform<KernelArgs, Kernel>::operator()(tmp_view,  tmp2_view, parity, base_dagger);
+          DslashTransform<KernelArgs, Kernel>::operator()(out_view,  tmp_view, tmp2_view,  transformer, other_parity, base_dagger);
+          flip();
+        } else {
+          auto &&tmp_block_spinor_view    = tmp_block_spinor.ConvertToView();
+          auto &&tmp2_block_spinor_view   = tmp2_block_spinor.ConvertToView();       
+
+          auto &&tmp_view    = tmp_block_spinor_view.BlockView();
+          auto &&tmp2_view   = tmp2_block_spinor_view.BlockView();
+          
+          auto &&out_view    = out.BlockView();
+          auto &&in_view     = in.BlockView();           
+
+          DslashTransform<KernelArgs, Kernel>::operator()(tmp_view,   in, parity, base_dagger);
+          DslashTransform<KernelArgs, Kernel>::operator()(tmp2_view,  tmp_view, in,  transformer, other_parity, base_dagger);
+
+          flip();
+          DslashTransform<KernelArgs, Kernel>::operator()(tmp_view,  tmp2_view, parity, base_dagger);
+          DslashTransform<KernelArgs, Kernel>::operator()(out,  tmp_view, tmp2_view,  transformer, other_parity, base_dagger);
+          flip();
+        }
+      } else {
+        if constexpr (is_allocator_aware_type<component_container_tp> or is_pmr_allocator_aware_type<component_container_tp>) {
+          auto &&tmp_block_spinor_view    = tmp_block_spinor.ConvertToView();
+          
+          auto &&out_block_spinor_view    = out_block_spinor.ConvertToView();
+          auto &&in_block_spinor_view     = in_block_spinor.ConvertToView();       
+
+          auto &&tmp_view    = tmp_block_spinor_view.BlockView();
+
+          auto &&out_view    = out_block_spinor_view.BlockView();
+          auto &&in_view     = in_block_spinor_view.BlockView(); 
+        
+
+          DslashTransform<KernelArgs, Kernel>::operator()(tmp_view,  in_view, parity, base_dagger);
+          DslashTransform<KernelArgs, Kernel>::operator()(out_view,  tmp_view, in_view,  transformer, other_parity, base_dagger);
+
+        } else {
+          auto &&tmp_block_spinor_view    = tmp_block_spinor.ConvertToView();
+          auto &&tmp_view    = tmp_block_spinor_view.BlockView();
+          
+          auto &&out_view    = out.BlockView();
+          auto &&in_view     = in.BlockView();           
+
+          DslashTransform<KernelArgs, Kernel>::operator()(tmp_view,  in, parity, base_dagger);
+          DslashTransform<KernelArgs, Kernel>::operator()(out,  tmp_view, in,  transformer, other_parity, base_dagger);
+        }
+      }
+    }    
+    
+};
+
 
