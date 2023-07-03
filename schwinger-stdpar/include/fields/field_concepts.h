@@ -34,7 +34,7 @@ concept FieldTp           = GenericFieldTp<T> and is_allocator_aware_type<typena
 
 // Reference field type
 template <typename T>
-concept FieldViewTp       = GenericFieldTp<T> and (not is_allocator_aware_type<typename T::container_tp>);
+concept FieldViewTp       = GenericFieldTp<T> and (not (is_allocator_aware_type<typename T::container_tp> or is_pmr_allocator_aware_type<typename T::container_tp>));
 
 // Allocated field type
 template <typename T>
@@ -42,7 +42,7 @@ concept SpinorFieldTp     = GenericSpinorFieldTp<T> and is_allocator_aware_type<
 
 // Reference field type
 template <typename T>
-concept SpinorFieldViewTp = GenericSpinorFieldTp<T> and (not is_allocator_aware_type<typename T::container_tp>);
+concept SpinorFieldViewTp = GenericSpinorFieldTp<T> and (not (is_allocator_aware_type<typename T::container_tp> or is_pmr_allocator_aware_type<typename T::container_tp>));
 
 // PMR spinor field type
 template <typename T>
@@ -53,7 +53,7 @@ template <typename T>
 concept GaugeFieldTp      = GenericGaugeFieldTp<T> and is_allocator_aware_type<typename T::container_tp>;
 
 template <typename T>
-concept GaugeFieldViewTp  = GenericGaugeFieldTp<T> and (not is_allocator_aware_type<typename T::container_tp>);
+concept GaugeFieldViewTp  = GenericGaugeFieldTp<T> and (not (is_allocator_aware_type<typename T::container_tp> or is_pmr_allocator_aware_type<typename T::container_tp>));
 
 // Spinor block Field concepts
 template <typename T>
@@ -71,11 +71,6 @@ concept BlockSpinorFieldViewTp   = ContainerViewTp<T> and SpinorFieldViewTp< typ
 
 template <typename T>
 concept GenericSpinorFieldViewTp = SpinorFieldViewTp<T> or BlockSpinorFieldViewTp<T>;
-
-
-
-
-
 
 
 
