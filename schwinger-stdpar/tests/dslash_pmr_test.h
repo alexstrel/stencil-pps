@@ -218,6 +218,20 @@ void run_direct_pmr_dslash_test(auto params, const int X, const int T, const int
   }
 }
 
+
+/*
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+**/
+
 void run_pmr_dslash_test(auto params, const int X, const int T, const int niter) {
   //
   constexpr int nSpinorParity = 2;
@@ -259,16 +273,17 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
 
   // Create dslash matrix
   auto mat = Mat<decltype(dslash_args), Dslash, decltype(params)>{dslash_args, params};
-  
-  //auto mat_precon = PreconMat< decltype(dslash_args), Dslash, decltype(params), decltype(src_spinor.Even()) >{dslash_args, params, src_spinor.Even()}; 
-  using arg_tp = decltype(src_spinor.Even().ExportArg());
-  auto tmp     = create_field<sloppy_pmr_vector_tp, arg_tp>(src_spinor.Even().ExportArg());       
+
+  using arg_tp = decltype(src_spinor.Even().ExportArg());  
+
+  auto mat_precon = PreconMat< decltype(dslash_args), Dslash, decltype(params), arg_tp >{dslash_args, params, src_spinor.Even().ExportArg()}; 
+  auto tmp        = create_field<sloppy_pmr_vector_tp, arg_tp>(src_spinor.Even().ExportArg());       
   //
   constexpr bool do_warmup = false;
   //
   if constexpr (do_warmup) {
     mat(dst_spinor, src_spinor);
-   // mat_precon(dst_spinor.Even(), src_spinor.Even());    
+    mat_precon(dst_spinor.Even(), src_spinor.Even());    
   }
   //
   auto wall_start = std::chrono::high_resolution_clock::now(); 
@@ -367,6 +382,9 @@ void run_pmr_dslash_test(auto params, const int X, const int T, const int niter)
     src_spinor.destroy();
   }
 }
+
+
+/*============================================================================================*/
 
 template<int N>
 void run_direct_mrhs_pmr_dslash_test(auto params, const int X, const int T, const int niter) {
@@ -521,6 +539,16 @@ void run_direct_mrhs_pmr_dslash_test(auto params, const int X, const int T, cons
   sloppy_gauge.destroy();
 }
 
+/*
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ */
 
 template<int N>
 void run_mrhs_pmr_dslash_test(auto params, const int X, const int T, const int niter) {

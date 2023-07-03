@@ -71,7 +71,7 @@ class MatTransform{
 
       auto ids = std::views::cartesian_product(Y, X);//Y is the slowest index, X is the fastest
       
-      if constexpr (is_allocator_aware_type<container_tp>) {
+      if constexpr (is_allocator_aware_type<container_tp> or is_pmr_allocator_aware_type<container_tp>) {
         auto&& out_view       = out.View();
         const auto&& in_view  = in.View();
         const auto&& aux_view = aux.View();         
@@ -105,7 +105,7 @@ class MatTransform{
 
       auto ids = std::views::cartesian_product(Y, X);//Y is the slowest index, X is the fastest
                     
-     if constexpr (is_allocator_aware_type<component_container_tp>) {
+     if constexpr (is_allocator_aware_type<component_container_tp> or is_pmr_allocator_aware_type<component_container_tp>) {
         //First, we need to convert to views all components in the block
         auto &&out_block_spinor_view    = out_block_spinor.ConvertToView();
         auto &&in_block_spinor_view     = in_block_spinor.ConvertToView();       
@@ -184,28 +184,29 @@ class Mat : public MatTransform<KernelArgs, Kernel> {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////    
 };
 
-template<typename KernelArgs, template <typename Args> class Kernel, typename TransformParams, typename Spinor, bool do_normal = false>
+template<typename KernelArgs, template <typename Args> class Kernel, typename TransformParams, typename SpinorArg, bool do_normal = false>
 class PreconMat : public MatTransform<KernelArgs, Kernel> {
   private:
+    using data_tp      = typename MatTransform<KernelArgs, Kernel>::kernel_data_tp;
+    using container_tp = impl::pmr::vector<data_tp>; 
+
+    using ParitySpinor = Field<container_tp, SpinorArg>; 
+
     const TransformParams param;
     
-    Spinor tmp;    
-    Spinor tmp2;
+    ParitySpinor tmp;    
+    ParitySpinor tmp2;
     
     const FieldParity parity;
  
     bool base_dagger; 
        
   public:
-
-    using ArgTp        = decltype(std::declval<Spinor>().ExportArg());
-    using container_tp = Spinor::container_tp;
-
-    PreconMat(const KernelArgs &args, const TransformParams &param, const Spinor &spinor,  const FieldParity parity = FieldParity::InvalidFieldParity, const bool dagger = false) : 
+    PreconMat(const KernelArgs &args, const TransformParams &param, const SpinorArg &arg,  const FieldParity parity = FieldParity::InvalidFieldParity, const bool dagger = false) : 
                                             MatTransform<KernelArgs, Kernel>(args), 
                                             param(param), 
-                                            tmp{create_field<container_tp, ArgTp>(spinor.ExportArg())},
-                                            tmp2{create_field<container_tp, ArgTp>(spinor.ExportArg())},
+                                            tmp{create_field<container_tp, SpinorArg>(arg)},
+                                            tmp2{create_field<container_tp, SpinorArg>(arg)},
                                             parity(parity), 
                                             base_dagger(dagger) { 
                                               assert(tmp.GetFieldSubset() == FieldSiteSubset::ParitySiteSubset);
@@ -220,6 +221,9 @@ class PreconMat : public MatTransform<KernelArgs, Kernel> {
         std::cerr << "This operation is supported for parity fields only...\n";
         std::quick_exit( EXIT_FAILURE );
       }            
+
+      using T = std::remove_cvref<typename decltype(out)::container_tp>;
+
       const auto c = static_cast<MatTransform<KernelArgs, Kernel>::kernel_data_tp>( 1.0 / (2.0 * ( param.M + 2.0*param.r)));
       
       auto transformer = [=](const auto &x, const auto &y) {return (x - c*y);};      
@@ -227,16 +231,48 @@ class PreconMat : public MatTransform<KernelArgs, Kernel> {
       auto other_parity = parity == EvenFieldParity ? FieldParity::OddFieldParity : FieldParity::EvenFieldParity;
       //
       if constexpr (do_normal) {
-        MatTransform<KernelArgs, Kernel>::operator()(tmp,  in, parity, base_dagger);
-        MatTransform<KernelArgs, Kernel>::operator()(tmp2,  tmp, in,  transformer, other_parity, base_dagger);
+        if constexpr (is_allocator_aware_type<T> or is_pmr_allocator_aware_type<T>) {
+          auto &&tmp_view  = tmp.View();
+          auto &&tmp2_view = tmp2.View();
+      
+          auto &&in_view   = in.View();
+          auto &&out_view  = out.View(); 
+ 
+          MatTransform<KernelArgs, Kernel>::operator()(tmp_view,   in_view,  parity, base_dagger);
+          MatTransform<KernelArgs, Kernel>::operator()(tmp2_View,  tmp_view, in_view,  transformer, other_parity, base_dagger);
 
-        flip();
-        MatTransform<KernelArgs, Kernel>::operator()(tmp,  tmp2, parity, base_dagger);
-        MatTransform<KernelArgs, Kernel>::operator()(out,  tmp, tmp2,  transformer, other_parity, base_dagger);
-        flip();
+          flip();
+          MatTransform<KernelArgs, Kernel>::operator()(tmp_view,  tmp2_view, parity, base_dagger);
+          MatTransform<KernelArgs, Kernel>::operator()(out_view,  tmp_view, tmp2_view,  transformer, other_parity, base_dagger);
+          flip();
+        } else {
+          auto &&tmp_view  = tmp.View();
+          auto &&tmp2_view = tmp2.View();
+
+          MatTransform<KernelArgs, Kernel>::operator()(tmp_view,   in, parity, base_dagger);
+          MatTransform<KernelArgs, Kernel>::operator()(tmp2_view,  tmp_view, in,  transformer, other_parity, base_dagger);
+
+          flip();
+          MatTransform<KernelArgs, Kernel>::operator()(tmp_view,  tmp2_view, parity, base_dagger);
+          MatTransform<KernelArgs, Kernel>::operator()(out,  tmp_view, tmp2_view,  transformer, other_parity, base_dagger);
+          flip();
+        }
       } else {
-        MatTransform<KernelArgs, Kernel>::operator()(tmp,  in, parity, base_dagger);
-        MatTransform<KernelArgs, Kernel>::operator()(out,  tmp, in,  transformer, other_parity, base_dagger);
+        if constexpr (is_allocator_aware_type<T> or is_pmr_allocator_aware_type<T>) {
+          auto &&tmp_view  = tmp.View();
+
+          auto &&in_view   = in.View();
+          auto &&out_view  = out.View();
+
+          MatTransform<KernelArgs, Kernel>::operator()(tmp_view,  in_view, parity, base_dagger);
+          MatTransform<KernelArgs, Kernel>::operator()(out_view,  tmp_view, in_view,  transformer, other_parity, base_dagger);
+
+        } else {
+          auto &&tmp_view  = tmp.View();
+
+          MatTransform<KernelArgs, Kernel>::operator()(tmp_view,  in, parity, base_dagger);
+          MatTransform<KernelArgs, Kernel>::operator()(out,  tmp_view, in,  transformer, other_parity, base_dagger);
+        }
       }
     }    
     
