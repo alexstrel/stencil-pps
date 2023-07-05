@@ -12,8 +12,8 @@ class FieldAccessor {
     
     using Indices  = std::make_index_sequence<F::Ndim()>;      
 
-    using AccessorTp      = typename std::remove_cvref_t< decltype( std::declval<F>().template Accessor<is_constant>()) >;  
-    using GhostAccessorTp = typename std::remove_cvref_t< decltype( std::declval<F>().template Accessor<is_constant>()) >;      
+    using AccessorTp      = typename std::remove_cvref_t< decltype( std::declval<F>().template Accessor<is_constant>()) >; //MDViewTp 
+    using GhostAccessorTp = typename std::remove_cvref_t< decltype( std::declval<F>().template Accessor<is_constant>()) >; //MDViewTp     
   
     AccessorTp       field_accessor;
     GhostAccessorTp  ghost_accessor;    
@@ -96,9 +96,7 @@ class FieldAccessor {
     requires (field_type == FieldType::SpinorFieldType)        
     inline decltype(auto) operator()(const std::array<int, F::Ndim()> &x) const {
       return load_spinor(Indices{}, x);    
-    }  
-    
-
+    }         
 };
 
 

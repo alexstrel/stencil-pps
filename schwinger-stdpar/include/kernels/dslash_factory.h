@@ -6,6 +6,7 @@
 #include <core/cartesian_product.hpp>
 //
 #include <fields/field.h>
+#include <fields/field_accessor.h>
 
 #include <typeinfo>
 
@@ -20,6 +21,8 @@ class DslashTransform{
      
   public:
     using kernel_data_tp = typename std::remove_cvref_t<KernelArgs>::gauge_data_tp;
+    
+    static constexpr std::size_t bSize  = std::remove_cvref_t<KernelArgs>::bSize;
 
     DslashTransform(const KernelArgs &args) : dslash_kernel_ptr(new Kernel<KernelArgs>(args)) {}
     
@@ -135,7 +138,7 @@ class DslashTransform{
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////    
 };
 
-template<typename KernelArgs, template <typename Args> class Kernel, typename TransformParams>
+template<typename KernelArgs, template <typename Args> class Kernel, typename TransformParams, bool do_normal = false>
 class Mat : public DslashTransform<KernelArgs, Kernel> {
   private:
     const TransformParams param;
@@ -156,10 +159,27 @@ class Mat : public DslashTransform<KernelArgs, Kernel> {
         std::quick_exit( EXIT_FAILURE );
       }       
       
+      using SpinorTp = typename std::remove_cvref_t<decltype(out[0])>; 
+      //
+      constexpr int nDoF  = SpinorTp::Ncolor() * SpinorTp::Nspin();
+      constexpr int bsize = DslashTransform<KernelArgs, Kernel>::bSize;
+      
       const auto const1 = static_cast<DslashTransform<KernelArgs, Kernel>::kernel_data_tp>(param.M + 2.0*param.r);
       const auto const2 = static_cast<DslashTransform<KernelArgs, Kernel>::kernel_data_tp>(0.5);                
       
-      auto transformer = [=](const auto &x, const auto &y) {return (const1*x-const2*y);};      
+      auto transformer = [=](const auto &x, auto &y) {
+        //
+        const auto &&x_ = x.flat_cview();
+        auto &&y_ = y.flat_view();        
+        //
+#pragma unroll              
+        for(int n = 0; n < nDoF; n++ ) {
+#pragma unroll              
+          for(int b = 0; b < bsize; b++) {
+            y_(n, b) = (const1*x_(n, b)-const2*y_(n, b));
+          }
+        }
+      };      
       //
       DslashTransform<KernelArgs, Kernel>::operator()(out, in,  aux, transformer, parity, base_dagger);
     }
@@ -169,17 +189,68 @@ class Mat : public DslashTransform<KernelArgs, Kernel> {
       if( out.GetFieldSubset() != FieldSiteSubset::FullSiteSubset ) { 
         std::cerr << "This operation is supported for full fields only...\n";
         std::quick_exit( EXIT_FAILURE );
-      }            
+      }  
+      
+      using SpinorTp     = typename std::remove_cvref_t<decltype(out[0])>; 
+      //
+      constexpr int nColor = SpinorTp::Ncolor();      
+      constexpr int nSpin  = SpinorTp::Nspin();            
+      constexpr int nDoF   = nColor * nSpin;
+      //
+      constexpr int bsize  = DslashTransform<KernelArgs, Kernel>::bSize;      
+
       const auto const1 = static_cast<DslashTransform<KernelArgs, Kernel>::kernel_data_tp>(param.M + 2.0*param.r);
       const auto const2 = static_cast<DslashTransform<KernelArgs, Kernel>::kernel_data_tp>(0.5);                
       
-      auto transformer = [=](const auto &x, const auto &y) {return (const1*x-const2*y);};      
-      //
       auto [even_in,   odd_in] = in.EODecompose();
-      auto [even_out, odd_out] = out.EODecompose();      
+      auto [even_out, odd_out] = out.EODecompose();
       //
-      DslashTransform<KernelArgs, Kernel>::operator()(even_out, odd_in,  even_in, transformer, FieldParity::EvenFieldParity, base_dagger);
-      DslashTransform<KernelArgs, Kernel>::operator()(odd_out,  even_in, odd_in,  transformer, FieldParity::OddFieldParity, base_dagger);       
+      if constexpr (do_normal) {
+        using pmr_container_tp = impl::pmr::vector<typename DslashTransform<KernelArgs, Kernel>::kernel_data_tp>;
+        //
+        auto tmp = create_field<decltype(in), pmr_container_tp>(in);
+        
+        auto [even_tmp, odd_tmp] = tmp.EODecompose();              
+        
+        auto transformer = [=](const auto &x, auto &y) {
+          //
+          const auto &&x_ = x.cview();
+          auto &&y_ = y.view();        
+          //
+#pragma unroll              
+          for(int c = 0; c < nColor; c++ ) {
+#pragma unroll              
+            for(int b = 0; b < bsize; b++) {
+              y_(c, 0, b) =  (const1*x_(c, 0, b)-const2*y_(c, 0, b));
+              y_(c, 1, b) = -(const1*x_(c, 1, b)-const2*y_(c, 1, b));              
+            }
+          }
+        }; 
+
+        //
+        DslashTransform<KernelArgs, Kernel>::operator()(even_tmp, odd_in,  even_in, transformer, FieldParity::EvenFieldParity, base_dagger);
+        DslashTransform<KernelArgs, Kernel>::operator()(odd_tmp,  even_in, odd_in,  transformer, FieldParity::OddFieldParity, base_dagger);      
+        
+        DslashTransform<KernelArgs, Kernel>::operator()(even_out, odd_tmp,  even_tmp, transformer, FieldParity::EvenFieldParity, base_dagger);
+        DslashTransform<KernelArgs, Kernel>::operator()(odd_out,  even_tmp, odd_tmp,  transformer, FieldParity::OddFieldParity, base_dagger);      
+      } else {            
+        auto transformer = [=](const auto &x, auto &y) {
+          //
+          const auto &&x_ = x.flat_cview();
+          auto &&y_ = y.flat_view();        
+          //
+#pragma unroll              
+          for(int n = 0; n < nDoF; n++ ) {
+#pragma unroll              
+            for(int b = 0; b < bsize; b++) {
+              y_(n, b) = (const1*x_(n, b)-const2*y_(n, b));
+            }
+          }
+        }; 
+        //
+        DslashTransform<KernelArgs, Kernel>::operator()(even_out, odd_in,  even_in, transformer, FieldParity::EvenFieldParity, base_dagger);
+        DslashTransform<KernelArgs, Kernel>::operator()(odd_out,  even_in, odd_in,  transformer, FieldParity::OddFieldParity, base_dagger);       
+      }
     }    
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////    
 };
@@ -223,10 +294,28 @@ class PreconMat : public DslashTransform<KernelArgs, Kernel> {
       }            
 
       using T = std::remove_cvref<typename decltype(out)::container_tp>;
+      
+      using SpinorTp     = std::remove_cvref<decltype(out)>; 
+      //
+      constexpr int nDoF  = SpinorTp::Ncolor() * SpinorTp::Nspin();
+      constexpr int bsize = DslashTransform<KernelArgs, Kernel>::bSize;     
 
       const auto c = static_cast<DslashTransform<KernelArgs, Kernel>::kernel_data_tp>( 1.0 / (2.0 * ( param.M + 2.0*param.r)));
-      
-      auto transformer = [=](const auto &x, const auto &y) {return (x - c*y);};      
+
+      auto transformer = [=](const auto &x, auto &y) {                         
+        //
+        const auto x_ = x.flat_cview();
+        auto y_ = y.flat_view();        
+        //
+#pragma unroll              
+        for(int n = 0; n < nDoF; n++ ) {
+#pragma unroll              
+          for(int b = 0; b < bsize; b++) {
+            y_(n, b) = (const1*x_(n, b)-const2*y_(n, b));
+          }
+        }
+      };       
+
       //
       auto other_parity = parity == EvenFieldParity ? FieldParity::OddFieldParity : FieldParity::EvenFieldParity;
       //
@@ -314,14 +403,31 @@ class PreconBlockMat : public DslashTransform<KernelArgs, Kernel> {
       if(out.GetFieldSubset() != FieldSiteSubset::ParitySiteSubset) { 
         std::cerr << "This operation is supported for parity fields only...\n";
         std::quick_exit( EXIT_FAILURE );
-      }            
+      }  
+      
+      using SpinorTp     = std::remove_cvref<decltype(out)>; 
+      //
+      constexpr int nDoF  = SpinorTp::Ncolor() * SpinorTp::Nspin();
+      constexpr int bsize = DslashTransform<KernelArgs, Kernel>::bSize;               
 
       using block_spinor_tp        = typename std::remove_cvref_t<decltype(out)>;
       using component_container_tp = block_spinor_tp::container_tp;      
 
       const auto c = static_cast<DslashTransform<KernelArgs, Kernel>::kernel_data_tp>( 1.0 / (2.0 * ( param.M + 2.0*param.r)));
       
-      auto transformer = [=](const auto &x, const auto &y) {return (x - c*y);};      
+      auto transformer = [=](const auto &x, auto &y) {                         
+        //
+        const auto x_ = x.flat_cview();
+        auto y_ = y.flat_view();        
+        //
+#pragma unroll              
+        for(int n = 0; n < nDoF; n++ ) {
+#pragma unroll              
+          for(int b = 0; b < bsize; b++) {
+            y_(n, b) = (const1*x_(n, b)-const2*y_(n, b));
+          }
+        }
+      }; 
       //
       auto other_parity = parity == EvenFieldParity ? FieldParity::OddFieldParity : FieldParity::EvenFieldParity;
       //

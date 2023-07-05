@@ -15,7 +15,7 @@ class DslashParam{
 
 constexpr bool is_constant = true;
 
-//template <GaugeFieldViewTp gauge_tp, int nSpin_ = 2, int bSize_  = 1>
+//!template <GaugeFieldViewTp gauge_tp, int nSpin_ = 2, int bSize_  = 1>
 template <GaugeFieldViewTp gauge_tp, int nSpin_ = 2>
 class DslashArgs {
   public:
@@ -24,7 +24,7 @@ class DslashArgs {
     static constexpr std::size_t nDir   = gauge_tp::Ndir();
     static constexpr std::size_t nDim   = gauge_tp::Ndim();    
     
-//    static constexpr std::size_t bSize  = bSize_;    
+//!    static constexpr std::size_t bSize  = bSize_;    
 
     static constexpr std::size_t bSize  = 1;    
     
@@ -141,7 +141,7 @@ class Dslash{
       //
       // gamma_{1/2} -> sigma_{1/2}, gamma_{5} -> sigma_{3}
       //
-      using S = typename std::remove_cvref_t<decltype(out_spinor[0])>; 
+      using S = typename std::remove_cvref_t<decltype(out_spinor[0])>;       
 
       auto [y, x] = cartesian_coords;
 #pragma unroll
@@ -151,12 +151,16 @@ class Dslash{
         const auto in    = FieldAccessor<S, is_constant>{in_spinor[i]};
         const auto aux   = FieldAccessor<S, is_constant>{aux_spinor[i]};        
         //
-        auto tmp = compute_parity_site_stencil<dagger>(in, parity, {x,y});
-    
+        auto res = compute_parity_site_stencil<dagger>(in, parity, {x,y});
+        //
+        const auto aux_  = aux({x,y});
+        //
+        post_transformer(aux_, res);
+        //
 #pragma unroll
         for (int s = 0; s < S::Nspin(); s++){
-          out(x,y,s) = post_transformer(aux(x,y,s), tmp(s));//FIXME : works only for bSize = 1
-        }
+          out(x,y,s) = res(s);//FIXME : works only for bSize = 1
+        }        
       }//end of for loop
     }    
 
@@ -178,11 +182,11 @@ class Dslash{
         auto out         = FieldAccessor<S>{out_spinor[i]};
         const auto in    = FieldAccessor<S, is_constant>{in_spinor[i]};
         //
-        auto tmp = compute_parity_site_stencil<dagger>(in, parity, {x,y});
+        auto res = compute_parity_site_stencil<dagger>(in, parity, {x,y});
     
 #pragma unroll
         for (int s = 0; s < S::Nspin(); s++){
-          out(x,y,s) = tmp(s);//FIXME : works only for bSize = 1
+          out(x,y,s) = res(s);//FIXME : works only for bSize = 1
         }
       }//end of for loop
     }    

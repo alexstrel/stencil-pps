@@ -17,6 +17,10 @@ namespace impl{
     class ColorSpinor {
       public:        
         static constexpr int N = Nc*Ns;
+        //
+        static constexpr int nColor = Nc;        
+        static constexpr int nSpin  = Ns;                
+        static constexpr int bsize  = bSize;                        
              
         using indx_type = std::size_t;      
         //              
@@ -32,7 +36,8 @@ namespace impl{
         
         inline ColorSpinor(const std::array<T, N*bSize> &data_) : data{data_} { } 
         
-        inline const T& operator()(int idx) const { return data[idx]; } //FIXME : flat accessor should not be used               
+        inline const T& operator()(int idx) const { return data[idx]; } //FIXME : flat accessor should not be used 
+        inline       T& operator()(int idx)       { return data[idx]; } //FIXME : flat accessor should not be used                              
 
         inline ColorSpinor operator-() const {
           ColorSpinor<T, Nc, Ns, bSize> a;
