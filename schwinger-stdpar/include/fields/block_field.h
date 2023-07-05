@@ -66,7 +66,7 @@ class BlockSpinor{
     BlockSpinor(const SpinorArg &args_, const std::size_t n) : args(args_) { v.reserve(n); }    
 
     decltype(auto) ConvertToView() {
-      static_assert(is_allocator_aware_type<container_tp>, "Cannot reference a non-owner field!");
+      static_assert(!is_memory_non_owning_type<container_tp>, "Cannot reference a non-owner field!");
       
       using spinor_view_t = decltype(std::declval<spinor_t>().View());      
 
@@ -82,9 +82,9 @@ class BlockSpinor{
     }
 
     decltype(auto) ConvertToParityView(const FieldParity parity ) {
-      static_assert(is_allocator_aware_type<container_tp>, "Cannot reference a non-owner field!");
+      static_assert(!is_memory_non_owning_type<container_tp>, "Cannot reference a non-owner field!");
       
-      if (spinor_tp::nParity != 2) {
+      if constexpr (spinor_tp::Nparity() != 2) {
         std::cerr << "Cannot get a parity component from a non-full field, exiting...\n" << std::endl;
         std::quick_exit( EXIT_FAILURE );
       }
@@ -106,7 +106,7 @@ class BlockSpinor{
     auto ConvertToOddView()  { return ConvertToParityView(FieldParity::OddFieldParity  );}
     
     auto EODecompose() {
-      assert(spinor_tp::nParity == 2);
+      static_assert(spinor_tp::Nparity() == 2);
 
       return std::make_tuple(this->ConvertToEvenView(), this->ConvertToOddView());
     }    
@@ -120,7 +120,7 @@ class BlockSpinor{
 
     auto GetFieldOrder()  const { return args.order; }    
 
-    auto GetFieldSubset() const { return (spinor_tp::nParity == 2 ? FieldSiteSubset::FullSiteSubset : (spinor_tp::nParity == 1 ? FieldSiteSubset::ParitySiteSubset : FieldSiteSubset::InvalidSiteSubset)); }
+    auto GetFieldSubset() const { return (spinor_tp::Nparity() == 2 ? FieldSiteSubset::FullSiteSubset : (spinor_tp::Nparity() == 1 ? FieldSiteSubset::ParitySiteSubset : FieldSiteSubset::InvalidSiteSubset)); }
 
     auto nComponents()   const { return v.size(); } 
 

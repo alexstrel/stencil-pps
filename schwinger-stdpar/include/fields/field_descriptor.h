@@ -56,7 +56,7 @@ class FieldDescriptor {
     const std::array<int, nFace*ndim> comm_dir;
 
     const FieldOrder         order  = FieldOrder::InvalidFieldOrder;        		
-    const FieldParity        parity = FieldParity::InvalidFieldParity;
+    const FieldParity        parity = FieldParity::InvalidFieldParity;//this is optional param
 
     std::shared_ptr<PMRBuffer> pmr_buffer;
 
@@ -74,7 +74,7 @@ class FieldDescriptor {
 	            order(order),
 	            parity(parity), 
                     pmr_buffer(nullptr){ 
-                      if ((parity != FieldParity::InvalidFieldParity and nparity != 1) and (parity == FieldParity::InvalidFieldParity and nparity == 1)) {
+                      if (parity != FieldParity::InvalidFieldParity and nparity != 1) {
                         std::cerr << "Incorrect number of parities " << std::endl;
                         std::quick_exit( EXIT_FAILURE );
                       }
@@ -96,7 +96,7 @@ class FieldDescriptor {
 	            order(args.order),
 	            parity(parity),
                     pmr_buffer(args.pmr_buffer){ 
-                      if ((parity != FieldParity::InvalidFieldParity and nparity != 1) and (parity == FieldParity::InvalidFieldParity and nparity == 1)) {
+                      if (parity != FieldParity::InvalidFieldParity and nparity != 1) {
                         std::cerr << "Incorrect number of parities " << std::endl;
                         std::quick_exit( EXIT_FAILURE );
                       }                    
@@ -167,6 +167,8 @@ class FieldDescriptor {
     
     auto GetParity() const { return parity; }
     
+    auto GetFieldSubset() const { return (nParity == 2 ? FieldSiteSubset::FullSiteSubset : (nParity == 1 ? FieldSiteSubset::ParitySiteSubset : FieldSiteSubset::InvalidSiteSubset)); }
+
     inline int  X(const int i) const { return dir[i]; }
     
     inline auto X() const { return dir; }    

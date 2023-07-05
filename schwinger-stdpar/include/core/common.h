@@ -73,15 +73,15 @@ template<typename T>
 concept is_allocator_aware_type = requires{
     typename T::allocator_type;
     //requires std::same_as<decltype(std::declval<T>().get_allocator()), typename T::allocator_type>; //WHY this fails?..
+} 
+and not requires { 
+  requires std::same_as<typename T::allocator_type, std::pmr::polymorphic_allocator<typename T::value_type>>;
+  //{std::declval<typename T::allocator_type>().template new_object<typename T::value>()}; 
 };
 
 //Allocator aware container type:
 template <typename T>
 concept ContainerTp = GenericContainerTp<T> and is_allocator_aware_type<T>;
-
-//Non-owning container type: 
-template <typename T>
-concept ContainerViewTp = GenericContainerTp<T> and (not is_allocator_aware_type<T>);
 
 //Polymorphic allocator aware container type:
 
@@ -95,4 +95,23 @@ concept is_pmr_allocator_aware_type = requires {
 
 template <typename T>
 concept PMRContainerTp = GenericContainerTp<T> and is_pmr_allocator_aware_type<T>;
+
+//
+template <typename T>
+concept is_memory_non_owning_type = not (is_allocator_aware_type<T> or is_pmr_allocator_aware_type<T>);
+
+//Non-owning container type:
+template <typename T>
+concept ContainerViewTp = GenericContainerTp<T> and is_memory_non_owning_type<T>;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+template<typename T>
+class is_mdspan : public std::false_type {};
+
+template<typename T, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
+class is_mdspan<stdex::mdspan<T, Extents, LayoutPolicy, AccessorPolicy>> : public std::true_type {};
+
+// MDspan concept:
+template <typename T>
+concept MDViewTp = is_mdspan<std::remove_cvref_t<T>>::value;
 

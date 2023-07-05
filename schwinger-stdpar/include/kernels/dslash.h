@@ -3,110 +3,57 @@
 #include <execution>
 //
 #include <core/cartesian_product.hpp>
-#include <kernels/dslash_helpers.h>
+//
+#include <fields/field_accessor.h>
 
 template<typename T>
 class DslashParam{
   public:
     const T M;
-    const T r;    
+    const T r;
 };
 
+constexpr bool is_constant = true;
+
+//!template <GaugeFieldViewTp gauge_tp, int nSpin_ = 2, int bSize_  = 1>
 template <GaugeFieldViewTp gauge_tp, int nSpin_ = 2>
-class DslashArgs{
+class DslashArgs {
   public:
     using gauge_data_tp  = typename gauge_tp::data_tp;	  
 
-    static constexpr std::size_t nDir   = gauge_tp::nDir;
-    static constexpr std::size_t nColor = gauge_tp::nColor;
-    static constexpr std::size_t nSpin  = nSpin_; 
-
-    const gauge_tp  gauge;
+    static constexpr std::size_t nDir   = gauge_tp::Ndir();
+    static constexpr std::size_t nDim   = gauge_tp::Ndim();    
     
-    DslashArgs( const gauge_tp &gauge) : gauge(gauge) {}
+//!    static constexpr std::size_t bSize  = bSize_;    
+
+    static constexpr std::size_t bSize  = 1;    
+    
+    using LinkAccessor = FieldAccessor<gauge_tp, is_constant, bSize>;//only constant links   
+    using LinkTp       = LinkAccessor::LinkTp;
+
+    const LinkAccessor U;
+
+    DslashArgs( const gauge_tp &gauge) : U(gauge) {}
 };
+
 
 template <typename Arg>
 class Dslash{
   public:
     using ArgTp  = typename std::remove_cvref_t<Arg>;
-    using DataTp = ArgTp::gauge_data_tp;
-
-    static constexpr std::size_t nSpin = ArgTp::nSpin;
-    static constexpr std::size_t nDir  = ArgTp::nDir;
-
-    using Link   = DataTp; 
-    using Spinor = std::array<DataTp, nSpin>;
-    //
-    using Indices = std::make_index_sequence<nDir>;
 
     const Arg &args;
 
     Dslash(const Arg &args) : args(args) {}     
 
-    template<int sign>
-    inline decltype(auto) proj(const auto &in, const int dir){
 
-      using Spinor = typename std::remove_cvref_t<decltype(in)>;
+    template<bool dagger>
+    inline decltype(auto) compute_parity_site_stencil(const auto &in, const FieldParity parity, const std::array<int, ArgTp::nDim> site_coords){
+    
+      using Link   = ArgTp::LinkTp; 
+      using Spinor = typename std::remove_cvref_t<decltype(in)>::SpinorTp;
       
-      Spinor res;	    
-
-      auto ic = [](auto c){ return DataTp(-c.imag(), c.real());};
-
-      if constexpr (sign == +1) {
-       switch (dir) {
-          case 0 :
-            res[0] = in[0] - in[1];//x+1
-            res[1] = in[1] - in[0];//x+1
-
-            break;
-
-          case 1 :
-            res[0] = in[0] + ic(in[1]);//y+1
-            res[1] = in[1] - ic(in[0]);//y+1
-
-            break;
-        }
-      } else if constexpr (sign == -1) {	      
-        switch (dir) {
-          case 0 :
-            res[0] = in[0] + in[1];//x-1
-            res[1] = in[1] + in[0];//x-1
-
-            break;
-
-          case 1 :
-            res[0] = in[0] - ic(in[1]);//y-1
-            res[1] = in[1] + ic(in[0]);//y-1
-
-            break;
-        }	      
-      }
-
-      return res;
-    }  
-    
-
-    template<std::size_t... Idxs>
-    inline decltype(auto) load_spinor(std::index_sequence<Idxs...>, const auto& field_accessor, const std::array<int, nDir>& x){
-      return Spinor{field_accessor(x[Idxs]..., 0), field_accessor(x[Idxs]..., 1)};//2-component spinor
-    }
-    
-    template<std::size_t... Idxs>
-    inline decltype(auto) load_parity_link(std::index_sequence<Idxs...>, const auto& field_accessor, const std::array<int, nDir>& x, const int &d, const int &parity){
-      return field_accessor(x[Idxs]..., d, parity);
-    }    
-
-    inline decltype(auto) compute_parity_site_stencil(const auto &in_accessor, const auto &U_accessor, const FieldParity parity, const std::array<int, nDir> site_coords){
-      //Define accessor wrappers:
-      auto in = [&in_=in_accessor, this](const std::array<int, nDir> &x){ 
-        return load_spinor(Indices{}, in_, x);
-      };
-
-      auto U  = [&U_=U_accessor, this](const std::array<int, nDir> &x, const int &d, const int &p){ 
-        return load_parity_link(Indices{}, U_, x, d, p);
-      };         
-    
+      //Define accessor wrappers:    
       auto is_local_boundary = [](const auto d, const auto coord, const auto bndry, const auto parity_bit){ 
 	      return ((coord == bndry) and (d != 0 or (d == 0 and parity_bit == 1)));};
 
@@ -117,35 +64,37 @@ class Dslash{
 
       Spinor res; 
 
-      constexpr std::array<DataTp, nDir> bndr_factor{DataTp(1.0, 0.0),DataTp(-1.0, 0.0)}; 
-
+      constexpr std::array<typename ArgTp::gauge_data_tp, ArgTp::nDir> bndr_factor{ArgTp::gauge_data_tp(1.0, 0.0),ArgTp::gauge_data_tp(-1.0, 0.0)}; 
+      //
       std::array X{site_coords};	 	      
 #pragma unroll
-      for (int d = 0; d < nDir; d++) {
+      for (int d = 0; d < ArgTp::nDir; d++) {
       
         const int Xd = X[d];
 	// Fwd gather:
 	{  
 
-	  const bool do_halo = is_local_boundary(d, X[d], (in_accessor.extent(d) - 1), parity_bit); 
+          constexpr int sign = dagger ? -1 : +1;
+
+	  const bool do_halo = is_local_boundary(d, X[d], (in.Extent(d) - 1), parity_bit); 
           
 	  if ( do_halo ) {
 	    //	
-            const Link U_    = bndr_factor[d]*U(X,d, my_parity);
+            const Link U_    = bndr_factor[d]*args.U(X,d, my_parity);
 
 	    X[d] = 0;
 
             const Spinor in_ = in(X);
 	    //
-            res += U_*proj<+1>(in_, d);		      
+            res += U_*in_.project<sign>(d);		                  
 	  } else {
-            const Link U_    = U(X,d, my_parity);
+            const Link U_    = args.U(X,d, my_parity);
 
 	    X[d] = X[d] + (d == 0 ? parity_bit : 1);
 
             const Spinor in_ = in(X);
-	    //
-            res += U_*proj<+1>(in_, d);		  
+	    //		  
+            res += U_*in_.project<sign>(d);		  
 	  }	  
           //
           X[d] = Xd;	  
@@ -154,63 +103,94 @@ class Dslash{
 	{
 	  const bool do_galo = is_local_boundary(d, X[d], 0, (1-parity_bit));
 
+          constexpr int sign = dagger ? +1 : -1;
+
           if ( do_galo ) {
             //  
-	    X[d] = (in_accessor.extent(d)-1);	  
+	    X[d] = (in.Extent(d)-1);	  
 
-	    const Link U_    = bndr_factor[d]*U(X, d, other_parity);
+	    const Link U_    = bndr_factor[d]*args.U(X, d, other_parity);
 	    const Spinor in_ = in(X);
             //
-	    res += conj(U_)*proj<-1>(in_, d);              
+            res += conj(U_)*in_.project<sign>(d);              	    
           } else {  		
 	    
 	    X[d] = X[d] - (d == 0 ? (1- parity_bit) : 1);
 
-	    const Link U_    = U(X,d, other_parity);
+	    const Link U_    = args.U(X,d, other_parity);
 	    const Spinor in_ = in(X);
             //
-	    res += conj(U_)*proj<-1>(in_, d);	 
+	    res += conj(U_)*in_.project<sign>(d);	 
 	  }
           //
-          X[d] = Xd;	  
+          X[d] = Xd;	            
 	}
       }
 
       return res;
     }     
-    
-    template<GenericSpinorFieldViewTp generic_spinor_field_view>
-    void apply(auto &&transformer,
-               generic_spinor_field_view &out_spinor,
-               generic_spinor_field_view &in_spinor,
-               generic_spinor_field_view &accum_spinor,               
+ 
+    template <bool dagger>   
+    void apply(GenericSpinorFieldViewTp auto &out_spinor,
+               const GenericSpinorFieldViewTp auto &in_spinor,
+               const GenericSpinorFieldViewTp auto &aux_spinor,
+               auto &&post_transformer,               
                const auto cartesian_coords,
                const FieldParity parity) {	    
-      // Take into account only internal points:
       // Dslash_nm = (M + 2r) \delta_nm - 0.5 * \sum_\mu  ((r - \gamma_\mu)*U_(x){\mu}*\delta_{m,n+\mu} + (r + \gamma_\mu)U^*(x-mu)_{\mu}\delta_{m,n-\mu})
       //
       // gamma_{1/2} -> sigma_{1/2}, gamma_{5} -> sigma_{3}
       //
+      using S = typename std::remove_cvref_t<decltype(out_spinor[0])>;       
 
       auto [y, x] = cartesian_coords;
-
-      // Define accessors:
-      constexpr bool is_constant = true;
-      const auto U  = args.gauge.template Accessor<is_constant>();      
-             
 #pragma unroll
       for ( int i = 0; i < out_spinor.size(); i++ ){  	      
-        auto out         = out_spinor[i].ParityAccessor();
-        const auto in    = in_spinor[i].template ParityAccessor<is_constant>();
-        const auto accum = accum_spinor[i].template ParityAccessor<is_constant>();        
-
-        auto tmp = compute_parity_site_stencil(in, U, parity, {x,y});      
+      
+        auto out         = FieldAccessor<S>{out_spinor[i]};
+        const auto in    = FieldAccessor<S, is_constant>{in_spinor[i]};
+        const auto aux   = FieldAccessor<S, is_constant>{aux_spinor[i]};        
+        //
+        auto res = compute_parity_site_stencil<dagger>(in, parity, {x,y});
+        //
+        const auto aux_  = aux({x,y});
+        //
+        post_transformer(aux_, res);
+        //
 #pragma unroll
-        for (int s = 0; s < nSpin; s++){
-          out(x,y,s) = transformer(accum(x,y,s), tmp[s]);
+        for (int s = 0; s < S::Nspin(); s++){
+          out(x,y,s) = res(s);//FIXME : works only for bSize = 1
+        }        
+      }//end of for loop
+    }    
+
+    template <bool dagger>   
+    void apply(GenericSpinorFieldViewTp auto &out_spinor,
+               const GenericSpinorFieldViewTp auto &in_spinor,
+               const auto cartesian_coords,
+               const FieldParity parity) {	    
+      // Dslash_nm = \sum_\mu  ((r - \gamma_\mu)*U_(x){\mu}*\delta_{m,n+\mu} + (r + \gamma_\mu)U^*(x-mu)_{\mu}\delta_{m,n-\mu})
+      //
+      // gamma_{1/2} -> sigma_{1/2}, gamma_{5} -> sigma_{3}
+      //
+      using S = typename std::remove_cvref_t<decltype(out_spinor[0])>; 
+
+      auto [y, x] = cartesian_coords;
+#pragma unroll
+      for ( int i = 0; i < out_spinor.size(); i++ ){  	      
+      
+        auto out         = FieldAccessor<S>{out_spinor[i]};
+        const auto in    = FieldAccessor<S, is_constant>{in_spinor[i]};
+        //
+        auto res = compute_parity_site_stencil<dagger>(in, parity, {x,y});
+    
+#pragma unroll
+        for (int s = 0; s < S::Nspin(); s++){
+          out(x,y,s) = res(s);//FIXME : works only for bSize = 1
         }
       }//end of for loop
     }    
+
     
 };
 
