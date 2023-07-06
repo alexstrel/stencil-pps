@@ -53,7 +53,7 @@ class FieldDescriptor {
     static constexpr int nFace       = type == FieldType::VectorFieldType ? 1 : 2; 
 
     const std::array<int, ndim> dir;
-    const std::array<int, nFace*ndim> comm_dir;
+    const std::array<int, ndim> comm_dir;
 
     const FieldOrder         order  = FieldOrder::InvalidFieldOrder;        		
     const FieldParity        parity = FieldParity::InvalidFieldParity;//this is optional param
@@ -65,7 +65,7 @@ class FieldDescriptor {
     FieldDescriptor(FieldDescriptor&& )      = default;
 
     FieldDescriptor(const std::array<int, ndim> dir, 
-                    const std::array<int, ndim*nFace> comm_dir,  
+                    const std::array<int, ndim> comm_dir,  
 	            const FieldParity     parity   = FieldParity::InvalidFieldParity,
 	            const FieldOrder      order    = FieldOrder::EOFieldOrder,	            
 	            const bool is_exclusive        = true) : 
@@ -83,14 +83,16 @@ class FieldDescriptor {
     template<typename Args>
     FieldDescriptor(const Args &args, const FieldParity parity) : 
                     dir(get_dims<std::remove_cvref_t<decltype(args)>::nparity>(args.dir)),
-	            comm_dir([&dir_=args.dir,dst_nParity=nparity, src_nParity=std::remove_cvref_t<decltype(args)>::nparity]()->std::array<int, ndim*nFace> {
-                        std::array<int, nFace*ndim> comm_dir{};
+	            comm_dir([&dir_= dir,dst_nParity=nparity]()->std::array<int, ndim> {
+                        std::array<int, ndim> comm_dir{};
 
                         for( int d = 0; d < ndim; d++){
-                          const bool do_div = (d != 0) and (dst_nParity == 1 and src_nParity == 2);
-                          for( int face = 0; face < nFace; face++ ) {
-                             comm_dir[d+face*nFace] =  do_div ? dir_[d+face*nFace] / 2 : 1;
-                          }
+                          const int div = (d == 0 and dst_nParity == 1) ? 2 : 1;
+                          //
+                          int vol = 1;
+                          for( int d2 = 0; d2 < ndim; d2++ ) vol *= (d2 == d ? 1 : dir_[d2] / div);
+                          //
+                          comm_dir[i] = vol;
                         } return comm_dir;
                       }()),
 	            order(args.order),
@@ -131,25 +133,25 @@ class FieldDescriptor {
     decltype(auto) GetGhostZoneSize() const {
       int vol = 1; 
 #pragma unroll      
-      for(int i = 0; i < ndim; i++) vol *= dir[i];
+      for(int i = 0; i < ndim; i++) vol += comm_dir[i];
       
       if  constexpr (type == FieldType::ScalarFieldType) {
         return vol*nFace;
       } else if constexpr (type == FieldType::VectorFieldType) {
-        return vol*nDir*nColor*nColor*nFace;
+        return vol*nColor*nColor*nFace;
       } else if constexpr (type == FieldType::SpinorFieldType) {
         return vol*nSpin*nColor*nFace;
       }
       return static_cast<std::size_t>(0);
     }
 
-    auto GetFaceSize(int i, int face_idx = 0) const {
+    auto GetFaceSize(const int i) const {
       if  constexpr (type == FieldType::ScalarFieldType) {
-        return comm_dir[i*nFace+face_idx];
+        return comm_dir[i];
       } else if constexpr (type == FieldType::VectorFieldType) {
-	return comm_dir[i*nFace+face_idx]*nColor*nColor;
+	return comm_dir[i]*nColor*nColor;
       } else if constexpr (type == FieldType::SpinorFieldType) {
-	return comm_dir[i*nFace+face_idx]*nSpin*nColor;
+	return comm_dir[i]*nSpin*nColor;
       }
       //
       return static_cast<std::size_t>(0);
@@ -172,6 +174,10 @@ class FieldDescriptor {
     inline int  X(const int i) const { return dir[i]; }
     
     inline auto X() const { return dir; }    
+    
+    inline int  GetCommDims(const int i) const { return comm_dir[i]; }    
+    
+    inline auto GetCommDims() const { return comm_dir; }        
     
     template<ArithmeticTp T, bool is_exclusive = true>
     void RegisterPMRBuffer(const bool is_reserved = false) {  

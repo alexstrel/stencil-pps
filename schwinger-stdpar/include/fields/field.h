@@ -240,6 +240,11 @@ class Field{
 
     auto GetDims()         const { return arg.GetLatticeDims(); }
     auto GetCBDims()       const { return arg.GetParityLatticeDims(); }
+    
+    auto GetCommDims()     const { return arg.GetCommDims(); }    
+    auto GetCommDims( const int i )  const { return arg.GetCommDims(i); }
+    
+    auto GetFaceSize( const int i )  const { return arg.GetFaceSize(i); }    
    
     auto GetFieldOrder()   const { return arg.order; } 
     auto GetFieldParity()  const { return arg.parity; } 
@@ -309,31 +314,64 @@ class Field{
         }        
       }
     }    
+
+    template<std::size_t ndim, bool is_constant, std::size_t... dofs>
+    inline decltype(auto) ghost_mdaccessor(std::array<std::size_t, ndim + sizeof...(dofs))> strides, const int comm_dir) const {
+
+      constexpr std::size_t nDim  = Ndim();
+      constexpr int nFace         = Arg::nFace;     
+           
+      using dyn_indx_type = std::size_t;
+
+      using DynMDMap  = stdex::layout_stride::mapping<stdex::extents<dyn_indx_type, stdex::dynamic_extent, dofs...>>;
+      using ExtentsMD = stdex::extents<dyn_indx_type, stdex::dynamic_extent, dofs...>;
+          
+      const auto X = GetCommDims(comm_dir); 
+      
+      const auto offset = comm_dir*GetFaceSize(comm_dir)*nFace;//     
+      
+      if constexpr (is_constant){
+        return stdex::mdspan<const data_tp, ExtentsMD, stdex::layout_stride>{
+                    v.data()+offset, DynMDMap{ExtentsMD{X}, strides}} ;
+      } else {
+        return stdex::mdspan<data_tp, ExtentsMD, stdex::layout_stride>{
+                   const_cast<data_tp*>(v.data()) + offset, DynMDMap{ExtentsMD{X}, strides}};
+      }                  
+    }      
     
     //Direct field accessors (note that ncolor always 1, so no slicing for this dof):
     template<bool is_constant = false>    
-    auto GhostAccessor() const {
+    auto GhostAccessor(int comm_dir) const {
       //
-      constexpr std::size_t nDir = Ndir();      
-      constexpr int nParity      = Nparity(); 
-      //      
-      static_assert(Ncolor() == 1, "Only O(1) model is supported.");
-
-      using dyn_indx_type     = std::size_t;
+      //constexpr std::size_t nDir  = 1;//only one direction      
+      constexpr std::size_t nDim  = Ndim() - 1;//only one direction            
       
-      const std::array X = GetCBDims();
+      constexpr std::size_t nSpin = Nspin();      
+      constexpr int nParity       = Nparity();
+      
+      constexpr std::size_t nFace = Arg::nFace;//only one direction                  
+
+      const auto X = GetCommDims(comm_dir);
 
       if constexpr (Arg::type == FieldType::VectorFieldType) {      
-        constexpr int nDofs = 2;
-        
-        auto StridesMD = std::array<dyn_indx_type, Ndim()+nDofs>{1, X[0], X[0]*X[1], X[0]*X[1]*nDir};       
-        return mdaccessor<is_constant, nDir, nParity>(StridesMD);       
+        constexpr int extra = (nParity == 1) ? 0 : 1;
+        if constexpr (nParity == 1) {
+          auto StridesMD = std::array<dyn_indx_type, nDim+extra>{1};       
+          return mdaccessor<nDim, is_constant>(StridesMD, comm_dir);       
+        } else {
+          auto StridesMD = std::array<dyn_indx_type, nDim+extra>{1, X};       
+          return mdaccessor<nDim, is_constant, nParity>(StridesMD, comm_dir);               
+        }
       } else {
-        constexpr int nDofs = 2;
-        
-        auto StridesMD = std::array<dyn_indx_type, Ndim()+nDofs>{1, X[0], X[0]*X[1], X[0]*X[1]*nSpin};       
-        return mdaccessor<is_constant, nSpin, nParity>(StridesMD);                        
-      }
+        constexpr int extra = (nParity == 1) ? 2 : 3;
+        if constexpr (nParity == 1) {
+          auto StridesMD = std::array<dyn_indx_type, nDim+extra>{1, X, X*nSpin};       
+          return mdaccessor<nDim, is_constant, nSpin, nFace>(StridesMD, comm_dir);       
+        } else {
+          auto StridesMD = std::array<dyn_indx_type, nDim+extra>{1, X, X*nSpin, X*nSpin*nParity};       
+          return mdaccessor<nDim, is_constant, nSpin, nParity, nFace>(StridesMD, comm_dir);               
+        }        
+      }      
     }    
     
 };
