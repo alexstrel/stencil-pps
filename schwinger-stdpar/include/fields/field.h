@@ -250,6 +250,8 @@ class Field{
     auto GetFieldParity()  const { return arg.parity; } 
 
     auto GetFieldSubset()  const { return arg.GetFieldSubset(); }  
+
+    const auto& GetMDStrides() const { return arg.GetMDStrides(); }
     
     void Info() const {
       std::cout << "Full field dimensions: " << std::endl;
@@ -261,7 +263,7 @@ class Field{
     }  
     
     template<bool is_constant, std::size_t... dofs>
-    inline decltype(auto) mdaccessor(std::array<std::size_t, (Ndim() + sizeof...(dofs))> strides) const {
+    inline decltype(auto) mdaccessor(const std::array<std::size_t, (Ndim() + sizeof...(dofs))> &strides) const {
            
       using dyn_indx_type = std::size_t;
     
@@ -289,36 +291,25 @@ class Field{
       //
       static_assert(Ncolor() == 1, "Only O(1) model is supported.");
 
-      using dyn_indx_type     = std::size_t;
-      
-      const std::array X = GetCBDims();
+      const auto& stridesMD = GetMDStrides();
 
       if constexpr (Arg::type == FieldType::VectorFieldType) {      
-        constexpr int nDofs = (nParity == 1) ? 1 : 2;
         if constexpr (nParity == 1) {
-          auto StridesMD = std::array<dyn_indx_type, Ndim()+nDofs>{1, X[0], X[0]*X[1]};       
-          return mdaccessor<is_constant, nDir>(StridesMD);       
+          return mdaccessor<is_constant, nDir>(stridesMD);       
         } else {
-          auto StridesMD = std::array<dyn_indx_type, Ndim()+nDofs>{1, X[0], X[0]*X[1], X[0]*X[1]*nDir};       
-          return mdaccessor<is_constant, nDir, nParity>(StridesMD);               
+          return mdaccessor<is_constant, nDir, nParity>(stridesMD);               
         }
       } else {
-        constexpr int nDofs = (nParity == 1) ? 1 : 2;
-        
         if constexpr (nParity == 1) {
-          auto StridesMD = std::array<dyn_indx_type, Ndim()+nDofs>{1, X[0], X[0]*X[1]};       
-          return mdaccessor<is_constant, nSpin>(StridesMD);       
+          return mdaccessor<is_constant, nSpin>(stridesMD);       
         } else {
-          auto StridesMD = std::array<dyn_indx_type, Ndim()+nDofs>{1, X[0], X[0]*X[1], X[0]*X[1]*nSpin};       
-          return mdaccessor<is_constant, nSpin, nParity>(StridesMD);               
+          return mdaccessor<is_constant, nSpin, nParity>(stridesMD);               
         }        
       }
     }    
 
-    template<std::size_t ndim, bool is_constant, std::size_t... dofs>
-    inline decltype(auto) ghost_mdaccessor(std::array<std::size_t, ndim + sizeof...(dofs))> strides, const int comm_dir) const {
-
-      constexpr std::size_t nDim  = Ndim();
+    template<bool is_constant, std::size_t... dofs>
+    inline decltype(auto) ghost_mdaccessor(std::array<std::size_t, (Ndim()-1) + sizeof...(dofs)> strides, const int comm_dir) const {
       constexpr int nFace         = Arg::nFace;     
            
       using dyn_indx_type = std::size_t;
@@ -357,19 +348,19 @@ class Field{
         constexpr int extra = (nParity == 1) ? 0 : 1;
         if constexpr (nParity == 1) {
           auto StridesMD = std::array<dyn_indx_type, nDim+extra>{1};       
-          return mdaccessor<nDim, is_constant>(StridesMD, comm_dir);       
+          return mdaccessor<is_constant>(StridesMD, comm_dir);       
         } else {
           auto StridesMD = std::array<dyn_indx_type, nDim+extra>{1, X};       
-          return mdaccessor<nDim, is_constant, nParity>(StridesMD, comm_dir);               
+          return mdaccessor<is_constant, nParity>(StridesMD, comm_dir);               
         }
       } else {
         constexpr int extra = (nParity == 1) ? 2 : 3;
         if constexpr (nParity == 1) {
           auto StridesMD = std::array<dyn_indx_type, nDim+extra>{1, X, X*nSpin};       
-          return mdaccessor<nDim, is_constant, nSpin, nFace>(StridesMD, comm_dir);       
+          return mdaccessor<is_constant, nSpin, nFace>(StridesMD, comm_dir);       
         } else {
           auto StridesMD = std::array<dyn_indx_type, nDim+extra>{1, X, X*nSpin, X*nSpin*nParity};       
-          return mdaccessor<nDim, is_constant, nSpin, nParity, nFace>(StridesMD, comm_dir);               
+          return mdaccessor<is_constant, nSpin, nParity, nFace>(StridesMD, comm_dir);               
         }        
       }      
     }    
