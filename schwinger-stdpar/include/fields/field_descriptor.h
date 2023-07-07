@@ -81,13 +81,14 @@ class FieldDescriptor {
 	            parity(parity), 
                     pmr_buffer(nullptr), 
                     mdStrides([&d = dir]()->std::array<std::size_t, ndim+nExtra> {
-                        std::array<std::size_t, ndim+nExtra> strides{1, d[0], d[0]*d[1]};
+                        const int d0 = nparity == 2 ? d[0] / 2 : d[0];
+                        std::array<std::size_t, ndim+nExtra> strides{1, d0, d0*d[1]};
 
                         if constexpr (nparity == 2) {
                           if constexpr (type == FieldType::VectorFieldType) {
-                            strides[ndim+nExtra-1] =  d[0]*d[1]*ndir; 
+                            strides[ndim+nExtra-1] =  d0*d[1]*ndir; 
                           } else { //spinor
-                            strides[ndim+nExtra-1] =  d[0]*d[1]*nspin;
+                            strides[ndim+nExtra-1] =  d0*d[1]*nspin;
                           }
                         } return strides;
                       }()) { 
@@ -100,11 +101,11 @@ class FieldDescriptor {
     template<typename Args>
     FieldDescriptor(const Args &args, const FieldParity parity) : 
                     dir(get_dims<std::remove_cvref_t<decltype(args)>::nparity>(args.dir)),
-	            comm_dir([&dir_= dir,dst_nParity=nparity]()->std::array<int, ndim> {
+	            comm_dir([&dir_= dir]()->std::array<int, ndim> {
                         std::array<int, ndim> comm_dir{};
 
                         for( int d = 0; d < ndim; d++){
-                          const int div = (d == 0 and dst_nParity == 1) ? 2 : 1;
+                          const int div = (d == 0 and nparity == 1) ? 2 : 1;
                           
                           int vol = 1;
                           for( int d2 = 0; d2 < ndim; d2++ ) vol *= (d2 == d ? 1 : dir_[d2] / div);
@@ -116,13 +117,14 @@ class FieldDescriptor {
 	            parity(parity),
                     pmr_buffer(args.pmr_buffer), 
                     mdStrides([&d = this->dir]()->std::array<std::size_t, ndim+nExtra> {
-                        std::array<std::size_t, ndim+nExtra> strides{1, d[0], d[0]*d[1]};
+                        const int d0 = nparity == 2 ? d[0] / 2 : d[0];
+                        std::array<std::size_t, ndim+nExtra> strides{1, d0, d0*d[1]};
 
                         if constexpr (nparity == 2) {
                           if constexpr (type == FieldType::VectorFieldType) {
-                            strides[ndim+nExtra-1] =  d[0]*d[1]*ndir;
+                            strides[ndim+nExtra-1] =  d0*d[1]*ndir; 
                           } else { //spinor
-                            strides[ndim+nExtra-1] =  d[0]*d[1]*nspin;
+                            strides[ndim+nExtra-1] =  d0*d[1]*nspin;
                           }
                         } return strides;
                       }()) { 
