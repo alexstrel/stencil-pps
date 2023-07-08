@@ -332,7 +332,7 @@ class Field{
     
     //Direct field accessors (note that ncolor always 1, so no slicing for this dof):
     template<bool is_constant = false>    
-    auto GhostAccessor(int comm_dir) const {
+    auto GhostAccessor(const int comm_dir) const {
       //
       //constexpr std::size_t nDir  = 1;//only one direction      
       constexpr std::size_t nDim  = Ndim() - 1;//only one direction            
@@ -343,24 +343,26 @@ class Field{
       constexpr std::size_t nFace = Arg::nFace;//only one direction                  
 
       const auto X = GetCommDims(comm_dir);
+      
+      using dyn_indx_type = std::size_t;      
 
       if constexpr (Arg::type == FieldType::VectorFieldType) {      
         constexpr int extra = (nParity == 1) ? 0 : 1;
         if constexpr (nParity == 1) {
           auto StridesMD = std::array<dyn_indx_type, nDim+extra>{1};       
-          return mdaccessor<is_constant>(StridesMD, comm_dir);       
+          return ghost_mdaccessor<is_constant>(StridesMD, comm_dir);       
         } else {
           auto StridesMD = std::array<dyn_indx_type, nDim+extra>{1, X};       
-          return mdaccessor<is_constant, nParity>(StridesMD, comm_dir);               
+          return ghost_mdaccessor<is_constant, nParity>(StridesMD, comm_dir);               
         }
       } else {
         constexpr int extra = (nParity == 1) ? 2 : 3;
         if constexpr (nParity == 1) {
           auto StridesMD = std::array<dyn_indx_type, nDim+extra>{1, X, X*nSpin};       
-          return mdaccessor<is_constant, nSpin, nFace>(StridesMD, comm_dir);       
+          return ghost_mdaccessor<is_constant, nSpin, nFace>(StridesMD, comm_dir);       
         } else {
           auto StridesMD = std::array<dyn_indx_type, nDim+extra>{1, X, X*nSpin, X*nSpin*nParity};       
-          return mdaccessor<is_constant, nSpin, nParity, nFace>(StridesMD, comm_dir);               
+          return ghost_mdaccessor<is_constant, nSpin, nParity, nFace>(StridesMD, comm_dir);               
         }        
       }      
     }    
