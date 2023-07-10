@@ -252,6 +252,8 @@ class Field{
     auto GetFieldSubset()  const { return arg.GetFieldSubset(); }  
 
     const auto& GetMDStrides() const { return arg.GetMDStrides(); }
+
+    const auto& GetGhostMDStrides() const { return arg.GetGhostMDStrides(); }
     
     void Info() const {
       std::cout << "Full field dimensions: " << std::endl;
@@ -323,10 +325,10 @@ class Field{
       
       if constexpr (is_constant){
         return stdex::mdspan<const data_tp, ExtentsMD, stdex::layout_stride>{
-                    v.data()+offset, DynMDMap{ExtentsMD{X}, strides}} ;
+                    ghost.data()+offset, DynMDMap{ExtentsMD{X}, strides}} ;
       } else {
         return stdex::mdspan<data_tp, ExtentsMD, stdex::layout_stride>{
-                   const_cast<data_tp*>(v.data()) + offset, DynMDMap{ExtentsMD{X}, strides}};
+                   const_cast<data_tp*>(ghost.data() + offset), DynMDMap{ExtentsMD{X}, strides}};
       }                  
     }      
     
@@ -334,7 +336,6 @@ class Field{
     template<bool is_constant = false>    
     auto GhostAccessor(const int comm_dir) const {
       //
-      //constexpr std::size_t nDir  = 1;//only one direction      
       constexpr std::size_t nDim  = Ndim() - 1;//only one direction            
       
       constexpr std::size_t nSpin = Nspin();      
@@ -342,27 +343,19 @@ class Field{
       
       constexpr std::size_t nFace = Arg::nFace;//only one direction                  
 
-      const auto X = GetCommDims(comm_dir);
-      
-      using dyn_indx_type = std::size_t;      
+      const auto& stridesMD = GetGhostMDStrides();
 
       if constexpr (Arg::type == FieldType::VectorFieldType) {      
-        constexpr int extra = (nParity == 1) ? 0 : 1;
         if constexpr (nParity == 1) {
-          auto StridesMD = std::array<dyn_indx_type, nDim+extra>{1};       
-          return ghost_mdaccessor<is_constant>(StridesMD, comm_dir);       
+          return ghost_mdaccessor<is_constant>(stridesMD, comm_dir);       
         } else {
-          auto StridesMD = std::array<dyn_indx_type, nDim+extra>{1, X};       
-          return ghost_mdaccessor<is_constant, nParity>(StridesMD, comm_dir);               
+          return ghost_mdaccessor<is_constant, nParity>(stridesMD, comm_dir);               
         }
       } else {
-        constexpr int extra = (nParity == 1) ? 2 : 3;
         if constexpr (nParity == 1) {
-          auto StridesMD = std::array<dyn_indx_type, nDim+extra>{1, X, X*nSpin};       
-          return ghost_mdaccessor<is_constant, nSpin, nFace>(StridesMD, comm_dir);       
+          return ghost_mdaccessor<is_constant, nSpin, nFace>(stridesMD, comm_dir);       
         } else {
-          auto StridesMD = std::array<dyn_indx_type, nDim+extra>{1, X, X*nSpin, X*nSpin*nParity};       
-          return ghost_mdaccessor<is_constant, nSpin, nParity, nFace>(StridesMD, comm_dir);               
+          return ghost_mdaccessor<is_constant, nSpin, nParity, nFace>(stridesMD, comm_dir);               
         }        
       }      
     }    
