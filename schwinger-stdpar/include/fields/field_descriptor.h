@@ -13,6 +13,7 @@
 #include <core/enums.h>
 #include <core/memory.h>
 
+#include <fields/ghost_descriptor.h>
 
 template<std::size_t nD, std::size_t nS, std::size_t nC>
 consteval FieldType get_field_type() {
@@ -50,12 +51,13 @@ class FieldDescriptor {
 
     static constexpr FieldType  type = get_field_type<ndir, nspin, ncolor>();
 
-    static constexpr int nFace       = type == FieldType::VectorFieldType ? 1 : 2; 
     static constexpr int nExtra      = nparity == 2 ? 2 : 1;       //extra dimensions: spin/dirs[ + parity, if par = 2 ] 
-    static constexpr int nGhostExtra = type == FieldType::VectorFieldType ? (nparity == 2 ? 1 : 0) : (nparity == 2 ? 3 : 2);
+    
+    using ghost = GhostDescriptor<type, ndim, nspin, ncolor, nparity>;
+    
+    static constexpr int nFace() { return ghost::getNFace(); }    
 
-    const std::array<int, ndim> dir;
-    const std::array<int, ndim> comm_dir;
+    const std::array<int, ndim> dir;    
 
     const FieldOrder         order  = FieldOrder::InvalidFieldOrder;        		
     const FieldParity        parity = FieldParity::InvalidFieldParity;//this is optional param
@@ -64,7 +66,7 @@ class FieldDescriptor {
 
     const std::array<std::size_t, ndim+nExtra> mdStrides;            //for mdspan views only
 
-    const std::array<std::size_t, (ndim-1)+nGhostExtra> ghost_mdStrides; //for mdspan views only
+    const ghost ghost_descriptor;
 
     FieldDescriptor()                        = default;
     FieldDescriptor(const FieldDescriptor& ) = default;
@@ -76,7 +78,6 @@ class FieldDescriptor {
 	            const FieldOrder      order    = FieldOrder::EOFieldOrder,	            
 	            const bool is_exclusive        = true) : 
 	            dir{dir},
-                    comm_dir{comm_dir},
 	            order(order),
 	            parity(parity), 
                     pmr_buffer(nullptr), 
@@ -91,25 +92,8 @@ class FieldDescriptor {
                             strides[ndim+nExtra-1] =  d0*d[1]*nspin;
                           }
                         } return strides;
-                      }()), 
-                    ghost_mdStrides([&d = dir]()->std::array<std::size_t, ndim-1+nGhostExtra> {
-                        const int d0 = nparity == 2 ? d[0] / 2 : d[0];
-                        std::array<std::size_t, ndim-1+nGhostExtra> strides{1};
-                        if constexpr (nparity == 2) {
-                          if constexpr (type == FieldType::VectorFieldType) {
-                            strides[ndim+nGhostExtra-2] = d0;
-                          } else { 
-                            strides[ndim+nGhostExtra-4] =  d0;
-                            strides[ndim+nGhostExtra-3] =  d0*nspin;
-                            strides[ndim+nGhostExtra-2] =  d0*nspin*nParity;
-                          }
-                        } else {
-                          if constexpr (type == FieldType::SpinorFieldType) {
-                            strides[ndim+nGhostExtra-3] =  d0;
-                            strides[ndim+nGhostExtra-2] =  d0*nspin;
-                          }
-                        } return strides;                        
-                   }()) { 
+                      }()),
+                   ghost_descriptor(dir, comm_dir) { 
                       if (parity != FieldParity::InvalidFieldParity and nparity != 1) {
                         std::cerr << "Incorrect number of parities " << std::endl;
                         std::quick_exit( EXIT_FAILURE );
@@ -119,18 +103,6 @@ class FieldDescriptor {
     template<typename Args>
     FieldDescriptor(const Args &args, const FieldParity parity) : 
                     dir(get_dims<std::remove_cvref_t<decltype(args)>::nparity>(args.dir)),
-	            comm_dir([&dir_= dir]()->std::array<int, ndim> {
-                        std::array<int, ndim> comm_dir{};
-
-                        for( int d = 0; d < ndim; d++){
-                          const int div = (d == 0 and nparity == 1) ? 2 : 1;
-                          
-                          int vol = 1;
-                          for( int d2 = 0; d2 < ndim; d2++ ) vol *= (d2 == d ? 1 : dir_[d2] / div);
-                          
-                          comm_dir[d] = vol;
-                        } return comm_dir;
-                      }()),
 	            order(args.order),
 	            parity(parity),
                     pmr_buffer(args.pmr_buffer), 
@@ -146,24 +118,7 @@ class FieldDescriptor {
                           }
                         } return strides;
                       }()),
-                    ghost_mdStrides([&d = dir]()->std::array<std::size_t, ndim-1+nGhostExtra> {
-                        const int d0 = nparity == 2 ? d[0] / 2 : d[0];
-                        std::array<std::size_t, ndim-1+nGhostExtra> strides{1};
-                        if constexpr (nparity == 2) {
-                          if constexpr (type == FieldType::VectorFieldType) {
-                            strides[ndim+nGhostExtra-2] = d0;
-                          } else {
-                            strides[ndim+nGhostExtra-4] =  d0;
-                            strides[ndim+nGhostExtra-3] =  d0*nspin;
-                            strides[ndim+nGhostExtra-2] =  d0*nspin*nParity;
-                          }
-                        } else {
-                          if constexpr (type == FieldType::SpinorFieldType) {
-                            strides[ndim+nGhostExtra-3] =  d0;
-                            strides[ndim+nGhostExtra-2] =  d0*nspin;
-                          }
-                        } return strides;
-                      }()) { 
+                      ghost_descriptor(args.dir, parity) { 
                       if (parity != FieldParity::InvalidFieldParity and nparity != 1) {
                         std::cerr << "Incorrect number of parities " << std::endl;
                         std::quick_exit( EXIT_FAILURE );
@@ -174,14 +129,12 @@ class FieldDescriptor {
     FieldDescriptor(const FieldDescriptor &args, 
                     const std::shared_ptr<PMRBuffer> extern_pmr_buffer) :
                     dir(args.dir),
-                    comm_dir(args.comm_dir),
                     order(args.order),
                     parity(args.parity),
                     pmr_buffer(extern_pmr_buffer), 
                     mdStrides(args.mdStrides), 
-                    ghost_mdStrides(args.ghost_mdStrides){ }
-       
-
+                    ghost_descriptor(args.ghost_descriptor) { }
+    
     decltype(auto) GetFieldSize() const {
       int vol = 1; 
 #pragma unroll      
@@ -198,36 +151,11 @@ class FieldDescriptor {
       return static_cast<std::size_t>(0);
     } 
 
-    decltype(auto) GetGhostZoneSize() const {
-      int vol = 1; 
-#pragma unroll      
-      for(int i = 0; i < ndim; i++) vol += comm_dir[i];
-      
-      if  constexpr (type == FieldType::ScalarFieldType) {
-        return vol*nFace;
-      } else if constexpr (type == FieldType::VectorFieldType) {
-        return vol*nColor*nColor*nFace;
-      } else if constexpr (type == FieldType::SpinorFieldType) {
-        return vol*nSpin*nColor*nFace;
-      }
-      return static_cast<std::size_t>(0);
-    }
+    decltype(auto) GetGhostZoneSize() const { return ghost_descriptor.GetGhostZoneSize(); }
 
-    auto GetFaceSize(const int i) const {
-      if  constexpr (type == FieldType::ScalarFieldType) {
-        return comm_dir[i];
-      } else if constexpr (type == FieldType::VectorFieldType) {
-	return comm_dir[i]*nColor*nColor;
-      } else if constexpr (type == FieldType::SpinorFieldType) {
-	return comm_dir[i]*nSpin*nColor;
-      }
-      //
-      return static_cast<std::size_t>(0);
-    }
+    auto GetFaceSize(const int i) const { return ghost_descriptor.GetFaceSize(i); }
 
-    auto GetLatticeDims() const {
-      return dir;	    
-    }
+    auto GetLatticeDims() const { return dir; }
 
     auto GetParityLatticeDims() const {
       std::array xcb{dir};
@@ -243,13 +171,13 @@ class FieldDescriptor {
     
     inline auto X() const { return dir; }    
     
-    inline int  GetCommDims(const int i) const { return comm_dir[i]; }    
+    inline int  GetCommDims(const int i) const { return ghost_descriptor.GetCommDims(i); }    
     
-    inline auto GetCommDims()        const { return comm_dir; }        
+    inline auto GetCommDims()            const { return ghost_descriptor.GetCommDims(); }        
  
     inline auto& GetMDStrides()      const { return mdStrides; }
 
-    inline auto& GetGhostMDStrides() const { return ghost_mdStrides; } 
+    inline auto& GetGhostMDStrides() const { return ghost_descriptor.GetGhostMDStrides(); }     
   
     template<ArithmeticTp T, bool is_exclusive = true>
     void RegisterPMRBuffer(const bool is_reserved = false) {  

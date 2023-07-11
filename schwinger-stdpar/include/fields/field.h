@@ -312,7 +312,7 @@ class Field{
 
     template<bool is_constant, std::size_t... dofs>
     inline decltype(auto) ghost_mdaccessor(std::array<std::size_t, (Ndim()-1) + sizeof...(dofs)> strides, const int comm_dir) const {
-      constexpr int nFace         = Arg::nFace;     
+      constexpr int nFace         = Arg::nFace();     
            
       using dyn_indx_type = std::size_t;
 
@@ -341,7 +341,7 @@ class Field{
       constexpr std::size_t nSpin = Nspin();      
       constexpr int nParity       = Nparity();
       
-      constexpr std::size_t nFace = Arg::nFace;//only one direction                  
+      constexpr std::size_t nFace = Arg::nFace();//only one direction                  
 
       const auto& stridesMD = GetGhostMDStrides();
 
