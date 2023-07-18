@@ -2,6 +2,8 @@
 //
 #include <core/color_spinor.h>
 
+template<typename T> concept Indx = std::is_same_v<T, int> or std::is_same_v<T, std::size_t>;
+
 template<GenericFieldTp F, bool is_constant = false, int bSize = 1>
 class FieldAccessor {
   public:
@@ -32,44 +34,15 @@ class FieldAccessor {
        @param[in] i spin dof or dir      
        @return Complex number at this spin and color index
     */
-    template <int nparity = F::Nparity()>
-    requires (nparity == 1)
-    inline data_tp& operator()(int x, int y, int i) { return field_accessor(x,y,i); }
+    template <Indx ...indx_tp>
+    inline data_tp& operator()(indx_tp ...i) { return field_accessor(i...); }
 
     /**
-       @brief 2-d accessor functor
-       @param[in] x coords
-       @param[in] y coords
-       @param[in] i spin dof or dir       
-       @return Complex number at this spin and color index
-    */    
-    template <int nparity = F::Nparity()>
-    requires (nparity == 1)    
-    inline const data_tp& operator()(int x, int y, int i) const { return field_accessor(x,y,i); }
-    
-    /**
-       @brief 2-d accessor functor
-       @param[in] x coords
-       @param[in] y coords
-       @param[in] i spin dof or dir      
-       @return Complex number at this spin and color index
+       same as above but constant 
     */
-    template <int nparity = F::Nparity()>
-    requires (nparity == 2)
-    inline data_tp& operator()(int x, int y, int i, int p) { return field_accessor(x,y,d,p); }
+    template <Indx ...indx_tp>
+    inline data_tp& operator()(indx_tp ...i) const { return field_accessor(i...); }    
 
-    /**
-       @brief 2-d accessor functor
-       @param[in] x coords
-       @param[in] y coords
-       @param[in] i spin dof or dir      
-       @return Complex number at this spin and color index
-    */
-    template <int nparity = F::Nparity()>
-    requires (nparity == 2)    
-    inline const data_tp& operator()(int x, int y, int i, int p) const { return field_accessor(x,y,d,p); } 
-    //
-    
     template<std::size_t... Idxs, int nspin = F::Nspin()>
     requires (nspin == 2) 
     inline decltype(auto) load_spinor(std::index_sequence<Idxs...>, const std::array<int, F::Ndim()>& x) const {
