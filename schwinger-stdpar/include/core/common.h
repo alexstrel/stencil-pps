@@ -115,3 +115,18 @@ class is_mdspan<stdex::mdspan<T, Extents, LayoutPolicy, AccessorPolicy>> : publi
 template <typename T>
 concept MDViewTp = is_mdspan<std::remove_cvref_t<T>>::value;
 
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#if 0
+template<typename T>
+class is_ranges_ref_view : public std::false_type {};
+
+template<ComplexTp T, std::size_t N>
+class is_ranges_ref_view< std::ranges::ref_view< std::array<T, N > > > : public std::true_type {};
+
+// Ranges ref view concept:
+template <typename T>
+concept RangesViewTp = is_ranges_ref_view<std::remove_cvref_t<T>>::value;
+#endif
+
+
