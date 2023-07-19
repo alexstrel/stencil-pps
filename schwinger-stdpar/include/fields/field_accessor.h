@@ -6,7 +6,7 @@
 
 template<typename T> concept Indx = std::is_same_v<T, int> or std::is_same_v<T, std::size_t>;
 
-template<typename T> concept RangesTp = std::ranges::contiguous_range<T>;
+template<typename T> concept RangesTp = std::ranges::contiguous_range<T> and std::ranges::sized_range<T>;
 
 template<GenericFieldTp F, bool is_constant = false, int bSize = 1>
 class FieldAccessor {
