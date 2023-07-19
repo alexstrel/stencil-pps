@@ -73,7 +73,7 @@ class DslashTransform{
       auto Y = std::views::iota(0, Ny);
 
       auto ids = std::views::cartesian_product(Y, X);//Y is the slowest index, X is the fastest
-      
+     
       if constexpr (is_allocator_aware_type<container_tp> or is_pmr_allocator_aware_type<container_tp>) {
         auto&& out_view       = out.View();
         const auto&& in_view  = in.View();

@@ -1,6 +1,7 @@
 #pragma once
 #include <algorithm>
 #include <execution>
+#include <ranges>
 //
 #include <core/cartesian_product.hpp>
 //
@@ -46,9 +47,19 @@ class Dslash{
 
     Dslash(const Arg &args) : args(args) {}     
 
+    /** Convert tuple into std::array in the inverse order:
+    */
+    template<std::size_t... Id>
+    inline decltype(auto) get_cartesian_coords(std::index_sequence<Id...>, const auto& x) const {
+      return std::array<int, sizeof... (Id)>{{std::get<sizeof...(Id)-Id-1>(x)... }};
+    }
+
+    inline decltype(auto) convert_coords(const auto &x) const {
+      return get_cartesian_coords(std::make_index_sequence<ArgTp::nDim>{}, x);
+    }
 
     template<bool dagger>
-    inline decltype(auto) compute_parity_site_stencil(const auto &in, const FieldParity parity, const std::array<int, ArgTp::nDim> site_coords){
+    inline decltype(auto) compute_parity_site_stencil(const auto &in, const FieldParity parity, std::array<int, ArgTp::nDim> site_coords){
     
       using Link   = ArgTp::LinkTp; 
       using Spinor = typename std::remove_cvref_t<decltype(in)>::SpinorTp;
@@ -66,7 +77,8 @@ class Dslash{
 
       constexpr std::array<typename ArgTp::gauge_data_tp, ArgTp::nDir> bndr_factor{ArgTp::gauge_data_tp(1.0, 0.0),ArgTp::gauge_data_tp(-1.0, 0.0)}; 
       //
-      std::array X{site_coords};	 	      
+      auto X = site_coords | std::views::all;
+
 #pragma unroll
       for (int d = 0; d < ArgTp::nDir; d++) {
       
@@ -101,11 +113,11 @@ class Dslash{
 	}
 	// Bwd neighbour contribution:
 	{
-	  const bool do_galo = is_local_boundary(d, X[d], 0, (1-parity_bit));
+	  const bool do_halo = is_local_boundary(d, X[d], 0, (1-parity_bit));
 
           constexpr int sign = dagger ? +1 : -1;
 
-          if ( do_galo ) {
+          if ( do_halo ) {
             //  
 	    X[d] = (in.Extent(d)-1);	  
 
@@ -135,7 +147,7 @@ class Dslash{
                const GenericSpinorFieldViewTp auto &in_spinor,
                const GenericSpinorFieldViewTp auto &aux_spinor,
                auto &&post_transformer,               
-               const auto cartesian_coords,
+               const auto cartesian_idx,
                const FieldParity parity) {	    
       // Dslash_nm = (M + 2r) \delta_nm - 0.5 * \sum_\mu  ((r - \gamma_\mu)*U_(x){\mu}*\delta_{m,n+\mu} + (r + \gamma_\mu)U^*(x-mu)_{\mu}\delta_{m,n-\mu})
       //
@@ -143,7 +155,10 @@ class Dslash{
       //
       using S = typename std::remove_cvref_t<decltype(out_spinor[0])>;       
 
-      auto [y, x] = cartesian_coords;
+      auto X  = convert_coords(cartesian_idx);
+
+      auto X_view = X | std::views::all; 
+
 #pragma unroll
       for ( int i = 0; i < out_spinor.size(); i++ ){  	      
       
@@ -151,15 +166,15 @@ class Dslash{
         const auto in    = FieldAccessor<S, is_constant>{in_spinor[i]};
         const auto aux   = FieldAccessor<S, is_constant>{aux_spinor[i]};        
         //
-        auto res = compute_parity_site_stencil<dagger>(in, parity, {x,y});
+        auto res = compute_parity_site_stencil<dagger>(in, parity, X);
         //
-        const auto aux_  = aux({x,y});
+        const auto aux_  = aux(X_view);
         //
         post_transformer(aux_, res);
         //
 #pragma unroll
         for (int s = 0; s < S::Nspin(); s++){
-          out(x,y,s) = res(s);//FIXME : works only for bSize = 1
+          out(X_view, s) = res(s);
         }        
       }//end of for loop
     }    
@@ -167,7 +182,7 @@ class Dslash{
     template <bool dagger>   
     void apply(GenericSpinorFieldViewTp auto &out_spinor,
                const GenericSpinorFieldViewTp auto &in_spinor,
-               const auto cartesian_coords,
+               const auto cartesian_idx,
                const FieldParity parity) {	    
       // Dslash_nm = \sum_\mu  ((r - \gamma_\mu)*U_(x){\mu}*\delta_{m,n+\mu} + (r + \gamma_\mu)U^*(x-mu)_{\mu}\delta_{m,n-\mu})
       //
@@ -175,18 +190,21 @@ class Dslash{
       //
       using S = typename std::remove_cvref_t<decltype(out_spinor[0])>; 
 
-      auto [y, x] = cartesian_coords;
+      auto X  = convert_coords(cartesian_idx);
+
+      auto X_view = X | std::views::all;
+
 #pragma unroll
       for ( int i = 0; i < out_spinor.size(); i++ ){  	      
       
         auto out         = FieldAccessor<S>{out_spinor[i]};
         const auto in    = FieldAccessor<S, is_constant>{in_spinor[i]};
         //
-        auto res = compute_parity_site_stencil<dagger>(in, parity, {x,y});
+        auto res = compute_parity_site_stencil<dagger>(in, parity, X);
     
 #pragma unroll
         for (int s = 0; s < S::Nspin(); s++){
-          out(x,y,s) = res(s);//FIXME : works only for bSize = 1
+          out(X_view, s) = res(s);//FIXME : works only for bSize = 1
         }
       }//end of for loop
     }    

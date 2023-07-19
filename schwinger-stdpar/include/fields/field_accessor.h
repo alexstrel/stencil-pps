@@ -1,4 +1,6 @@
 #pragma once
+
+#include <ranges>
 //
 #include <core/color_spinor.h>
 
@@ -45,33 +47,42 @@ class FieldAccessor {
 
     template<std::size_t... Idxs, int nspin = F::Nspin()>
     requires (nspin == 2) 
-    inline decltype(auto) load_spinor(std::index_sequence<Idxs...>, const std::array<int, F::Ndim()>& x) const {
+    inline decltype(auto) load_spinor(std::index_sequence<Idxs...>, const auto& x) const {
     
       std::array<data_tp, F::Ncolor()*F::Nspin()*bSize> spinor{this->field_accessor(x[Idxs]..., 0), this->field_accessor(x[Idxs]..., 1)};
           
       return SpinorTp(spinor);//2-component spinor
-    }    
-        
-    template<std::size_t... Idxs, int ncolor = F::Ncolor()>
-    requires (ncolor == 1) 
-    inline decltype(auto) load_parity_link(std::index_sequence<Idxs...>, const std::array<int, F::Ndim()>& x, const int &d, const int &parity) const {
+    }
     
-      std::array<data_tp, F::Ncolor()*F::Ncolor()*bSize> link{this->field_accessor(x[Idxs]..., d, parity)};
-      
-      return LinkTp(link);
-    }      
-    
-    template<FieldType field_type = F::type()>
-    requires (field_type == FieldType::VectorFieldType)    
-    inline decltype(auto) operator()(const std::array<int, F::Ndim()> &x, const int &d, const int &p) const {
-      return load_parity_link(Indices{}, x, d, p);    
-    }            
-
     template<FieldType field_type = F::type()>
     requires (field_type == FieldType::SpinorFieldType)        
-    inline decltype(auto) operator()(const std::array<int, F::Ndim()> &x) const {
+    inline decltype(auto) operator()(const auto &x) const {
       return load_spinor(Indices{}, x);    
-    }         
+    }
+
+    template<std::size_t... Idxs, int ncolor = F::Ncolor()>
+    requires (ncolor == 1)
+    inline decltype(auto) load_parity_link(std::index_sequence<Idxs...>, const auto& x, const int &d, const int &parity) const {
+
+      std::array<data_tp, F::Ncolor()*F::Ncolor()*bSize> link{this->field_accessor(x[Idxs]..., d, parity)};
+
+      return LinkTp(link);
+    }
+
+    template<FieldType field_type = F::type()>
+    requires (field_type == FieldType::VectorFieldType)
+    inline decltype(auto) operator()(const auto &x, const int &d, const int &p) const {
+      return load_parity_link(Indices{}, x, d, p);
+    }
+
+    template<std::size_t... Idxs, FieldType field_type = F::type()>
+    requires (field_type == FieldType::SpinorFieldType)
+    inline data_tp& store_spinor_component(std::index_sequence<Idxs...>, const auto& x, const int s) {
+      return this->field_accessor(x[Idxs]..., s);
+    }
+
+    inline data_tp& operator()(const auto &x, const int &s) { return store_spinor_component(Indices{}, x, s); }
+             
 };
 
 
